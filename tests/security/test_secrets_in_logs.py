@@ -70,7 +70,12 @@ class TestProviderKeysNeverLeak:
         server = FakeOpenAIServer(default_dimension=8).start()
         try:
             server.fail_next(401, "invalid api key")
-            monkeypatch.setenv("OPENAI_API_BASE", server.base_url)
+            monkeypatch.setenv(
+                "OPENAI_API_BASE", server.base_url
+            )  # legacy name, honoured by older SDKs
+            monkeypatch.setenv(
+                "OPENAI_BASE_URL", server.base_url
+            )  # current name, the only one newer SDKs read
             adapter = OpenAIEmbeddingAdapter(
                 settings=make_settings(OPENAI_API_KEY=OPENAI_MARKER, EMBEDDING_DIMENSION=8)
             )
