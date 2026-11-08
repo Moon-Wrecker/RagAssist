@@ -48,7 +48,26 @@ def make_account_agent_node(generator_tiers: dict[str, Any], tools: Any):  # typ
             tool_args = req["args"]
             call_id = req.get("id", "call_1")
 
-            is_write = tools.is_write(tool_name)
+            # Check if tool is recognized by the registry
+            known_tools = getattr(tools, "_tools", None)
+            if known_tools is not None and tool_name not in known_tools:
+                _PENDING_TOOL_CALLS.pop(thread_key, None)
+                tool_msg = ToolMessage(
+                    tool_call_id=call_id,
+                    content=f"Error: Unknown tool '{tool_name}'.",
+                )
+                ai_final = await model.ainvoke([*messages, ai_msg, tool_msg])
+                ans_text = str(ai_final.content)
+                return {
+                    "answer": ans_text,
+                    "tool_calls": tool_records,
+                }
+
+            try:
+                is_write = tools.is_write(tool_name)
+            except Exception:
+                is_write = False
+
             if is_write:
                 # Pause and interrupt for human approval
                 resume_payload = interrupt({

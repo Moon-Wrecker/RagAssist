@@ -1,13 +1,13 @@
 # Orchestrator 2 Progress
 
 ## Current Status
-Last visited: 2026-11-08T18:38:00Z
+Last visited: 2026-11-08T18:43:00Z
 - [/] Work Item 1: Baseline Integration & Test Scan of Implemented M2–M5 Codebase
   - [x] Initial 3 Explorers encountered transient network blip; terminated cleanly.
-  - [x] Dispatched 3 replacement Explorers:
-    - `explorer_m2_m3_scan_2` (conv ID dc3df3bd-ea3e-47c7-9cf9-6b39f7c28713): Running tests & inspecting M2/M3 architecture.
-    - `explorer_m4_m5_scan_2` (conv ID 324af98b-e4ea-4a0c-88ae-dc39c21343a5): Reading specs & inspecting M4/M5 files.
-    - `explorer_full_scan_2` (conv ID 8e84178e-0308-4ec2-a5a7-74d45d22114e): Read specs, now running test suites across tests/.
+  - [/] Dispatched 3 replacement Explorers:
+    - `explorer_m2_m3_scan_2` (conv ID dc3df3bd-ea3e-47c7-9cf9-6b39f7c28713): COMPLETED. Delivered analysis & handoff. (324 passed, 49 skipped, 5 xfailed, 0 failed in M2/M3; 35/35 Tier 2 E2E passed; inward layering compliant).
+    - `explorer_m4_m5_scan_2` (conv ID 324af98b-e4ea-4a0c-88ae-dc39c21343a5): Finalizing M4/M5 analysis and handoff.
+    - `explorer_full_scan_2` (conv ID 8e84178e-0308-4ec2-a5a7-74d45d22114e): COMPLETED. Full repository scan: 1,901 passed, 75 skipped, 70 strict xfailed, ONLY 2 failed (both in tests/security/test_authz_and_tool_abuse.py). E2E tests: 163/163 passed (100%). All 34 features covered.
   - [ ] Synthesize baseline report (passing count, failing count, defects catalog)
 - [ ] Work Item 2: Defect Remediation & Verification for M2–M5
   - [ ] Dispatch Workers for any failing components/defects
