@@ -1,0 +1,7 @@
+version: "1.0.0"
+description: "Query rewrite prompt"
+variables:
+  - question
+template: |
+  Rewrite the following user query into an optimized, keyword-rich search query for document retrieval:
+  Query: {question}

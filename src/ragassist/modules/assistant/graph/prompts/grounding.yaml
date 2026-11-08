@@ -1,0 +1,12 @@
+version: "1.0.0"
+description: "Hallucination and grounding verification prompt"
+variables:
+  - context
+  - answer
+template: |
+  Evaluate if every factual claim in the answer is strictly supported by the cited context.
+  Context:
+  {context}
+
+  Answer:
+  {answer}
