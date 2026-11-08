@@ -1,0 +1,7 @@
+version: "1.0.0"
+description: "User intent classification prompt"
+variables:
+  - question
+template: |
+  Categorize the user question into one of four routes: rag_search, saas_action, general_chat, or human_escalation.
+  Question: {question}
