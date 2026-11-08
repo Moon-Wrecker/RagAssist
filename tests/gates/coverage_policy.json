@@ -1,0 +1,9 @@
+{
+  "overall_min": 85,
+  "groups": {
+    "ragassist/shared/": {"min": 95},
+    "ragassist/platform/": {"min": 90},
+    "ragassist/modules/": {"min": 90}
+  },
+  "notes": "Hard minimums apply once a group has code. Packages still empty (worker, cli, most of modules) are pending and do not fail the gate. Raise minimums as the implementation lands."
+}

@@ -1,0 +1,151 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  lint-and-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: uv pip install --system -e ".[dev]"
+      - name: Lint tests and tooling (blocking)
+        run: |
+          ruff check tests scripts evals
+          ruff format --check tests
+      - name: Lint and type-check production code (advisory)
+        # The implementation team's backlog (ruff findings and mypy errors in src/) is reported here but
+        # does not block merges until it is cleared; flip continue-on-error off then.
+        continue-on-error: true
+        run: |
+          ruff check src services
+          ruff format --check src services
+          mypy src
+
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: uv pip install --system -e ".[dev]"
+      - name: Run unit tests
+        run: pytest tests/unit -v --cov=src/ragassist
+
+
+  integration-tests:
+    # Real PostgreSQL + pgvector (RLS, UnitOfWork, pool safety). LocalStack tests start their own
+    # container through Docker, which GitHub-hosted runners provide.
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ragassist_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ragassist_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      TEST_DATABASE_ADMIN_URL: postgresql+asyncpg://postgres:<redacted>@localhost:5432/ragassist_test
+      RAGASSIST_STRICT_PENDING: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: uv pip install --system -e ".[dev]"
+      - name: Repository hygiene
+        run: pytest tests/hygiene -v
+      - name: Integration tests
+        run: pytest tests/integration tests/security -v
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-reports
+          path: reports/
+          if-no-files-found: ignore
+
+  coverage:
+    # Plan section 8: the coverage ratchet and hard minimums, plus the pending and defect reports.
+    runs-on: ubuntu-latest
+    env:
+      RAGASSIST_STRICT_PENDING: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: uv pip install --system -e ".[dev]"
+      - name: Unit, graph, security, self-checks and hygiene with coverage
+        run: pytest tests/unit tests/graph tests/security tests/hygiene tests/selfcheck --cov=src/ragassist --cov-branch --cov-report=json:coverage.json -q
+      - name: Coverage gate (hard minimums and ratchet)
+        run: python tests/gates/check_coverage.py --report coverage.json
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
+          path: |
+            reports/
+            coverage.json
+          if-no-files-found: ignore
+
+  flake-nightly:
+    # Plan section 8: a test that fails under another random order is a flake.
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+        with:
+          version: "latest"
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: uv pip install --system -e ".[dev]"
+      - name: Random-order flake check (10 seeds)
+        run: bash scripts/flake_check.sh 10
