@@ -1,0 +1,31 @@
+# Normalize line endings to LF across platforms (critical for Docker/Linux containers on Windows)
+* text=auto eol=lf
+
+# Explicitly enforce LF on scripts, Dockerfiles, SQL, YAML, and Python
+*.py text eol=lf
+*.sh text eol=lf
+*.sql text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.toml text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+Dockerfile* text eol=lf
+*.Dockerfile text eol=lf
+
+# PowerShell scripts may use CRLF on Windows
+*.ps1 text eol=crlf
+
+# Binary files
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.onnx binary
+*.bin binary
+*.safetensors binary
+

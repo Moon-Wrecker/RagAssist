@@ -1,0 +1,117 @@
+# ============================================================================
+# RagAssist — Git Ignore Rules
+# Keep synchronized with .dockerignore and AGENTS.md whenever tools/paths change
+# ============================================================================
+
+# --- Secrets & Environment Variables ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# --- Python / uv / Packaging ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.venv/
+venv/
+ENV/
+env/
+
+# --- Linting, Type-checking & Testing Caches ---
+.ruff_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+.pytest_cache/
+.hypothesis/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.import_linter_cache/
+
+# --- Local ML Weights, HF / Torch / FlashRank / Chonkie Caches ---
+.cache/
+models_cache/
+hf_cache/
+flashrank_cache/
+*.onnx
+*.safetensors
+*.pt
+*.pth
+*.bin
+
+# --- LocalStack & Docker Volumes ---
+.localstack/
+volume/
+postgres_data/
+paradedb_data/
+ollama_data/
+
+# --- Terraform / OpenTofu ---
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+!*.tfvars.example
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# --- Evaluation Run Outputs (keep committed baseline reports, ignore scratch runs) ---
+evals/reports/runs/
+evals/reports/*.tmp.*
+
+# --- Frontend (Phase 11 React + shadcn) ---
+node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.turbo/
+
+# --- IDEs & OS ---
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# --- Generated test reports (tests/support/pending_report.py, tests/gates) ---
+reports/
+coverage.json
