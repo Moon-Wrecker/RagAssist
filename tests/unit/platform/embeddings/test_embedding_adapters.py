@@ -54,7 +54,12 @@ def compatible(embedding_server: FakeOpenAIServer):
 
 @pytest.fixture
 def openai_adapter(embedding_server: FakeOpenAIServer, monkeypatch: pytest.MonkeyPatch):
-    monkeypatch.setenv("OPENAI_API_BASE", embedding_server.base_url)
+    monkeypatch.setenv(
+        "OPENAI_API_BASE", embedding_server.base_url
+    )  # legacy name, honoured by older SDKs
+    monkeypatch.setenv(
+        "OPENAI_BASE_URL", embedding_server.base_url
+    )  # current name, the only one newer SDKs read
 
     def build(**kwargs: Any) -> OpenAIEmbeddingAdapter:
         settings = make_settings(
