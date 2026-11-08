@@ -44,6 +44,9 @@ dependencies = [
     "python-multipart>=0.0.9",
 ]
 
+[project.scripts]
+ragassist = "ragassist.cli.main:app"
+
 [project.optional-dependencies]
 ml = [
     "torch>=2.4.0",

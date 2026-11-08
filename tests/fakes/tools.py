@@ -41,8 +41,12 @@ class RecordingToolRegistry:
             for t in self._tools.values()
         ]
 
+    def get(self, name: str) -> _Tool | None:
+        return self._tools.get(name)
+
     def is_write(self, name: str) -> bool:
-        return self._tools[name].write
+        tool = self._tools.get(name)
+        return tool.write if tool is not None else False
 
     async def invoke(self, name: str, arguments: dict[str, Any], principal: Any) -> Any:
         tool = self._tools[name]

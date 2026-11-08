@@ -96,11 +96,6 @@ LEGAL_JOB_TRANSITIONS: frozenset[tuple[str, str]] = frozenset(
         ("embedding", "failed"),
         ("indexing", "failed"),
         ("failed", "queued"),
-        # Operational aliases for running
-        ("queued", "running"),
-        ("running", "completed"),
-        ("running", "failed"),
-        ("running", "queued"),
     ]
 )
 LEGAL_TRANSITIONS = LEGAL_JOB_TRANSITIONS

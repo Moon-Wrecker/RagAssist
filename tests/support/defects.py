@@ -52,18 +52,6 @@ DEFECTS: dict[str, str] = {
         "RulesDeciderAdapter (the last-resort guard) detects only half of the direct prompt-injection cases "
         "in tests/data/injection/direct.yaml (6 of 12), below the 0.8 floor."
     ),
-    "DEFECT-32": (
-        "The in-memory storage and queue adapters live beside the AWS adapters, which import aioboto3 at module "
-        "level, so unit tests need the AWS SDK just to use an in-memory store."
-    ),
-    "DEFECT-33": (
-        "LEGAL_TRANSITIONS names the state 'running', which JobStatus does not define, so those transitions "
-        "can never be used through transition_job."
-    ),
-    "DEFECT-35": (
-        "The knowledge API takes multipart uploads (File / UploadFile) but python-multipart is not declared in "
-        "pyproject.toml, so the application cannot start from a clean install."
-    ),
     "DEFECT-37": (
         "The worker and the upload use case hard-code the queue name 'ragassist-ingest' instead of reading "
         "SQS_QUEUE_INGEST (AGENTS.md section 2: no hard-coded configuration)."
@@ -73,11 +61,6 @@ DEFECTS: dict[str, str] = {
     ),
     "DEFECT-39": (
         "POST /v1/documents accepts uploads from a plain user; the plan makes upload admin-only (section 5.8)."
-    ),
-    "DEFECT-40": (
-        "UploadDocument compensates a failed upload with store.delete, which the ObjectStore port and both adapters "
-        "do not provide (they expose delete_object); the AttributeError is swallowed, so a failed job insert or "
-        "queue send leaves an orphaned object behind."
     ),
     "DEFECT-18": (
         "JSON log lines contain structlog internals (_record, _from_structlog): "

@@ -8,7 +8,6 @@ subclassing them, so the code under test is real.
 from __future__ import annotations
 
 import pytest
-from support.defects import defect
 from support.knowledge_builders import Tenant
 from support.specs import need
 
@@ -139,7 +138,6 @@ class TestAtomicity:
             )
         assert documents.jobs == {} and await queue.receive_messages(QUEUE) == []
 
-    @defect("DEFECT-40")  # compensation calls store.delete, which no adapter provides
     async def test_a_failed_queue_send_removes_the_job_and_the_object(
         self, upload_factory, command_factory, store, documents, tenant: Tenant
     ) -> None:  # type: ignore[no-untyped-def]
@@ -152,7 +150,6 @@ class TestAtomicity:
             "no orphaned object may survive a failed send"
         )
 
-    @defect("DEFECT-40")  # compensation calls store.delete, which no adapter provides
     async def test_a_failed_job_insert_removes_the_object(
         self, upload_factory, command_factory, store, documents, tenant: Tenant
     ) -> None:  # type: ignore[no-untyped-def]

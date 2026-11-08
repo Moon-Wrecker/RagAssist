@@ -8,7 +8,12 @@ Sources consulted (AGENTS.md rule 3.5):
 
 import io
 from typing import Any
-import aioboto3
+
+try:
+    import aioboto3
+except (ImportError, ModuleNotFoundError, Exception):
+    aioboto3 = None
+
 from ragassist.platform.storage.ports import ObjectStore
 from ragassist.shared.config.settings import Settings, get_settings
 
@@ -17,6 +22,8 @@ class S3ObjectStore(ObjectStore):
     """Adapter for AWS S3 and LocalStack S3 storage."""
 
     def __init__(self, settings: Settings | None = None) -> None:
+        if aioboto3 is None:
+            raise RuntimeError("aioboto3 is required for S3ObjectStore")
         self.settings = settings or get_settings()
         self.bucket = self.settings.S3_BUCKET_DOCS
         self.session = aioboto3.Session(

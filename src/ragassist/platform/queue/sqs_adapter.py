@@ -4,7 +4,12 @@ import asyncio
 import json
 from typing import Any
 from uuid import uuid4
-import aioboto3
+
+try:
+    import aioboto3
+except (ImportError, ModuleNotFoundError, Exception):
+    aioboto3 = None
+
 from ragassist.platform.storage.ports import MessageQueue
 from ragassist.shared.config.settings import Settings, get_settings
 
@@ -13,6 +18,8 @@ class SQSMessageQueue(MessageQueue):
     """Adapter for AWS SQS and LocalStack SQS."""
 
     def __init__(self, settings: Settings | None = None) -> None:
+        if aioboto3 is None:
+            raise RuntimeError("aioboto3 is required for SQSMessageQueue")
         self.settings = settings or get_settings()
         self.session = aioboto3.Session(
             aws_access_key_id=self.settings.AWS_ACCESS_KEY_ID,
