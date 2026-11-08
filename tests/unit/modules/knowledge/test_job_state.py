@@ -10,7 +10,6 @@ from __future__ import annotations
 import dataclasses
 
 import pytest
-from support.defects import defect
 from support.specs import need
 
 PIPELINE = [
@@ -107,7 +106,6 @@ class TestTransitions:
 
 
 class TestLegalTableIsConsistentWithTheStatuses:
-    @defect("DEFECT-33")
     def test_every_state_named_in_the_legal_table_is_a_job_status(self) -> None:
         named = {state for pair in legal_pairs() for state in pair}
         assert named <= set(all_statuses()), (

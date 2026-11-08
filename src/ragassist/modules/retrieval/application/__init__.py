@@ -1,8 +1,17 @@
 """Application use cases and services for Retrieval module."""
 
-from typing import Any
-from ragassist.modules.retrieval.domain import Citation, ContextPack, Hit, Passage
+from typing import Any, Protocol
+from ragassist.shared.domain import TenantId
+from ragassist.modules.retrieval.domain import Citation, ContextPack, Hit, Passage, RetrievedChunk
 from ragassist.modules.retrieval.fusion import HybridRetriever, fuse_hit_rankings
+
+
+class RetrievalService(Protocol):
+    """Public retrieval facade protocol matching PROJECT.md Section 4."""
+
+    async def retrieve(
+        self, tenant_id: TenantId, query: str, top_k: int = 6
+    ) -> list[RetrievedChunk]: ...
 
 
 class ContextBuilder:
@@ -89,5 +98,6 @@ class ContextBuilder:
 __all__ = [
     "ContextBuilder",
     "HybridRetriever",
+    "RetrievalService",
     "fuse_hit_rankings",
 ]

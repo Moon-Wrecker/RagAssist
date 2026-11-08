@@ -2,6 +2,21 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from typing import Any
+from uuid import UUID
+from pydantic import BaseModel, Field
+
+
+class RetrievedChunk(BaseModel):
+    """Retrieved document chunk matching PROJECT.md Section 4 contract."""
+
+    chunk_id: UUID
+    document_id: UUID
+    content: str
+    score: float
+    heading_path: str | None = None
+    page_number: int | None = None
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -95,5 +110,6 @@ __all__ = [
     "ContextPack",
     "Hit",
     "Passage",
+    "RetrievedChunk",
     "reciprocal_rank_fusion",
 ]

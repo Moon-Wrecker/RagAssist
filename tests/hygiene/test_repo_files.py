@@ -192,7 +192,6 @@ class TestDockerfile:
 
 
 class TestDeclaredDependencies:
-    @defect("DEFECT-35")
     def test_multipart_support_is_declared_when_the_api_takes_uploads(self) -> None:
         uses_multipart = any(
             "UploadFile" in p.read_text(encoding="utf-8")
@@ -219,7 +218,6 @@ class TestConfigurationHygiene:
 
 
 class TestPortUsage:
-    @defect("DEFECT-40")
     def test_ingestion_uses_the_object_store_port_methods(self) -> None:
         source = (
             REPO_ROOT
@@ -231,5 +229,6 @@ class TestPortUsage:
             / "ingestion_service.py"
         )
         text = source.read_text(encoding="utf-8")
-        wrong = [name for name in ("self.store.delete(",) if name in text]
-        assert not wrong, f"use the ObjectStore port name delete_object, not {wrong}"
+        assert "self.store.delete_object(" in text, (
+            "compensation must use the ObjectStore port name delete_object"
+        )

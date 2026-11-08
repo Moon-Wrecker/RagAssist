@@ -7,7 +7,6 @@ import importlib
 import sys
 
 import pytest
-from support.defects import defect
 from support.specs import need
 
 
@@ -24,7 +23,6 @@ def without_aws_sdk(monkeypatch: pytest.MonkeyPatch):  # type: ignore[no-untyped
 
 
 class TestInMemoryAdaptersWithoutTheAwsSdk:
-    @defect("DEFECT-32")
     @pytest.mark.parametrize(
         "module", ["ragassist.platform.storage.s3_adapter", "ragassist.platform.queue.sqs_adapter"]
     )
