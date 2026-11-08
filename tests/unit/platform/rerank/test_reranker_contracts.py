@@ -27,6 +27,7 @@ class TestDecisionRerankerContract(RerankerContract):
         return need("rerank.DecisionReranker")(FakeDecider("scorer", score=0.5))
 
 
+@pytest.mark.network
 class TestFlashRankRerankerContract(RerankerContract):
     """Needs the flashrank package; PENDING until it is installed."""
 
