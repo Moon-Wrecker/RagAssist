@@ -18,6 +18,7 @@ from typing import Any
 
 import openai
 import pytest
+import tiktoken
 from fakes.embeddings import FakeEmbeddingProvider, vector_for
 from support.contracts import EmbeddingProviderContract
 from support.defects import defect
@@ -34,6 +35,19 @@ from ragassist.platform.embeddings.adapters.sentence_transformers_adapter import
 from ragassist.platform.embeddings.ports import EmbeddingProvider
 
 DIM = 8
+
+
+class _ByteEncoding:
+    """Byte-level stand-in for a tiktoken encoding: deterministic tokens, nothing to download."""
+
+    def encode(self, text: str, **_kwargs: Any) -> list[int]:
+        return list(text.encode("utf-8"))
+
+    def encode_ordinary(self, text: str) -> list[int]:
+        return self.encode(text)
+
+    def decode(self, tokens: list[int], **_kwargs: Any) -> str:
+        return bytes(tokens).decode("utf-8", errors="replace")
 
 
 @pytest.fixture
@@ -60,6 +74,10 @@ def openai_adapter(embedding_server: FakeOpenAIServer, monkeypatch: pytest.Monke
     monkeypatch.setenv(
         "OPENAI_BASE_URL", embedding_server.base_url
     )  # current name, the only one newer SDKs read
+    # langchain-openai tokenises with tiktoken, which downloads its BPE file on first use. That is a real
+    # network call (blocked in CI), and the loopback server only hashes whatever items it receives.
+    monkeypatch.setattr(tiktoken, "encoding_for_model", lambda *_a, **_k: _ByteEncoding())
+    monkeypatch.setattr(tiktoken, "get_encoding", lambda *_a, **_k: _ByteEncoding())
 
     def build(**kwargs: Any) -> OpenAIEmbeddingAdapter:
         settings = make_settings(
