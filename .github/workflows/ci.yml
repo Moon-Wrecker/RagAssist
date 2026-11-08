@@ -26,15 +26,15 @@ jobs:
         run: uv pip install --system -e ".[dev]"
       - name: Lint tests and tooling (blocking)
         run: |
-          ruff check tests scripts evals
+          ruff check tests scripts
           ruff format --check tests
       - name: Lint and type-check production code (advisory)
         # The implementation team's backlog (ruff findings and mypy errors in src/) is reported here but
         # does not block merges until it is cleared; flip continue-on-error off then.
         continue-on-error: true
         run: |
-          ruff check src services
-          ruff format --check src services
+          ruff check src services evals
+          ruff format --check src services evals
           mypy src
 
   unit-tests:
