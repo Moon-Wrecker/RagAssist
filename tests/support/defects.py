@@ -1,0 +1,132 @@
+"""Registry of known defects in the implementation.
+
+A test that asserts the *specified* behaviour but fails against today's code is marked with
+``@defect("DEFECT-nn")``: a strict xfail. When the implementation team fixes the bug the test turns
+into an unexpected pass (XPASS, strict -> failure), which tells us to delete the marker.
+
+    pytest -m defect              # list open defects
+    pytest -m defect --runxfail   # show how each one fails
+"""
+
+from __future__ import annotations
+
+from collections.abc import Callable, Iterable, Mapping
+from typing import Any, TypeVar
+
+import pytest
+
+F = TypeVar("F", bound=Callable[..., Any])
+
+DEFECTS: dict[str, str] = {
+    "DEFECT-01": "Insecure default SECRET_KEY is accepted when APP_ENV=production.",
+    "DEFECT-04": "Mock SaaS decodes JWTs with verify_signature=False (forged tokens accepted).",
+    "DEFECT-05": "Mock SaaS billing-email endpoint is documented admin-only but checks no role.",
+    "DEFECT-06": "Mock SaaS billing-email endpoint does not validate the e-mail address.",
+    "DEFECT-08": "/v1/auth/token mints tokens in every APP_ENV and ignores DEV_AUTH_SECRET.",
+    "DEFECT-09": "No RLS policies / NOBYPASSRLS / FORCE RLS exist yet (infra/postgres/init.sql).",
+    "DEFECT-10": "UnitOfWork calls session.begin() unconditionally (fails on an autobegun session).",
+    "DEFECT-11": "Layering is not enforced: no import-linter contracts and no CI step.",
+    "DEFECT-12": "api.Dockerfile installs the package before src/ is copied.",
+    "DEFECT-15": "JWTs without an `exp` claim are accepted (non-expiring credentials).",
+    "DEFECT-16": "Confidence thresholds (ESCALATION_THRESHOLD, DECIDER_MIN_CONFIDENCE) are not range-checked.",
+    "DEFECT-17": "Adapter pricing/capability heuristics diverge from models.yaml (two sources of truth).",
+    "DEFECT-19": (
+        "LLMStructuredDeciderAdapter has no repair retry / structured-output strategy fallback "
+        "(plan section 2): one malformed model reply becomes an uninformative default answer."
+    ),
+    "DEFECT-23": "OpenAIDecisionsAdapter does not split batches at the documented 400-question limit.",
+    "DEFECT-26": (
+        "HTTP deciders pass a server-supplied choice through unvalidated, so an answer outside "
+        "the question's options (or an unnormalised distribution) reaches the router."
+    ),
+    "DEFECT-28": (
+        "Embedding adapters hard-code their timeouts (15 s / 20 s) and ignore "
+        "EMBEDDING_TIMEOUT_SECONDS."
+    ),
+    "DEFECT-29": "SentenceTransformers adapter hard-codes batch_size=32 and ignores EMBEDDING_BATCH_SIZE.",
+    "DEFECT-30": (
+        "Settings holds API keys and passwords as plain str: repr() and model_dump_json() print them, so a "
+        "logged or serialised Settings object leaks credentials (secrets should be SecretStr)."
+    ),
+    "DEFECT-31": (
+        "RulesDeciderAdapter (the last-resort guard) detects only half of the direct prompt-injection cases "
+        "in tests/data/injection/direct.yaml (6 of 12), below the 0.8 floor."
+    ),
+    "DEFECT-32": (
+        "The in-memory storage and queue adapters live beside the AWS adapters, which import aioboto3 at module "
+        "level, so unit tests need the AWS SDK just to use an in-memory store."
+    ),
+    "DEFECT-33": (
+        "LEGAL_TRANSITIONS names the state 'running', which JobStatus does not define, so those transitions "
+        "can never be used through transition_job."
+    ),
+    "DEFECT-35": (
+        "The knowledge API takes multipart uploads (File / UploadFile) but python-multipart is not declared in "
+        "pyproject.toml, so the application cannot start from a clean install."
+    ),
+    "DEFECT-37": (
+        "The worker and the upload use case hard-code the queue name 'ragassist-ingest' instead of reading "
+        "SQS_QUEUE_INGEST (AGENTS.md section 2: no hard-coded configuration)."
+    ),
+    "DEFECT-38": (
+        "GET /metrics answers without credentials and is not restricted to the internal network."
+    ),
+    "DEFECT-39": (
+        "POST /v1/documents accepts uploads from a plain user; the plan makes upload admin-only (section 5.8)."
+    ),
+    "DEFECT-40": (
+        "UploadDocument compensates a failed upload with store.delete, which the ObjectStore port and both adapters "
+        "do not provide (they expose delete_object); the AttributeError is swallowed, so a failed job insert or "
+        "queue send leaves an orphaned object behind."
+    ),
+    "DEFECT-18": (
+        "JSON log lines contain structlog internals (_record, _from_structlog): "
+        "ProcessorFormatter.remove_processors_meta is missing."
+    ),
+}
+
+
+def defect(defect_id: str, *, strict: bool = True) -> Callable[[F], F]:
+    """Mark a test as an xfail for a registered defect.
+
+    ``strict=True`` (default) turns an unexpected pass into a failure, which is the signal to
+    remove the marker. Use ``strict=False`` only for tests against nondeterministic real models.
+    """
+    if defect_id not in DEFECTS:
+        raise KeyError(f"Unregistered defect id {defect_id!r}; add it to support/defects.py")
+
+    def decorate(func: F) -> F:
+        func = pytest.mark.defect(func)
+        return pytest.mark.xfail(strict=strict, reason=f"{defect_id}: {DEFECTS[defect_id]}")(func)
+
+    return decorate
+
+
+def defect_marks(defect_id: str, *, strict: bool = True) -> list[pytest.MarkDecorator]:
+    """Same as :func:`defect` but as marks, for ``pytest.param(..., marks=defect_marks("DEFECT-nn"))``."""
+    if defect_id not in DEFECTS:
+        raise KeyError(f"Unregistered defect id {defect_id!r}; add it to support/defects.py")
+    return [
+        pytest.mark.defect,
+        pytest.mark.xfail(strict=strict, reason=f"{defect_id}: {DEFECTS[defect_id]}"),
+    ]
+
+
+def render_markdown(occurrences: Mapping[str, Iterable[str]] | None = None) -> str:
+    """The defect report: every registered defect and how many tests assert it in this run."""
+    seen = {key: sorted(set(value)) for key, value in (occurrences or {}).items()}
+    lines = [
+        "# Known defects",
+        "",
+        "Generated by `tests/support/pending_report.py`. Each defect is a strict xfail: when the "
+        "implementation is fixed, its test starts passing, the run reports XPASS, and the marker and "
+        "registry entry are removed.",
+        "",
+        "| ID | Specified behaviour that the code violates | Tests asserting it |",
+        "|---|---|---|",
+    ]
+    for defect_id in sorted(DEFECTS):
+        tests = seen.get(defect_id, [])
+        cell = f"{len(tests)} test(s)" if tests else "**none in this run**"
+        lines.append(f"| {defect_id} | {DEFECTS[defect_id]} | {cell} |")
+    return "\n".join(lines) + "\n"
