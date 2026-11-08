@@ -1,0 +1,58 @@
+# ============================================================================
+# RagAssist — Docker Ignore Rules
+# Keep synchronized with .gitignore and AGENTS.md
+# ============================================================================
+
+.git
+.github
+.gitignore
+.gitattributes
+.editorconfig
+.pre-commit-config.yaml
+
+.env
+.env.*
+!.env.example
+
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+build/
+dist/
+*.egg-info/
+
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+.coverage*
+htmlcov/
+.import_linter_cache/
+
+.cache/
+models_cache/
+hf_cache/
+flashrank_cache/
+.localstack/
+volume/
+postgres_data/
+paradedb_data/
+ollama_data/
+
+**/.terraform/*
+*.tfstate*
+
+tests/
+evals/reports/runs/
+docs/
+node_modules/
+frontend/
+.vscode/
+.idea/
+*.md
+!README.md
+
+# Generated test reports
+reports/
+coverage.json

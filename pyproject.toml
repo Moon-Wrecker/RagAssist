@@ -1,0 +1,140 @@
+[project]
+name = "ragassist"
+version = "0.1.0"
+description = "Production-Ready Multi-Tenant RAG Assistant with LangGraph & FastAPI"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "MIT" }
+authors = [
+    { name = "RagAssist Team" }
+]
+
+dependencies = [
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.31.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.5.0",
+    "sqlalchemy[asyncio]>=2.0.35",
+    "asyncpg>=0.29.0",
+    "alembic>=1.13.3",
+    "pgvector>=0.3.5",
+    "langgraph>=0.2.34",
+    "langgraph-checkpoint-postgres>=2.0.4",
+    "langchain>=0.3.3",
+    "langchain-core>=0.3.10",
+    "langchain-openai>=0.2.2",
+    "langchain-anthropic>=0.2.3",
+    "langchain-openrouter>=0.1.0",
+    "chonkie>=0.4.0",
+    "rerankers[flashrank]>=0.5.0",
+    "semantic-router>=0.0.60",
+    "pymupdf4llm>=0.0.17",
+    "markdownify>=0.13.1",
+    "aioboto3>=13.2.0",
+    "pyjwt[crypto]>=2.9.0",
+    "structlog>=24.4.0",
+    "prometheus-fastapi-instrumentator>=7.0.0",
+    "slowapi>=0.1.9",
+    "tenacity>=9.0.0",
+    "httpx>=0.27.2",
+    "typesafe-sdk>=0.1.0",
+    "tiktoken>=0.7.0",
+    "poethepoet>=0.29.0",
+    "typer>=0.12.5",
+]
+
+[project.optional-dependencies]
+ml = [
+    "torch>=2.4.0",
+    "sentence-transformers>=3.1.0",
+]
+dev = [
+    "pytest>=8.3.3",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=5.0.0",
+    "testcontainers[postgres]>=4.8.1",
+    "respx>=0.21.1",
+    "polyfactory>=2.16.2",
+    "ruff>=0.6.9",
+    "mypy>=1.11.2",
+    "import-linter>=2.0",
+    "hypothesis>=6.100.0",
+    "pytest-randomly>=3.15.0",
+    "pytest-timeout>=2.3.1",
+    "time-machine>=2.14.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ragassist"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "UP", "B", "C4", "SIM", "TCH"]
+ignore = ["B008"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests favour readable one-line assertions and import fakes only for typing; production code keeps the strict rules.
+"tests/**" = ["E501", "TC001", "TC002", "TC003", "N818", "B017", "SIM102", "SIM105", "SIM117", "C408"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+ignore_missing_imports = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+addopts = "-ra -q --strict-markers"
+testpaths = ["tests"]
+# `src` -> ragassist, `.` -> services.mock_saas, `tests` -> support / fakes / factories
+pythonpath = ["src", ".", "tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+timeout = 30
+markers = [
+    "unit: fast, hermetic tests using fakes only (auto-applied to tests/unit)",
+    "integration: needs Docker (Postgres / LocalStack via testcontainers)",
+    "graph: LangGraph path tests with scripted fake models",
+    "security: tenant isolation, auth and prompt-injection tests",
+    "e2e: HTTP / SSE level tests through the public API",
+    "hygiene: repository rules from AGENTS.md expressed as tests",
+    "eval: tests of the evaluation harness itself (metric math, gates)",
+    "gpu: needs a CUDA GPU (cross-encoder); skipped when unavailable",
+    "slow: slower than ~5s; excluded from the quick loop",
+    "defect: asserts specified behaviour that the code currently violates (xfail strict)",
+    "network: opts out of the external-network guard (needs real internet access)",
+    "live: opt-in tests against a real model endpoint (--run-live or RAGASSIST_LIVE=1)",
+    "pending: suite for code not written yet; skips with a PENDING reason (see reports/pending.md)",
+    "selfcheck: proves fakes and oracles match their contracts and definitions (live, no product code)",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["src/ragassist"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "\\.\\.\\.$",
+]
+
+[tool.poe.tasks]
+up = "docker compose up -d"
+down = "docker compose down"
+logs = "docker compose logs -f"
+lint = "ruff check . && ruff format --check ."
+format = "ruff format . && ruff check --fix ."
+typecheck = "mypy src"
+test = "pytest tests/unit"
+test-all = "pytest tests"
+
