@@ -1,0 +1,201 @@
+# ==============================================================================
+# RagAssist Model Catalog & Role Configuration
+# ==============================================================================
+# Single source of truth for LLM providers, model capabilities, pricing, and role assignments.
+# Synchronized with src/ragassist/shared/config/settings.py and AGENTS.md § 2.
+
+version: "1.0"
+
+providers:
+  openai:
+    adapter: openai
+    api_key_env: OPENAI_API_KEY
+    timeout_seconds: 30.0
+
+  anthropic:
+    adapter: anthropic
+    api_key_env: ANTHROPIC_API_KEY
+    timeout_seconds: 30.0
+
+  openrouter:
+    adapter: openrouter
+    api_key_env: OPENROUTER_API_KEY
+    base_url: "https://openrouter.ai/api/v1"
+    default_headers:
+      HTTP-Referer: "https://github.com/ragassist/ragassist"
+      X-Title: "RagAssist"
+    timeout_seconds: 45.0
+
+  openai_compatible:
+    adapter: openai_compatible
+    api_key_env: OPENAI_COMPATIBLE_API_KEY
+    base_url_env: OPENAI_COMPATIBLE_BASE_URL
+    timeout_seconds: 60.0
+
+models:
+  # --- OpenAI Models ---
+  gpt-4o:
+    provider: openai
+    model_name: "gpt-4o"
+    context_window: 128000
+    max_output_tokens: 4096
+    pricing:
+      input_cost_per_mtok: 2.50
+      output_cost_per_mtok: 10.00
+    capabilities:
+      tool_calling: true
+      json_mode: true
+      vision: true
+      logprobs: true
+      streaming: true
+    default_params:
+      temperature: 0.1
+
+  gpt-4o-mini:
+    provider: openai
+    model_name: "gpt-4o-mini"
+    context_window: 128000
+    max_output_tokens: 16384
+    pricing:
+      input_cost_per_mtok: 0.15
+      output_cost_per_mtok: 0.60
+    capabilities:
+      tool_calling: true
+      json_mode: true
+      vision: true
+      logprobs: true
+      streaming: true
+    default_params:
+      temperature: 0.0
+
+  # --- Anthropic Models ---
+  claude-3-5-sonnet:
+    provider: anthropic
+    model_name: "claude-3-5-sonnet-20241022"
+    context_window: 200000
+    max_output_tokens: 8192
+    pricing:
+      input_cost_per_mtok: 3.00
+      output_cost_per_mtok: 15.00
+    capabilities:
+      tool_calling: true
+      json_mode: true
+      vision: true
+      logprobs: false
+      streaming: true
+    default_params:
+      temperature: 0.1
+
+  claude-3-5-haiku:
+    provider: anthropic
+    model_name: "claude-3-5-haiku-20241022"
+    context_window: 200000
+    max_output_tokens: 8192
+    pricing:
+      input_cost_per_mtok: 0.80
+      output_cost_per_mtok: 4.00
+    capabilities:
+      tool_calling: true
+      json_mode: true
+      vision: false
+      logprobs: false
+      streaming: true
+    default_params:
+      temperature: 0.0
+
+  # --- OpenRouter Routed Models ---
+  openrouter-llama-3.1-70b:
+    provider: openrouter
+    model_name: "meta-llama/llama-3.1-70b-instruct"
+    context_window: 131072
+    max_output_tokens: 4096
+    pricing:
+      input_cost_per_mtok: 0.40
+      output_cost_per_mtok: 0.40
+    capabilities:
+      tool_calling: true
+      json_mode: false
+      vision: false
+      logprobs: false
+      streaming: true
+    default_params:
+      temperature: 0.1
+
+  openrouter-mistral-large:
+    provider: openrouter
+    model_name: "mistralai/mistral-large-2407"
+    context_window: 128000
+    max_output_tokens: 4096
+    pricing:
+      input_cost_per_mtok: 2.00
+      output_cost_per_mtok: 6.00
+    capabilities:
+      tool_calling: true
+      json_mode: false
+      vision: false
+      logprobs: false
+      streaming: true
+    default_params:
+      temperature: 0.1
+
+  # --- Local / OpenAI-Compatible (Ollama / vLLM / Groq) ---
+  local-llama-3.1-8b:
+    provider: openai_compatible
+    model_name: "llama3.1:8b"
+    context_window: 32768
+    max_output_tokens: 4096
+    pricing:
+      input_cost_per_mtok: 0.0
+      output_cost_per_mtok: 0.0
+    capabilities:
+      tool_calling: true
+      json_mode: true
+      vision: false
+      logprobs: false
+      streaming: true
+    default_params:
+      temperature: 0.0
+
+aliases:
+  gen-default: "gpt-4o"
+  gen-openrouter-llama: "openrouter-llama-3.1-70b"
+  fast-default: "gpt-4o-mini"
+  claude-sonnet: "claude-3-5-sonnet"
+  claude-haiku: "claude-3-5-haiku"
+
+roles:
+  generator:
+    primary: "gen-default"
+    fallbacks:
+      - "claude-3-5-sonnet"
+      - "gen-openrouter-llama"
+    temperature: 0.1
+    max_tokens: 2048
+
+  rewriter:
+    primary: "fast-default"
+    fallbacks:
+      - "claude-3-5-haiku"
+    temperature: 0.0
+    max_tokens: 512
+
+  agent:
+    primary: "gen-default"
+    fallbacks:
+      - "claude-3-5-sonnet"
+    temperature: 0.0
+    max_tokens: 4096
+
+  judge:
+    primary: "fast-default"
+    fallbacks:
+      - "claude-3-5-haiku"
+    temperature: 0.0
+    max_tokens: 1024
+
+  decider:
+    primary: "fast-default"
+    fallbacks:
+      - "claude-3-5-haiku"
+    temperature: 0.0
+    max_tokens: 256
