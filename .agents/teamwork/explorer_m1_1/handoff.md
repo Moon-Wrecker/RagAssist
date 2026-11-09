@@ -84,7 +84,7 @@
 1. **Local LLM Endpoint Connectivity**:
    - The `openai_compatible` provider specifies `http://localhost:11434/v1` (Ollama default). In sandboxed environments or machines without a running Ollama daemon, unit tests must mock or skip actual network calls to this URL.
 2. **API Keys in Test Environments**:
-   - Adapters currently use dummy fallback strings (e.g. `"dummy-key-for-testing"`) if environment variables are not set. Unit tests must not attempt live external API calls against real OpenAI or Anthropic endpoints.
+   - Adapters currently use dummy fallback strings (e.g. `"<placeholder-key>"`) if environment variables are not set. Unit tests must not attempt live external API calls against real OpenAI or Anthropic endpoints.
 3. **Embeddings & Deciders Scope**:
    - This investigation focused specifically on the LLM model catalog, provider registry, and chat model fallback chains. Embedding providers and System One Deciders (Jev, OpenAI Decisions, Semantic Router) will be wired into parallel registries following the same architectural pattern.
 

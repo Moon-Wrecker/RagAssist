@@ -1,11 +1,31 @@
-"""Application Settings using Pydantic Settings v2.
+"""Application settings (Pydantic Settings v2).
 
-Every setting is synchronized with .env.example and AGENTS.md.
+Every value comes from the environment (or a ``.env`` file); nothing is configured in code. ``.env.example`` is the
+single documented template and ``ragassist init-env`` writes a working ``.env`` from it with freshly generated
+secrets. A field without a default is required, so a missing variable fails at start-up with the variable's name
+instead of silently falling back to a value that is committed to the repository. The only fields that default to
+an empty string are the optional third-party API keys and overrides, where empty means "not configured".
+
+RULE (AGENTS.md section 3.7): never add a default for a credential, a connection detail or any deployment value
+here. Add the variable to ``.env.example`` instead.
+
+Sources consulted (AGENTS.md section 3.5): pydantic-settings documentation (required fields, ``env_file``,
+``model_validator``), the twelve-factor "config" rule, and OWASP guidance against hard-coded credentials.
 """
 
-from typing import Literal
+from __future__ import annotations
 
+from typing import Literal
+from urllib.parse import quote
+
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+#: Marker passed to SDK constructors that insist on a non-empty key when no provider key is configured. It is not a
+#: credential: requests made with it are rejected by the provider, and the fallback chain moves on.
+UNCONFIGURED_KEY = "unconfigured"
+
+_MIN_SECRET_LENGTH = 32
 
 
 class Settings(BaseSettings):
@@ -18,54 +38,64 @@ class Settings(BaseSettings):
     )
 
     # --- Application & Environment ---
-    APP_NAME: str = "RagAssist"
-    APP_ENV: Literal["development", "test", "staging", "production"] = "development"
-    DEBUG: bool = True
-    LOG_LEVEL: str = "INFO"
-    API_V1_PREFIX: str = "/v1"
-    SECRET_KEY: str = "change-this-in-production-use-a-32-byte-random-secret"
-    ALLOWED_HOSTS: list[str] = ["*"]
-    CORS_ORIGINS: list[str] = [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:3000",
-    ]
+    APP_NAME: str
+    APP_ENV: Literal["development", "test", "staging", "production"]
+    DEBUG: bool
+    LOG_LEVEL: str
+    API_V1_PREFIX: str
+    SECRET_KEY: str = Field(min_length=16)
+    ALLOWED_HOSTS: list[str]
+    CORS_ORIGINS: list[str]
 
     # --- Database & Row-Level Security ---
-    DATABASE_URL: str = "postgresql+asyncpg://app_user:app_password@localhost:5432/ragassist"
-    DATABASE_ADMIN_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/ragassist"
-    DB_POOL_SIZE: int = 20
-    DB_MAX_OVERFLOW: int = 10
-    DB_POOL_TIMEOUT: float = 30.0
+    DB_HOST: str
+    DB_PORT: int
+    DB_NAME: str
+    DB_APP_USER: str
+    DB_APP_PASSWORD: str = Field(min_length=8)
+    DB_ADMIN_USER: str
+    DB_ADMIN_PASSWORD: str = Field(min_length=8)
+    # Optional full-URL overrides (managed databases); empty means "build from the DB_* parts above".
+    DATABASE_URL: str = ""
+    DATABASE_ADMIN_URL: str = ""
+    DB_POOL_SIZE: int
+    DB_MAX_OVERFLOW: int
+    DB_POOL_TIMEOUT: float
+    # "postgres" wires the real runtime (Postgres repositories, LangGraph checkpointer, the assistant graph).
+    # "memory" keeps the in-process stores and a canned assistant reply: the automated tests use it.
+    PERSISTENCE_BACKEND: Literal["memory", "postgres"]
 
     # --- Security & JWT ---
-    JWT_ALGORITHM: str = "HS256"
-    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
-    DEV_AUTH_SECRET: str = "dev-stub-secret-do-not-use-in-prod"
+    JWT_ALGORITHM: str
+    JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int
+    DEV_AUTH_SECRET: str = Field(min_length=16)
 
     # --- AWS & LocalStack ---
-    AWS_REGION: str = "us-east-1"
-    USE_LOCALSTACK: bool = True
-    LOCALSTACK_ENDPOINT: str = "http://localhost:4566"
-    AWS_ACCESS_KEY_ID: str = "test"
-    AWS_SECRET_ACCESS_KEY: str = "test"
-    S3_BUCKET_DOCS: str = "ragassist-docs"
-    SQS_QUEUE_INGEST: str = "ragassist-ingest"
-    SQS_QUEUE_INGEST_DLQ: str = "ragassist-ingest-dlq"
-    SECRETS_MANAGER_SECRET_NAME: str = "ragassist/config"
+    AWS_REGION: str
+    USE_LOCALSTACK: bool
+    LOCALSTACK_ENDPOINT: str
+    AWS_ACCESS_KEY_ID: str = Field(min_length=1)
+    AWS_SECRET_ACCESS_KEY: str = Field(min_length=1)
+    S3_BUCKET_DOCS: str
+    SQS_QUEUE_INGEST: str
+    SQS_QUEUE_INGEST_DLQ: str
+    SECRETS_MANAGER_SECRET_NAME: str
 
     # --- Mock SaaS Integration ---
-    MOCK_SAAS_BASE_URL: str = "http://localhost:8001"
-    MOCK_SAAS_TIMEOUT_SECONDS: float = 10.0
+    MOCK_SAAS_BASE_URL: str
+    MOCK_SAAS_TIMEOUT_SECONDS: float
 
     # --- Model Providers ---
-    MODELS_CONFIG_PATH: str = "config/models.yaml"
+    MODELS_CONFIG_PATH: str
     OPENAI_API_KEY: str = ""
     OPENAI_BASE_URL: str = ""
     ANTHROPIC_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
-    OPENAI_COMPATIBLE_BASE_URL: str = "http://localhost:11434/v1"
-    OPENAI_COMPATIBLE_API_KEY: str = "ollama"
+    OPENAI_COMPATIBLE_BASE_URL: str
+    OPENAI_COMPATIBLE_API_KEY: str = ""
+    # When set, every LLM role uses this one model on the OpenAI-compatible endpoint (Ollama, vLLM, Gemini...).
+    OPENAI_COMPATIBLE_MODEL: str = ""
+    OPENAI_COMPATIBLE_EMBEDDING_MODEL: str
 
     LLM_ROLE_GENERATOR_PRIMARY: str = ""
     LLM_ROLE_GENERATOR_FALLBACKS: str = ""
@@ -75,61 +105,88 @@ class Settings(BaseSettings):
     LLM_ROLE_DECIDER_FALLBACK: str = ""
 
     # --- Embeddings & Vector Search ---
-    EMBEDDING_PROVIDER: str = "openai"
-    EMBEDDING_MODEL: str = "text-embedding-3-small"
-    EMBEDDING_DIMENSION: int = 1536
-    EMBEDDING_BATCH_SIZE: int = 64
-    EMBEDDING_TIMEOUT_SECONDS: float = 15.0
-    EMBEDDING_FALLBACK_CHAIN: str = "openai,sentence_transformers"
-    SENTENCE_TRANSFORMERS_MODEL: str = "all-MiniLM-L6-v2"
-    SENTENCE_TRANSFORMERS_DEVICE: str = "auto"
-    VECTOR_SEARCH_TOP_K: int = 30
-    VECTOR_SEARCH_ITERATIVE_SCAN: str = "relaxed_order"
+    EMBEDDING_PROVIDER: str
+    EMBEDDING_MODEL: str
+    EMBEDDING_DIMENSION: int
+    EMBEDDING_BATCH_SIZE: int
+    EMBEDDING_TIMEOUT_SECONDS: float
+    EMBEDDING_FALLBACK_CHAIN: str
+    SENTENCE_TRANSFORMERS_MODEL: str
+    SENTENCE_TRANSFORMERS_DEVICE: str
+    VECTOR_SEARCH_TOP_K: int
+    VECTOR_SEARCH_ITERATIVE_SCAN: str
 
     # --- Keyword Search ---
-    KEYWORD_SEARCH_BACKEND: str = "fts"
-    KEYWORD_SEARCH_TOP_K: int = 30
+    KEYWORD_SEARCH_BACKEND: str
+    KEYWORD_SEARCH_TOP_K: int
 
     # --- Hybrid Retrieval & Reranker Chain ---
-    RETRIEVAL_RRF_K: int = 60
-    RETRIEVAL_TOP_N: int = 6
-    RERANK_ENABLED: bool = True
-    RERANKER_CHAIN: str = "cross_encoder,flashrank,none"
-    RERANK_CROSS_ENCODER_MODEL: str = "BAAI/bge-reranker-v2-m3"
-    RERANK_FLASHRANK_MODEL: str = "ms-marco-TinyBERT-L-2-v2"
-    RERANK_TIMEOUT_MS: int = 1500
+    RETRIEVAL_RRF_K: int
+    RETRIEVAL_TOP_N: int
+    RERANK_ENABLED: bool
+    RERANKER_CHAIN: str
+    RERANK_CROSS_ENCODER_MODEL: str
+    RERANK_FLASHRANK_MODEL: str
+    RERANK_TIMEOUT_MS: int
 
     # --- Chunking ---
-    CHUNK_STRATEGY: str = "hybrid"
-    CHUNK_MAX_TOKENS: int = 512
-    CHUNK_OVERLAP_TOKENS: int = 64
-    CHUNK_MERGE_PEERS: bool = True
-    CHUNK_SEMANTIC: bool = False
-    CHUNK_PARENT_CHILD: bool = False
+    CHUNK_STRATEGY: str
+    CHUNK_MAX_TOKENS: int
+    CHUNK_OVERLAP_TOKENS: int
+    CHUNK_MERGE_PEERS: bool
+    CHUNK_SEMANTIC: bool
+    CHUNK_PARENT_CHILD: bool
 
     # --- Decisions ---
-    DECIDER_CHAIN: str = "openai_decisions,jev,llm_structured,rules"
-    ROUTER_DECIDER_CHAIN: str = "semantic_router,openai_decisions,llm_structured,rules"
-    DECIDER_MIN_CONFIDENCE: float = 0.70
-    DECIDER_TIMEOUT_MS: int = 1000
-    ESCALATION_THRESHOLD: float = 0.65
+    DECIDER_CHAIN: str
+    ROUTER_DECIDER_CHAIN: str
+    DECIDER_MIN_CONFIDENCE: float
+    DECIDER_TIMEOUT_MS: int
+    ESCALATION_THRESHOLD: float
 
     TYPESAFE_API_KEY: str = ""
     OPENAI_DECISIONS_API_KEY: str = ""
-    STRANDS_DECIDER_ENDPOINT: str = "http://localhost:8002/v1/decide"
+    STRANDS_DECIDER_ENDPOINT: str
 
     # --- Observability ---
-    LANGSMITH_TRACING: bool = False
+    LANGSMITH_TRACING: bool
     LANGSMITH_API_KEY: str = ""
-    LANGSMITH_PROJECT: str = "ragassist-dev"
-    LANGSMITH_ENDPOINT: str = "https://api.smith.langchain.com"
-    PROMETHEUS_METRICS_ENABLED: bool = True
+    LANGSMITH_PROJECT: str
+    LANGSMITH_ENDPOINT: str
+    PROMETHEUS_METRICS_ENABLED: bool
 
     # --- Worker ---
-    WORKER_CONCURRENCY: int = 4
-    WORKER_MAX_RETRIES: int = 3
-    WORKER_VISIBILITY_TIMEOUT_SECONDS: int = 120
-    WORKER_POLL_WAIT_SECONDS: int = 10
+    WORKER_CONCURRENCY: int
+    WORKER_MAX_RETRIES: int
+    WORKER_VISIBILITY_TIMEOUT_SECONDS: int
+    WORKER_POLL_WAIT_SECONDS: int
+
+    @model_validator(mode="after")
+    def _build_database_urls(self) -> Settings:
+        """Compose the connection URLs from the parts so a password is configured in exactly one place."""
+        target = f"{self.DB_HOST}:{self.DB_PORT}/{self.DB_NAME}"
+        if not self.DATABASE_URL:
+            self.DATABASE_URL = (
+                f"postgresql+asyncpg://{quote(self.DB_APP_USER, safe='')}:"
+                f"{quote(self.DB_APP_PASSWORD, safe='')}@{target}"
+            )
+        if not self.DATABASE_ADMIN_URL:
+            self.DATABASE_ADMIN_URL = (
+                f"postgresql+asyncpg://{quote(self.DB_ADMIN_USER, safe='')}:"
+                f"{quote(self.DB_ADMIN_PASSWORD, safe='')}@{target}"
+            )
+        return self
+
+    @model_validator(mode="after")
+    def _reject_weak_signing_key(self) -> Settings:
+        """Outside development and test the JWT signing key must be long and must not be a template value."""
+        if self.APP_ENV in ("staging", "production"):
+            key = self.SECRET_KEY.strip()
+            if len(key) < _MIN_SECRET_LENGTH or key.lower().startswith(("change", "dev-", "your-")):
+                raise ValueError(
+                    f"SECRET_KEY must be at least {_MIN_SECRET_LENGTH} random characters in {self.APP_ENV}."
+                )
+        return self
 
 
 _settings: Settings | None = None
@@ -139,5 +196,5 @@ def get_settings() -> Settings:
     """Singleton getter for application settings."""
     global _settings
     if _settings is None:
-        _settings = Settings()
+        _settings = Settings()  # type: ignore[call-arg]  # every field is read from the environment
     return _settings

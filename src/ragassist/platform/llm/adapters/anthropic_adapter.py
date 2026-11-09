@@ -4,7 +4,7 @@ from typing import Any
 from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models.chat_models import BaseChatModel
 from ragassist.platform.llm.ports import ChatModelProvider, ModelCapabilities, ModelPricing
-from ragassist.shared.config.settings import Settings, get_settings
+from ragassist.shared.config.settings import Settings, UNCONFIGURED_KEY, get_settings
 
 
 class AnthropicAdapter(ChatModelProvider):
@@ -47,7 +47,7 @@ class AnthropicAdapter(ChatModelProvider):
     ) -> BaseChatModel:
         return ChatAnthropic(
             model_name=model_name,
-            api_key=self.settings.ANTHROPIC_API_KEY or "dummy-key-for-testing",
+            api_key=self.settings.ANTHROPIC_API_KEY or UNCONFIGURED_KEY,
             temperature=temperature,
             max_tokens_to_sample=max_tokens or 4096,
             streaming=streaming,

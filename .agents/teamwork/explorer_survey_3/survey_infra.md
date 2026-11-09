@@ -113,12 +113,12 @@ services:
 ### 2.1 PostgreSQL 16 + pgvector Service
 - **Image**: `pgvector/pgvector:pg16`
 - **Host Port**: `5432`
-- **Superuser**: `postgres` / `postgres` (Connection string: `postgresql+asyncpg://postgres:postgres@localhost:5432/ragassist`)
-- **Application Role**: `app_user` / `app_password` (Connection string: `postgresql+asyncpg://app_user:app_password@localhost:5432/ragassist`)
+- **Superuser**: `<admin-user>` / `<admin-password>` (Connection string: `postgresql+asyncpg://<admin-user>:<admin-password>@localhost:5432/ragassist`)
+- **Application Role**: `<app-user>` / `<app-password>` (Connection string: `postgresql+asyncpg://<app-user>:<app-password>@localhost:5432/ragassist`)
 - **Initialization Script (`infra/postgres/init.sql`)**:
   - `CREATE EXTENSION IF NOT EXISTS vector;`
   - `CREATE EXTENSION IF NOT EXISTS "uuid-ossp";`
-  - Creates role `app_user WITH LOGIN PASSWORD 'app_password';`
+  - Creates role `app_user WITH LOGIN PASSWORD '<app-password>';`
   - Grants permissions on database `ragassist` and schema `public`.
   - Configures default privileges for new tables and sequences.
 - **Tenant Isolation Enforcement**: Handled via PostgreSQL Row-Level Security (RLS) policies and `UnitOfWork` in `src/ragassist/shared/db/uow.py`. Every request sets `SET LOCAL app.tenant_id = :tenant_id`.
@@ -171,7 +171,7 @@ services:
 | :--- | :--- | :--- | :--- |
 | **App & Env** | `APP_NAME`, `APP_ENV`, `DEBUG`, `LOG_LEVEL`, `API_V1_PREFIX`, `SECRET_KEY`, `CORS_ORIGINS` | `RagAssist`, `development`, `true`, `INFO`, `/v1` | `APP_ENV`: `development`, `test`, `staging`, `production` |
 | **Database & RLS** | `DATABASE_URL`, `DATABASE_ADMIN_URL`, `DB_POOL_SIZE`, `DB_MAX_OVERFLOW`, `DB_POOL_TIMEOUT` | Ports to `localhost:5432`, pool size 20, overflow 10, timeout 30s | Non-admin uses `app_user`; migrations use `postgres` |
-| **JWT & Security** | `JWT_ALGORITHM`, `JWT_ACCESS_TOKEN_EXPIRE_MINUTES`, `DEV_AUTH_SECRET` | `HS256`, 1440 min (24h), `dev-stub-secret-do-not-use-in-prod` | Dev token issuer at `POST /v1/auth/token` |
+| **JWT & Security** | `JWT_ALGORITHM`, `JWT_ACCESS_TOKEN_EXPIRE_MINUTES`, `DEV_AUTH_SECRET` | `HS256`, 1440 min (24h), `<dev-secret>` | Dev token issuer at `POST /v1/auth/token` |
 | **AWS / LocalStack**| `AWS_REGION`, `USE_LOCALSTACK`, `LOCALSTACK_ENDPOINT`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `S3_BUCKET_DOCS`, `SQS_QUEUE_INGEST`, `SQS_QUEUE_INGEST_DLQ` | `us-east-1`, `true`, `http://localhost:4566`, `test`, `test`, `ragassist-docs`, `ragassist-ingest`, `ragassist-ingest-dlq` | Set `USE_LOCALSTACK=false` in production for real AWS |
 | **Mock SaaS** | `MOCK_SAAS_BASE_URL`, `MOCK_SAAS_TIMEOUT_SECONDS` | `http://localhost:8001`, `10.0`s | Points to mock SaaS container or test server |
 | **LLM Providers** | `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `OPENROUTER_API_KEY`, `OPENAI_COMPATIBLE_BASE_URL`, `OPENAI_COMPATIBLE_API_KEY` | Keys empty by default, compatible URL: `http://localhost:11434/v1` | Supports OpenAI, Anthropic, OpenRouter, and Ollama/vLLM |

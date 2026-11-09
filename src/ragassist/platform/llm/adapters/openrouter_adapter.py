@@ -4,7 +4,7 @@ from typing import Any
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 from ragassist.platform.llm.ports import ChatModelProvider, ModelCapabilities, ModelPricing
-from ragassist.shared.config.settings import Settings, get_settings
+from ragassist.shared.config.settings import Settings, UNCONFIGURED_KEY, get_settings
 
 
 class OpenRouterAdapter(ChatModelProvider):
@@ -52,7 +52,7 @@ class OpenRouterAdapter(ChatModelProvider):
     ) -> BaseChatModel:
         return ChatOpenAI(
             model=model_name,
-            api_key=self.settings.OPENROUTER_API_KEY or "dummy-key-for-testing",
+            api_key=self.settings.OPENROUTER_API_KEY or UNCONFIGURED_KEY,
             base_url="https://openrouter.ai/api/v1",
             temperature=temperature,
             max_tokens=max_tokens,
@@ -122,7 +122,7 @@ class OpenAICompatibleAdapter(ChatModelProvider):
         **extra_kwargs: Any,
     ) -> BaseChatModel:
         url = base_url or self.settings.OPENAI_COMPATIBLE_BASE_URL
-        key = api_key or self.settings.OPENAI_COMPATIBLE_API_KEY or "ollama"
+        key = api_key or self.settings.OPENAI_COMPATIBLE_API_KEY or UNCONFIGURED_KEY
         return ChatOpenAI(
             model=model_name,
             api_key=key,

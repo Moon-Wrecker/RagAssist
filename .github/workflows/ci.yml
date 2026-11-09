@@ -59,25 +59,25 @@ jobs:
     # Real PostgreSQL + pgvector (RLS, UnitOfWork, pool safety). LocalStack tests start their own
     # container through Docker, which GitHub-hosted runners provide.
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: ragassist_test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d ragassist_test"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
     env:
-      TEST_DATABASE_ADMIN_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/ragassist_test
       RAGASSIST_STRICT_PENDING: "1"
     steps:
       - uses: actions/checkout@v4
+      - name: Start PostgreSQL with a throwaway password
+        # The password is generated for this run only, masked in the logs and never stored anywhere.
+        run: |
+          pw="$(openssl rand -hex 24)"
+          echo "::add-mask::$pw"
+          docker run -d --name ci-postgres -p 5432:5432 \
+            -e POSTGRES_USER=ci_admin -e POSTGRES_PASSWORD="$pw" -e POSTGRES_DB=ragassist_test \
+            pgvector/pgvector:pg16
+          echo "TEST_DATABASE_ADMIN_URL=postgresql+asyncpg://ci_admin:${pw}@localhost:5432/ragassist_test" >> "$GITHUB_ENV"
+          for _ in $(seq 1 30); do
+            docker exec ci-postgres pg_isready -U ci_admin -d ragassist_test && exit 0
+            sleep 2
+          done
+          docker logs ci-postgres
+          exit 1
       - name: Install uv
         uses: astral-sh/setup-uv@v3
         with:

@@ -4,7 +4,7 @@ Enable:   pytest tests/live --run-live         (or  RAGASSIST_LIVE=1)
 Configure (all optional):
     RAGASSIST_LIVE_BASE_URL   default http://localhost:11434/v1   (an OpenAI-compatible server)
     RAGASSIST_LIVE_MODEL      default gemma4:31b-cloud            (an Ollama cloud model)
-    RAGASSIST_LIVE_API_KEY    default "ollama"   (pass real keys via the environment only; never commit)
+    RAGASSIST_LIVE_API_KEY    default empty   (pass real keys via the environment only; never commit)
 
 Examples:
     RAGASSIST_LIVE_MODEL=qwen3.5:2b pytest tests/live --run-live
@@ -32,7 +32,7 @@ from ragassist.platform.llm.adapters.openrouter_adapter import OpenAICompatibleA
 
 BASE_URL = os.environ.get("RAGASSIST_LIVE_BASE_URL", "http://localhost:11434/v1")
 MODEL = os.environ.get("RAGASSIST_LIVE_MODEL", "gemma4:31b-cloud")
-API_KEY = os.environ.get("RAGASSIST_LIVE_API_KEY", "ollama")
+API_KEY = os.environ.get("RAGASSIST_LIVE_API_KEY", "")
 
 
 def _enabled(config: pytest.Config) -> bool:

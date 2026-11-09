@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import secrets
 from pathlib import Path
+from urllib.parse import quote
 
 import pytest
 from pydantic import ValidationError
@@ -70,6 +72,9 @@ class TestEnvironmentHandling:
     ) -> None:
         env_file = tmp_path / "custom.env"
         env_file.write_text("CHUNK_MAX_TOKENS=111\nCHUNK_OVERLAP_TOKENS=11\n", encoding="utf-8")
+        monkeypatch.delenv(
+            "CHUNK_MAX_TOKENS"
+        )  # the hermetic baseline sets it; remove so the file applies
         monkeypatch.setenv("CHUNK_OVERLAP_TOKENS", "22")
         s = Settings(_env_file=env_file)
         assert s.CHUNK_MAX_TOKENS == 111  # from the file
@@ -116,11 +121,46 @@ class TestSingleton:
 
 
 class TestValidationGaps:
-    @defect("DEFECT-01")
-    def test_production_refuses_the_insecure_default_secret(self) -> None:
-        default_secret = Settings.model_fields["SECRET_KEY"].default
+    @pytest.mark.parametrize("weak", ["short", "change-" + "x" * 40, "dev-" + "x" * 40])
+    def test_production_refuses_short_or_template_signing_keys(self, weak: str) -> None:
         with pytest.raises(ValidationError):
-            Settings(_env_file=None, APP_ENV="production", SECRET_KEY=default_secret)
+            make_settings(APP_ENV="production", SECRET_KEY=weak)
+
+    @pytest.mark.parametrize(
+        "name",
+        [
+            "SECRET_KEY",
+            "DEV_AUTH_SECRET",
+            "DB_APP_PASSWORD",
+            "DB_ADMIN_PASSWORD",
+            "AWS_ACCESS_KEY_ID",
+            "AWS_SECRET_ACCESS_KEY",
+        ],
+    )
+    def test_secrets_have_no_code_default_and_are_required(self, name: str) -> None:
+        """AGENTS.md 3.7: a credential is never committed as a default; leaving it out fails at start-up."""
+        assert Settings.model_fields[name].is_required()
+
+    def test_a_missing_secret_fails_loudly(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("SECRET_KEY")
+        with pytest.raises(ValidationError, match="SECRET_KEY"):
+            Settings(_env_file=None)
+
+    def test_database_urls_are_built_from_the_parts(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # Characters that must be percent-encoded in a URL's userinfo; the rest is random per run.
+        special_password = f"@/:{secrets.token_urlsafe(12)}"
+        monkeypatch.setenv("DB_APP_PASSWORD", special_password)
+        s = Settings(_env_file=None)
+        encoded = quote(special_password, safe="")
+        assert encoded != special_password
+        assert s.DATABASE_URL.startswith(f"postgresql+asyncpg://{s.DB_APP_USER}:{encoded}@")
+        assert s.DATABASE_ADMIN_URL.startswith(f"postgresql+asyncpg://{s.DB_ADMIN_USER}:")
+        assert s.DATABASE_URL.endswith(f"@{s.DB_HOST}:{s.DB_PORT}/{s.DB_NAME}")
+
+    def test_a_full_database_url_override_wins(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        override = f"postgresql+asyncpg://override:{secrets.token_urlsafe(12)}@db.internal:5432/x"
+        monkeypatch.setenv("DATABASE_URL", override)
+        assert override == Settings(_env_file=None).DATABASE_URL
 
     def test_production_accepts_an_explicit_strong_secret(self) -> None:
         make_settings(APP_ENV="production", SECRET_KEY="x" * 64)

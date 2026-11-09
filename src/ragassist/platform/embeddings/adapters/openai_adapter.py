@@ -9,7 +9,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_openai import OpenAIEmbeddings
 
 from ragassist.platform.embeddings.ports import EmbeddingProvider
-from ragassist.shared.config.settings import Settings, get_settings
+from ragassist.shared.config.settings import Settings, UNCONFIGURED_KEY, get_settings
 
 logger = structlog.get_logger(__name__)
 
@@ -50,7 +50,7 @@ class OpenAIEmbeddingAdapter(EmbeddingProvider):
 
         client_kwargs: dict[str, Any] = {
             "model": self._model_name,
-            "api_key": api_key or "dummy-key-for-testing",
+            "api_key": api_key or UNCONFIGURED_KEY,
             "timeout": self._timeout,
             "check_embedding_ctx_length": False,
             **extra_kwargs,

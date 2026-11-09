@@ -51,4 +51,9 @@ Every commit or change MUST keep the repository hygiene files synchronized:
    - Never guess an SDK signature. If the docs cannot be reached, say so and mark the code as unverified.
 6. **Testing Gate:**
    - Every new feature or bugfix requires unit tests (`tests/unit/`) and, where database/RLS or graph flows are touched, integration (`tests/integration/`), graph (`tests/graph/`), or security (`tests/security/`) tests.
-
+7. **No Hardcoded Credentials or Deployment Values (Hard Rule, Always On):**
+   - No password, key, token, secret, connection string with credentials, or deployment-specific value (host, port, role name, endpoint) may appear in code, tests, Docker/Compose files, CI workflows, docs or git history. Not even as a "development default".
+   - `src/ragassist/shared/config/settings.py` defines **no defaults** for such values: a field without a default is required, and the value lives in `.env` (never committed). `.env.example` is the template: secrets are blank, everything else is a safe non-secret value. `ragassist init-env` generates a working `.env` with random secrets.
+   - The only permitted code defaults are an empty string for optional third-party API keys and overrides.
+   - Tests and CI generate their own throwaway secrets at run time (`secrets.token_urlsafe`); they never embed key-shaped literals either.
+   - Before committing, grep the diff for `password`, `secret`, `token`, `api_key` literals. If a secret was ever committed, treat it as leaked: rotate it and purge it from history.

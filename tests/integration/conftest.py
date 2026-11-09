@@ -21,11 +21,13 @@ from __future__ import annotations
 
 import asyncio
 import os
+import secrets
 import shutil
 import subprocess
 import sys
 from collections.abc import AsyncIterator, Callable, Iterator
 from dataclasses import dataclass, field
+from urllib.parse import quote
 from uuid import UUID, uuid4
 
 os.environ.setdefault(
@@ -77,14 +79,21 @@ def _docker_ok() -> bool:
 
 @dataclass(frozen=True)
 class PgServer:
+    """A throwaway Postgres. Every credential is generated at run time; none is committed."""
+
     host: str
     port: int
+    admin_user: str
+    admin_password: str
     database: str = DB_NAME
-    admin_user: str = "postgres"
-    admin_password: str = "postgres"
+    app_user: str = "app_user"  # a role name, not a secret
+    app_password: str = field(default_factory=lambda: secrets.token_urlsafe(24))
 
     def url(self, user: str, password: str) -> str:
-        return f"postgresql+asyncpg://{user}:{password}@{self.host}:{self.port}/{self.database}"
+        return (
+            f"postgresql+asyncpg://{quote(user, safe='')}:{quote(password, safe='')}"
+            f"@{self.host}:{self.port}/{self.database}"
+        )
 
     @property
     def admin_url(self) -> str:
@@ -92,7 +101,7 @@ class PgServer:
 
     @property
     def app_url(self) -> str:
-        return self.url("app_user", "app_password")
+        return self.url(self.app_user, self.app_password)
 
 
 def _register_models() -> None:
@@ -110,12 +119,19 @@ async def _bootstrap(server: PgServer) -> None:
     engine = create_async_engine(server.admin_url, poolclass=NullPool)
     try:
         init_sql = (REPO_ROOT / "infra" / "postgres" / "init.sql").read_text(encoding="utf-8")
-        init_sql = init_sql.replace("ON DATABASE ragassist", f'ON DATABASE "{server.database}"')
+        # The same bootstrap as infra/postgres/create-app-role.sh: a restricted role with a generated password.
+        role_sql = (
+            f"DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{server.app_user}') THEN "
+            f"CREATE ROLE {server.app_user} LOGIN PASSWORD '{server.app_password}' NOSUPERUSER NOBYPASSRLS; "
+            f"ELSE ALTER ROLE {server.app_user} PASSWORD '{server.app_password}'; END IF; END $$;"
+            f' GRANT ALL PRIVILEGES ON DATABASE "{server.database}" TO {server.app_user};'
+            f" GRANT ALL ON SCHEMA public TO {server.app_user};"
+            f" ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO {server.app_user};"
+            f" ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO {server.app_user};"
+        )
         async with engine.connect() as conn:
             raw = await conn.get_raw_connection()
-            await raw.driver_connection.execute(
-                init_sql
-            )  # simple-query protocol: multi-statement script
+            await raw.driver_connection.execute(f"{init_sql}\n{role_sql}")  # simple-query protocol
             await conn.commit()
         if (REPO_ROOT / "alembic.ini").exists() and list(
             (REPO_ROOT / "migrations").rglob("versions/*.py")
@@ -152,11 +168,11 @@ def _external_server() -> PgServer | None:
             "name contains 'test' or set RAGASSIST_TEST_DB_ALLOW_WIPE=1."
         )
     return PgServer(
-        url.host or "localhost",
-        url.port or 5432,
-        database,
-        url.username or "postgres",
-        url.password or "",
+        host=url.host or "localhost",
+        port=url.port or 5432,
+        database=database,
+        admin_user=url.username or "",
+        admin_password=url.password or "",
     )
 
 
@@ -173,12 +189,18 @@ def pg_server() -> Iterator[PgServer]:
         )
     from testcontainers.postgres import PostgresContainer
 
+    admin_user, admin_password = "test_admin", secrets.token_urlsafe(24)
     container = PostgresContainer(
-        PG_IMAGE, username="postgres", password="postgres", dbname=DB_NAME, driver="asyncpg"
+        PG_IMAGE, username=admin_user, password=admin_password, dbname=DB_NAME, driver="asyncpg"
     )
     container.start()
     try:
-        server = PgServer(container.get_container_host_ip(), int(container.get_exposed_port(5432)))
+        server = PgServer(
+            host=container.get_container_host_ip(),
+            port=int(container.get_exposed_port(5432)),
+            admin_user=admin_user,
+            admin_password=admin_password,
+        )
         asyncio.run(_bootstrap(server))
         yield server
     finally:
