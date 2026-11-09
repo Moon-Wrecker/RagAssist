@@ -7,7 +7,7 @@ import structlog
 
 from ragassist.platform.embeddings.ports import EmbeddingProvider
 from ragassist.platform.embeddings.projector import DimensionProjector
-from ragassist.shared.config.settings import Settings, get_settings
+from ragassist.shared.config.settings import Settings, UNCONFIGURED_KEY, get_settings
 
 logger = structlog.get_logger(__name__)
 
@@ -27,10 +27,10 @@ class OpenAICompatibleEmbeddingAdapter(EmbeddingProvider):
     ) -> None:
         self.settings = settings or get_settings()
         self._base_url = base_url or self.settings.OPENAI_COMPATIBLE_BASE_URL
-        self._model_name = model_name or "nomic-embed-text"
+        self._model_name = model_name or self.settings.OPENAI_COMPATIBLE_EMBEDDING_MODEL
         self._dimension = dimension or self.settings.EMBEDDING_DIMENSION
         self._batch_size = batch_size or self.settings.EMBEDDING_BATCH_SIZE
-        self._api_key = api_key or self.settings.OPENAI_COMPATIBLE_API_KEY
+        self._api_key = api_key or self.settings.OPENAI_COMPATIBLE_API_KEY or UNCONFIGURED_KEY
         self._timeout = timeout
         self._projector = DimensionProjector(target_dimension=self._dimension)
 

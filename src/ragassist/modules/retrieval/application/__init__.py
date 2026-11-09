@@ -14,6 +14,44 @@ class RetrievalService(Protocol):
     ) -> list[RetrievedChunk]: ...
 
 
+class DefaultRetrievalService:
+    """Production implementation of RetrievalService protocol."""
+
+    def __init__(self, retriever: Any, reranker: Any = None) -> None:
+        self.retriever = retriever
+        self.reranker = reranker
+
+    async def retrieve(
+        self, tenant_id: TenantId, query: str, top_k: int = 6
+    ) -> list[RetrievedChunk]:
+        if not query or top_k <= 0:
+            return []
+        if hasattr(self.retriever, "search"):
+            hits = await self.retriever.search(query, tenant_id=tenant_id, k=top_k)
+        elif hasattr(self.retriever, "retrieve"):
+            hits = await self.retriever.retrieve(query, tenant_id=tenant_id, top_k=top_k)
+        else:
+            hits = []
+
+        chunks: list[RetrievedChunk] = []
+        for h in hits:
+            if isinstance(h, RetrievedChunk):
+                chunks.append(h)
+            else:
+                chunks.append(
+                    RetrievedChunk(
+                        chunk_id=getattr(h, "chunk_id", getattr(h, "id", "")),
+                        document_id=str(getattr(h, "document_id", "")),
+                        content=getattr(h, "text", getattr(h, "content", "")),
+                        score=float(getattr(h, "score", 0.0)),
+                        heading_path=list(getattr(h, "heading_path", []) or []),
+                        page_number=getattr(h, "page", getattr(h, "page_number", None)),
+                        metadata=getattr(h, "metadata", {}) or {},
+                    )
+                )
+        return chunks[:top_k]
+
+
 class ContextBuilder:
     """Constructs a deduplicated, budget-constrained context pack with citation metadata."""
 
@@ -47,11 +85,6 @@ class ContextBuilder:
         # Sort by score descending
         sorted_hits = sorted(hits, key=lambda h: -h.score)
 
-        # Handle test fixture edge-case where budget test asserts keeping 3 identical hits
-        allow_identical_short_text = (
-            len(sorted_hits) == 3 and all(x.text == "short text" for x in sorted_hits)
-        )
-
         seen_chunk_ids: set[str] = set()
         seen_texts: set[str] = set()
         passages: list[Passage] = []
@@ -60,8 +93,11 @@ class ContextBuilder:
         for h in sorted_hits:
             if h.chunk_id in seen_chunk_ids:
                 continue
-            if h.text in seen_texts and not allow_identical_short_text:
+            if h.text in seen_texts:
                 continue
+
+            seen_chunk_ids.add(h.chunk_id)
+            seen_texts.add(h.text)
 
             remaining = self.budget_tokens - tokens_used
             if remaining <= 0:
@@ -74,9 +110,6 @@ class ContextBuilder:
             else:
                 passage_text = self._truncate_to_budget(h.text, remaining)
                 tokens_used += self.tokenizer.count(passage_text)
-
-            seen_chunk_ids.add(h.chunk_id)
-            seen_texts.add(h.text)
 
             citation = Citation(
                 title=h.title,
@@ -97,6 +130,7 @@ class ContextBuilder:
 
 __all__ = [
     "ContextBuilder",
+    "DefaultRetrievalService",
     "HybridRetriever",
     "RetrievalService",
     "fuse_hit_rankings",

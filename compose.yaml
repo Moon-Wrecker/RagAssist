@@ -1,24 +1,45 @@
 name: ragassist
 
+# Every credential and deployment value is read from .env (create it with `ragassist init-env`, or copy
+# .env.example and fill the blanks). Nothing secret lives in this file; a missing value stops `docker compose`
+# with the variable's name.
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: infra/docker/api.Dockerfile
+  env_file:
+    - .env
+  environment: &app-environment
+    # Inside the compose network the services reach each other by service name, not localhost.
+    DB_HOST: postgres
+    DB_PORT: 5432
+    LOCALSTACK_ENDPOINT: http://localstack:4566
+    MOCK_SAAS_BASE_URL: http://mock-saas:8001
+    PERSISTENCE_BACKEND: postgres
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
     container_name: ragassist-postgres
     restart: unless-stopped
     ports:
-      - "5432:5432"
+      - "${DB_PORT:?run ragassist init-env}:5432"
     environment:
-      POSTGRES_DB: ragassist
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: ${DB_NAME:?run ragassist init-env}
+      POSTGRES_USER: ${DB_ADMIN_USER:?run ragassist init-env}
+      POSTGRES_PASSWORD: ${DB_ADMIN_PASSWORD:?run ragassist init-env}
+      APP_DB_USER: ${DB_APP_USER:?run ragassist init-env}
+      APP_DB_PASSWORD: ${DB_APP_PASSWORD:?run ragassist init-env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./infra/postgres/init.sql:/docker-entrypoint-initdb.d/00-extensions.sql:ro
+      - ./infra/postgres/create-app-role.sh:/docker-entrypoint-initdb.d/10-create-app-role.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d ragassist"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   localstack:
     image: localstack/localstack:3.8.1
@@ -29,10 +50,15 @@ services:
     environment:
       SERVICES: s3,sqs,secretsmanager
       DEBUG: 0
-      AWS_DEFAULT_REGION: us-east-1
+      AWS_DEFAULT_REGION: ${AWS_REGION:?run ragassist init-env}
     volumes:
       - localstack_data:/var/lib/localstack
       - ./infra/localstack/init.sh:/etc/localstack/init/ready.d/init.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:4566/_localstack/health | grep -q '\"sqs\"'"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
 
   mock-saas:
     build:
@@ -50,25 +76,41 @@ services:
       timeout: 5s
       retries: 5
 
-  api:
-    build:
-      context: .
-      dockerfile: infra/docker/api.Dockerfile
-    container_name: ragassist-api
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
+  migrate:
+    <<: *app
+    container_name: ragassist-migrate
+    restart: "no"
+    command: ["ragassist", "db", "upgrade"]
     depends_on:
       postgres:
         condition: service_healthy
+
+  api:
+    <<: *app
+    container_name: ragassist-api
+    restart: unless-stopped
+    command: ["ragassist", "serve", "--host", "0.0.0.0", "--port", "8000"]
+    ports:
+      - "8000:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
       localstack:
-        condition: service_started
+        condition: service_healthy
       mock-saas:
+        condition: service_healthy
+
+  worker:
+    <<: *app
+    container_name: ragassist-worker
+    restart: unless-stopped
+    command: ["ragassist", "worker"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      localstack:
         condition: service_healthy
 
 volumes:
   postgres_data:
   localstack_data:
-

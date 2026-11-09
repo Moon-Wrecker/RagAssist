@@ -14,6 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import re
+import secrets
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
 from typing import Any
@@ -359,10 +360,13 @@ async def test_feature_29_sse_token_event_parsing_and_assembly(
     token_events = parsed_stream.of("token")
     assert len(token_events) >= 3
 
-    # Assemble tokens
+    # The tokens, concatenated in order, are the assistant's answer: the one stored for the turn.
     assembled = "".join(e.json()["text"] for e in token_events)
-    assert len(assembled) > 0
-    assert "Explain architecture" in assembled
+    assert assembled.strip()
+    detail = (await tier4_client.get(f"/v1/conversations/{conv_id}", headers=auth_headers_a)).json()
+    answers = [m["text"] for m in detail["messages"] if m["role"] == "assistant"]
+    assert answers, "the finished turn must store the assistant message"
+    assert assembled.strip() == answers[-1].strip()
 
 
 @pytest.mark.asyncio
@@ -473,9 +477,11 @@ async def test_feature_29_sse_citations_arrive_before_done(
 async def test_feature_29_sse_graceful_error_reporting_not_connection_drop():
     """Verify generation exceptions emit well-formed event: error without leaking tracebacks."""
 
+    leaked_secret = "sk-" + secrets.token_hex(6)
+
     async def failing_stream() -> AsyncIterator[dict[str, Any]]:
         yield {"event": "token", "data": {"text": "Partial start"}}
-        raise RuntimeError("Database connection timed out with secret <redacted>")
+        raise RuntimeError(f"Database connection timed out with secret {leaked_secret}")
 
     stream = sse_stream(failing_stream(), heartbeat_seconds=60)
     raw_sse = "".join([chunk async for chunk in stream])
@@ -484,7 +490,7 @@ async def test_feature_29_sse_graceful_error_reporting_not_connection_drop():
     assert len(errors) == 1
     err_data = errors[0].json()
     assert err_data["code"] == "internal_error"
-    assert "<redacted>" not in raw_sse
+    assert leaked_secret not in raw_sse
     assert "Traceback" not in raw_sse
 
 
@@ -546,13 +552,13 @@ async def test_feature_29_sse_client_disconnect_cancellation():
 @pytest.mark.asyncio
 async def test_feature_30_upload_valid_pdf_returns_202_accepted(
     tier4_client: httpx.AsyncClient,
-    auth_headers_a: dict[str, str],
+    admin_headers_a: dict[str, str],
 ):
     """Verify multipart upload of PDF returns HTTP 202 Accepted with task and doc IDs."""
     pdf_bytes = b"%PDF-1.4\n1 0 obj\n<< /Title (Company Handbook) >>\nendobj\ntrailer\n<<>>\n%%EOF"
     files = {"file": ("handbook.pdf", pdf_bytes, "application/pdf")}
 
-    res = await tier4_client.post("/v1/documents", files=files, headers=auth_headers_a)
+    res = await tier4_client.post("/v1/documents", files=files, headers=admin_headers_a)
     assert res.status_code == status.HTTP_202_ACCEPTED
     body = res.json()
     assert UUID(body["document_id"])
@@ -564,7 +570,7 @@ async def test_feature_30_upload_valid_pdf_returns_202_accepted(
 @pytest.mark.asyncio
 async def test_feature_30_upload_valid_markdown_and_html(
     tier4_client: httpx.AsyncClient,
-    auth_headers_a: dict[str, str],
+    admin_headers_a: dict[str, str],
 ):
     """Verify multipart upload accepts Markdown and HTML documents."""
     # Markdown
@@ -572,7 +578,7 @@ async def test_feature_30_upload_valid_markdown_and_html(
     res_md = await tier4_client.post(
         "/v1/documents",
         files={"file": ("notes.md", md_content, "text/markdown")},
-        headers=auth_headers_a,
+        headers=admin_headers_a,
     )
     assert res_md.status_code == status.HTTP_202_ACCEPTED
     assert res_md.json()["status"] == "queued"
@@ -582,7 +588,7 @@ async def test_feature_30_upload_valid_markdown_and_html(
     res_html = await tier4_client.post(
         "/v1/documents",
         files={"file": ("faq.html", html_content, "text/html")},
-        headers=auth_headers_a,
+        headers=admin_headers_a,
     )
     assert res_html.status_code == status.HTTP_202_ACCEPTED
     assert res_html.json()["status"] == "queued"
@@ -591,24 +597,24 @@ async def test_feature_30_upload_valid_markdown_and_html(
 @pytest.mark.asyncio
 async def test_feature_30_upload_rejects_unsupported_mime_type(
     tier4_client: httpx.AsyncClient,
-    auth_headers_a: dict[str, str],
+    admin_headers_a: dict[str, str],
 ):
     """Verify unsupported binary/executable file formats are rejected with 415."""
     bad_bytes = b"\x4d\x5a\x90\x00\x03\x00\x00\x00"  # MZ executable header
     files = {"file": ("program.exe", bad_bytes, "application/x-msdownload")}
 
-    res = await tier4_client.post("/v1/documents", files=files, headers=auth_headers_a)
+    res = await tier4_client.post("/v1/documents", files=files, headers=admin_headers_a)
     assert res.status_code == status.HTTP_415_UNSUPPORTED_MEDIA_TYPE
 
 
 @pytest.mark.asyncio
 async def test_feature_30_upload_rejects_empty_file(
     tier4_client: httpx.AsyncClient,
-    auth_headers_a: dict[str, str],
+    admin_headers_a: dict[str, str],
 ):
     """Verify 0-byte upload is rejected with 400 Bad Request."""
     files = {"file": ("empty.pdf", b"", "application/pdf")}
-    res = await tier4_client.post("/v1/documents", files=files, headers=auth_headers_a)
+    res = await tier4_client.post("/v1/documents", files=files, headers=admin_headers_a)
     assert res.status_code == status.HTTP_400_BAD_REQUEST
 
 
@@ -810,8 +816,8 @@ def test_feature_33_langsmith_resilience_on_unreachable_endpoint():
 def test_feature_33_langsmith_sensitive_credential_redaction():
     """Verify Authorization tokens and secrets are redacted before entering trace spans."""
     raw_headers = {
-        "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.secretpayload",
-        "X-Custom-Secret": "<redacted>",
+        "Authorization": "Bearer " + secrets.token_urlsafe(32),
+        "X-Custom-Secret": "sk-" + secrets.token_hex(12),
         "Content-Type": "application/json",
     }
 

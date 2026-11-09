@@ -7,7 +7,6 @@ from __future__ import annotations
 import httpx
 import pytest
 from factories.principals import auth_header, make_token
-from support.defects import defect
 from support.specs.routes import concrete, require_route
 
 from ragassist.main import create_app
@@ -32,7 +31,6 @@ async def call(app, key: str, role: UserRole, body: dict | None = None):  # type
 
 
 class TestRoleMatrix:
-    @defect("DEFECT-39")
     async def test_only_admins_can_upload_documents(self, app) -> None:  # type: ignore[no-untyped-def]
         method, path = require_route(app, "upload_document")
         async with httpx.AsyncClient(

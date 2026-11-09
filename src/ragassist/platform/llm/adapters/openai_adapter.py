@@ -4,7 +4,7 @@ from typing import Any
 from langchain_core.language_models.chat_models import BaseChatModel
 from langchain_openai import ChatOpenAI
 from ragassist.platform.llm.ports import ChatModelProvider, ModelCapabilities, ModelPricing
-from ragassist.shared.config.settings import Settings, get_settings
+from ragassist.shared.config.settings import Settings, UNCONFIGURED_KEY, get_settings
 
 
 class OpenAIAdapter(ChatModelProvider):
@@ -44,7 +44,7 @@ class OpenAIAdapter(ChatModelProvider):
     ) -> BaseChatModel:
         return ChatOpenAI(
             model=model_name,
-            api_key=self.settings.OPENAI_API_KEY or "<redacted>",
+            api_key=self.settings.OPENAI_API_KEY or UNCONFIGURED_KEY,
             temperature=temperature,
             max_tokens=max_tokens,
             streaming=streaming,

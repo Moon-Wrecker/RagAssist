@@ -31,6 +31,14 @@ async def insert_chunk(
 ) -> str:  # type: ignore[no-untyped-def]
     chunk_model = need("knowledge.ChunkModel")
     chunk_id = str(uuid4())
+    async with admin_engine.begin() as conn:  # a chunk belongs to a document (foreign key)
+        await conn.execute(
+            text(
+                "INSERT INTO documents (id, tenant_id, title, filename, content_type, object_key) "
+                "VALUES (:id, :tenant, :title, 'seed.md', 'text/markdown', :key) ON CONFLICT (id) DO NOTHING"
+            ),
+            {"id": document_id, "tenant": tenant_id, "title": title, "key": f"seed/{document_id}"},
+        )
     async with AsyncSession(admin_engine) as session:
         session.add(
             chunk_model(

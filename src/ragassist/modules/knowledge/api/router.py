@@ -28,7 +28,7 @@ from ragassist.platform.queue.sqs_adapter import InMemoryMessageQueue, SQSMessag
 from ragassist.platform.storage.s3_adapter import InMemoryObjectStore, S3ObjectStore
 from ragassist.shared.config.settings import get_settings
 from ragassist.shared.security.deps import get_current_principal
-from ragassist.shared.security.jwt import Principal
+from ragassist.shared.security.jwt import Principal, UserRole
 
 router = APIRouter(tags=["Knowledge"])
 
@@ -217,6 +217,12 @@ async def upload_document(
     knowledge_store: InMemoryDocumentStore = Depends(get_knowledge_store),
 ) -> DocumentUploadResponse:
     """Upload a multipart document, persist to S3, record state, and enqueue SQS job."""
+    if principal.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin role required to upload documents",
+        )
+
     content = await file.read()
     if not content:
         raise HTTPException(

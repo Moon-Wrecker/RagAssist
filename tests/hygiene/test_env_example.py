@@ -12,7 +12,9 @@ from ragassist.shared.config.settings import Settings
 
 EXAMPLE = REPO_ROOT / ".env.example"
 SECRETISH = re.compile(r"(API_KEY|SECRET|PASSWORD|ACCESS_KEY|_KEY$|^SECRET_KEY$)", re.I)
-PLACEHOLDER = re.compile(r"^(|test|ollama|dummy|change-this.*|dev-.*|your-.*|<.*>|none)$", re.I)
+PLACEHOLDER = re.compile(
+    r"^(|<.*>)$"
+)  # a secret is blank (init-env generates it) or an obvious <placeholder>
 REAL_SECRET_SHAPES = {
     "OpenAI-style key": r"sk-[A-Za-z0-9_-]{20,}",
     "AWS access key id": r"AKIA[0-9A-Z]{16}",
@@ -58,15 +60,35 @@ class TestValuesMatchDefaults:
     def test_the_file_loads_into_valid_settings(self) -> None:
         Settings(_env_file=EXAMPLE)  # raises ValidationError on a bad value
 
-    def test_every_value_equals_the_code_default(self) -> None:
-        from_file = Settings(_env_file=EXAMPLE)
-        from_code = Settings(_env_file=None, SECRET_KEY=from_file.SECRET_KEY)
-        different = {
-            name: (getattr(from_file, name), getattr(from_code, name))
-            for name in Settings.model_fields
-            if getattr(from_file, name) != getattr(from_code, name)
+    def test_secrets_are_blank_in_the_template_and_required_by_settings(self) -> None:
+        """AGENTS.md 3.7: the template ships no credential; Settings has no default to fall back on."""
+        from ragassist.shared.config.envfile import blank_required_fields
+
+        secrets_ = blank_required_fields(EXAMPLE)
+        assert {"SECRET_KEY", "DB_APP_PASSWORD", "DB_ADMIN_PASSWORD", "DEV_AUTH_SECRET"} <= set(
+            secrets_
+        )
+        for name in secrets_:
+            assert Settings.model_fields[name].is_required()
+
+    def test_no_secretish_field_has_a_nonempty_code_default(self) -> None:
+        offenders = {
+            name: field.default
+            for name, field in Settings.model_fields.items()
+            if SECRETISH.search(name)
+            and not field.is_required()
+            and field.default not in ("", None)
         }
-        assert not different, f"(.env.example, settings.py default) differ for: {different}"
+        assert not offenders, f"Hard-coded credential defaults in settings.py: {sorted(offenders)}"
+
+    def test_no_field_embeds_a_credential_in_its_default(self) -> None:
+        offenders = [
+            name
+            for name, field in Settings.model_fields.items()
+            if isinstance(field.default, str)
+            and re.search(r"://[^/\s:@]+:[^/\s@]+@", field.default)
+        ]
+        assert not offenders, f"Connection strings with credentials as defaults: {offenders}"
 
     def test_the_template_defaults_to_a_development_environment(
         self, example: dict[str, str | None]

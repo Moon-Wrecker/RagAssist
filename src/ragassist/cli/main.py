@@ -38,6 +38,26 @@ def serve(
     )
 
 
+@app.command("init-env")
+def init_env(
+    output: str = typer.Option(".env", "--output", "-o", help="File to create"),
+    template: str = typer.Option(".env.example", "--template", help="Template to start from"),
+    force: bool = typer.Option(False, "--force", help="Overwrite the file if it already exists"),
+) -> None:
+    """Create a working .env from the template, generating the secrets it leaves blank."""
+    from pathlib import Path
+
+    from ragassist.shared.config.envfile import write_env
+
+    try:
+        generated = write_env(Path(template), Path(output), force=force)
+    except FileExistsError as exc:
+        typer.echo(f"{exc} Use --force to replace it.", err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"Wrote {output}. Generated: {', '.join(generated) or 'nothing (no blank secrets)'}.")
+    typer.echo("Set OPENAI_API_KEY (or OPENAI_COMPATIBLE_*) in it before using the assistant.")
+
+
 @app.command()
 def worker() -> None:
     """Run the background SQS ingestion worker."""

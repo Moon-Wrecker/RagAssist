@@ -61,6 +61,18 @@ def tenant_2_user_headers():
     return {"Authorization": f"Bearer {token}"}
 
 
+@pytest.fixture
+def tenant_1_admin_headers():
+    token = create_access_token(user_id=uuid4(), tenant_id=TENANT_1, role=UserRole.ADMIN)
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def tenant_2_admin_headers():
+    token = create_access_token(user_id=uuid4(), tenant_id=TENANT_2, role=UserRole.ADMIN)
+    return {"Authorization": f"Bearer {token}"}
+
+
 class TestSystemAndObservability:
     """Verifies health check, Prometheus metrics exposition, and timing middleware."""
 
@@ -133,12 +145,12 @@ class TestKnowledgeApi:
     """Verifies multipart document upload, listing, job details, re-indexing, and deletion."""
 
     @pytest.mark.asyncio
-    async def test_upload_document_multipart_success(self, app, tenant_1_user_headers):
+    async def test_upload_document_multipart_success(self, app, tenant_1_admin_headers):
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         ) as client:
             files = {"file": ("guide.md", b"# Knowledge Base\n\nWelcome.", "text/markdown")}
-            resp = await client.post("/v1/documents", files=files, headers=tenant_1_user_headers)
+            resp = await client.post("/v1/documents", files=files, headers=tenant_1_admin_headers)
             assert resp.status_code == 202
             data = resp.json()
             assert "document_id" in data
@@ -147,12 +159,12 @@ class TestKnowledgeApi:
             assert "tenants/" in data["object_key"]
 
     @pytest.mark.asyncio
-    async def test_upload_document_unsupported_mime(self, app, tenant_1_user_headers):
+    async def test_upload_document_unsupported_mime(self, app, tenant_1_admin_headers):
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         ) as client:
             files = {"file": ("malware.exe", b"binarydata", "application/x-msdownload")}
-            resp = await client.post("/v1/documents", files=files, headers=tenant_1_user_headers)
+            resp = await client.post("/v1/documents", files=files, headers=tenant_1_admin_headers)
             assert resp.status_code == 415
 
     @pytest.mark.asyncio
@@ -166,7 +178,7 @@ class TestKnowledgeApi:
 
     @pytest.mark.asyncio
     async def test_list_documents_tenant_isolated(
-        self, app, tenant_1_user_headers, tenant_2_user_headers
+        self, app, tenant_1_admin_headers, tenant_2_admin_headers
     ):
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
@@ -174,71 +186,71 @@ class TestKnowledgeApi:
             # Upload doc for Tenant 1
             files = {"file": ("tenant1.md", b"Content 1", "text/markdown")}
             upload_resp = await client.post(
-                "/v1/documents", files=files, headers=tenant_1_user_headers
+                "/v1/documents", files=files, headers=tenant_1_admin_headers
             )
             doc_id_1 = upload_resp.json()["document_id"]
 
             # Tenant 1 lists docs
-            t1_list = await client.get("/v1/documents", headers=tenant_1_user_headers)
+            t1_list = await client.get("/v1/documents", headers=tenant_1_admin_headers)
             assert t1_list.status_code == 200
             t1_ids = [d["document_id"] for d in t1_list.json()["items"]]
             assert doc_id_1 in t1_ids
 
             # Tenant 2 lists docs -> does not see Tenant 1 doc
-            t2_list = await client.get("/v1/documents", headers=tenant_2_user_headers)
+            t2_list = await client.get("/v1/documents", headers=tenant_2_admin_headers)
             assert t2_list.status_code == 200
             t2_ids = [d["document_id"] for d in t2_list.json()["items"]]
             assert doc_id_1 not in t2_ids
 
     @pytest.mark.asyncio
     async def test_ingestion_job_status_and_isolation(
-        self, app, tenant_1_user_headers, tenant_2_user_headers
+        self, app, tenant_1_admin_headers, tenant_2_admin_headers
     ):
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         ) as client:
             files = {"file": ("job_test.md", b"Job test content", "text/markdown")}
             upload_resp = await client.post(
-                "/v1/documents", files=files, headers=tenant_1_user_headers
+                "/v1/documents", files=files, headers=tenant_1_admin_headers
             )
             job_id = upload_resp.json()["job_id"]
 
             # Tenant 1 gets job status
-            res = await client.get(f"/v1/ingestion-jobs/{job_id}", headers=tenant_1_user_headers)
+            res = await client.get(f"/v1/ingestion-jobs/{job_id}", headers=tenant_1_admin_headers)
             assert res.status_code == 200
             assert res.json()["job_id"] == job_id
             assert res.json()["status"] == "queued"
 
             # Tenant 2 accessing Tenant 1 job -> 404
             res_foreign = await client.get(
-                f"/v1/ingestion-jobs/{job_id}", headers=tenant_2_user_headers
+                f"/v1/ingestion-jobs/{job_id}", headers=tenant_2_admin_headers
             )
             assert res_foreign.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_reindex_and_delete_document(self, app, tenant_1_user_headers):
+    async def test_reindex_and_delete_document(self, app, tenant_1_admin_headers):
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         ) as client:
             files = {"file": ("to_delete.md", b"delete me", "text/markdown")}
-            up = await client.post("/v1/documents", files=files, headers=tenant_1_user_headers)
+            up = await client.post("/v1/documents", files=files, headers=tenant_1_admin_headers)
             doc_id = up.json()["document_id"]
 
             # Reindex
             reindex_res = await client.post(
-                f"/v1/documents/{doc_id}/reindex", headers=tenant_1_user_headers
+                f"/v1/documents/{doc_id}/reindex", headers=tenant_1_admin_headers
             )
             assert reindex_res.status_code == 200
             assert reindex_res.json()["status"] == "queued"
 
             # Delete
-            del_res = await client.delete(f"/v1/documents/{doc_id}", headers=tenant_1_user_headers)
+            del_res = await client.delete(f"/v1/documents/{doc_id}", headers=tenant_1_admin_headers)
             assert del_res.status_code == 200
             assert del_res.json()["deleted"] is True
 
             # Re-fetch deleted -> 404
             reindex_again = await client.post(
-                f"/v1/documents/{doc_id}/reindex", headers=tenant_1_user_headers
+                f"/v1/documents/{doc_id}/reindex", headers=tenant_1_admin_headers
             )
             assert reindex_again.status_code == 404
 
