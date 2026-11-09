@@ -3,7 +3,8 @@ import { AppShell } from "@/components/app-shell";
 import { PublicOnly, RequireAuth, RequireRole } from "@/auth/guards";
 import { AcceptInvitePage, ResetPasswordPage } from "@/features/auth/set-password-page";
 import { SignInPage } from "@/features/auth/sign-in-page";
-import { ChatPage, InboxPage, KnowledgePage, TeamPage } from "@/pages/pages";
+import { ChatPage } from "@/features/chat/chat-page";
+import { InboxPage, KnowledgePage, TeamPage } from "@/pages/pages";
 import { NotFoundPage } from "@/pages/not-found-page";
 import { APP_ROUTES } from "./access";
 
