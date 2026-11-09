@@ -148,10 +148,17 @@ Reports are written to [`evals/reports/eval_summary.md`](evals/reports/eval_summ
 
 ---
 
+## Tracing (Langfuse)
+
+Off by default. To trace every assistant turn (question, answer, retrieval, model calls with model name and token usage,
+grouped by conversation and user), set `LANGFUSE_TRACING=true`, `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY` and the
+`LANGFUSE_BASE_URL` of your region in `.env`. Credentials are redacted before export, but conversation text and retrieved
+passages are sent to the project, so choose the region deliberately. See [ADR 0012](docs/adr/0012-langfuse-tracing.md).
+
 ## Documentation & Architecture Decision Records
 
 - **Repository Rules & Hygiene**: [`AGENTS.md`](AGENTS.md)
-- **Architecture Decision Records**: [`docs/adr/`](docs/adr/) (`ADR-0001` through `ADR-0008`)
+- **Architecture Decision Records**: [`docs/adr/`](docs/adr/) (`ADR-0001` through `ADR-0013`)
 - **SSE Streaming Contract**: [`docs/api/sse-contract.md`](docs/api/sse-contract.md)
 - **Testing Strategy**: [`docs/testing.md`](docs/testing.md)
 - **CI/CD Pipeline**: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (enforces `ruff`, `mypy`, `lint-imports`, unit/graph/security/hygiene tests, PostgreSQL integration tests, and coverage gates on every pull request).
