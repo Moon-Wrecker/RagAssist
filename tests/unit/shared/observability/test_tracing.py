@@ -178,6 +178,25 @@ class TestFacade:
             }
         ]
 
+    def test_observe_is_free_when_off(self) -> None:
+        with Tracing().observe("retrieve-passages", as_type="retriever", input="q") as span:
+            span.finish([], hits="0")
+
+    def test_observe_records_a_typed_child_with_input_output_and_metadata(self) -> None:
+        client = _FakeClient()
+        facade = Tracing(client, lambda: None)
+        with facade.observe(
+            "retrieve-passages", as_type="retriever", input="reset password"
+        ) as span:
+            span.finish([{"chunk_id": "c1"}], hits="1")
+        ((kwargs, root),) = client.roots
+        assert kwargs == {
+            "name": "retrieve-passages",
+            "as_type": "retriever",
+            "input": "reset password",
+        }
+        assert root.updates == [{"output": [{"chunk_id": "c1"}], "metadata": {"hits": "1"}}]
+
     def test_flush_and_shutdown_reach_the_client(self) -> None:
         client = _FakeClient()
         facade = Tracing(client, lambda: None)

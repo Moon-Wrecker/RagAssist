@@ -84,7 +84,9 @@ def redact(value: Any) -> Any:
         return [redact(v) for v in value]
     if isinstance(value, str):
         return _SECRET_VALUE.sub(REDACTED, value)
-    if is_dataclass(value) and not isinstance(value, type):  # e.g. the signed-in Principal, token included
+    if is_dataclass(value) and not isinstance(
+        value, type
+    ):  # e.g. the signed-in Principal, token included
         return redact({f.name: getattr(value, f.name) for f in fields(value)})
     dump = getattr(value, "model_dump", None)
     if callable(dump):  # a pydantic model
@@ -144,7 +146,11 @@ class TurnTrace:
 
     def config(self, base: dict[str, Any]) -> dict[str, Any]:
         """``base`` plus the Langfuse callback handler, which nests the graph under this turn's root."""
-        return {**base, "callbacks": [*base.get("callbacks", []), self._handler_factory()], "run_name": "assistant-graph"}
+        return {
+            **base,
+            "callbacks": [*base.get("callbacks", []), self._handler_factory()],
+            "run_name": "assistant-graph",
+        }
 
     def finish(self, output: Any, **metadata: str) -> None:
         """Set the turn's output (the answer a reviewer reads) and small string facts such as route and status."""
@@ -180,17 +186,33 @@ class Tracing:
             return
         from langfuse import propagate_attributes
 
-        with self._client.start_as_current_observation(
-            name=ctx.name, as_type="agent", input=ctx.question
-        ) as root:
-            with propagate_attributes(
+        with (
+            self._client.start_as_current_observation(
+                name=ctx.name, as_type="agent", input=ctx.question
+            ) as root,
+            propagate_attributes(
                 trace_name=ctx.name,
                 user_id=ctx.user_id,
                 session_id=ctx.conversation_id,
                 tags=["assistant", ctx.mode],
                 metadata={"tenant_id": ctx.tenant_id, "role": ctx.role},
-            ):
-                yield TurnTrace(root, self._handler_factory)
+            ),
+        ):
+            yield TurnTrace(root, self._handler_factory)
+
+    @contextmanager
+    def observe(self, name: str, *, as_type: str, input: Any) -> Iterator[TurnTrace | _NullTurn]:
+        """A typed child observation (e.g. ``retriever``) for work our own code does outside LangChain.
+
+        Names stay stable and verb-first; dynamic values go in ``finish(..., key=value)`` metadata. Off, it is free.
+        """
+        if self._client is None:
+            yield _NullTurn()
+            return
+        with self._client.start_as_current_observation(
+            name=name, as_type=as_type, input=input
+        ) as obs:
+            yield TurnTrace(obs, self._handler_factory)
 
     def flush(self) -> None:
         if self._client is not None:
@@ -233,7 +255,9 @@ def build_tracing(settings: Any) -> Tracing:
     if not settings.LANGFUSE_TRACING:
         return Tracing()
     if not (settings.LANGFUSE_PUBLIC_KEY and settings.LANGFUSE_SECRET_KEY):
-        logger.warning("tracing.disabled", reason="LANGFUSE_TRACING is on but a Langfuse key is missing")
+        logger.warning(
+            "tracing.disabled", reason="LANGFUSE_TRACING is on but a Langfuse key is missing"
+        )
         return Tracing()
     from langfuse import Langfuse
     from langfuse.langchain import CallbackHandler
@@ -246,7 +270,9 @@ def build_tracing(settings: Any) -> Tracing:
         sample_rate=settings.LANGFUSE_SAMPLE_RATE,
         mask_otel_spans=mask_otel_spans,
     )
-    logger.info("tracing.enabled", base_url=settings.LANGFUSE_BASE_URL, environment=settings.APP_ENV)
+    logger.info(
+        "tracing.enabled", base_url=settings.LANGFUSE_BASE_URL, environment=settings.APP_ENV
+    )
     return Tracing(client, lambda: CallbackHandler(public_key=settings.LANGFUSE_PUBLIC_KEY))
 
 
