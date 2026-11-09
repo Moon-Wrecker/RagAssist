@@ -194,6 +194,27 @@ async def get_conversation(
     )
 
 
+async def _open_ticket(
+    store: Any, principal: Principal, conversation_id: str, question: str
+) -> dict[str, Any] | None:
+    """Create the helpdesk ticket for an escalated turn (idempotent). ``None`` without a helpdesk (memory mode)."""
+    from ragassist.runtime import active_runtime
+
+    runtime = active_runtime()
+    if runtime is None:
+        return None
+    from ragassist.modules.escalation.application import EscalateConversation
+
+    try:
+        result = await EscalateConversation(store, runtime.helpdesk).execute(
+            principal, conversation_id, summary=question[:500] or "Customer needs a human agent", priority="high"
+        )
+    except Exception as exc:  # noqa: BLE001 - the answer was already produced; do not fail the turn over the ticket
+        logger.error("assistant.escalation_failed", error=str(exc))
+        return None
+    return {"ticket_id": result.ticket_id, "status": result.status, "priority": "high"}
+
+
 #: Graph nodes whose chat-model tokens are the answer streamed to the client.
 ANSWER_NODES = frozenset({"generate", "account_agent"})
 
@@ -221,7 +242,13 @@ async def _stream_graph_events(
                 data = event.get("data", {})
 
                 # 1. Tokens from LLM generation node
-                if kind == "on_chat_model_stream":
+                if kind == "on_chat_model_start":
+                    node = (event.get("metadata") or {}).get("langgraph_node")
+                    if node in ANSWER_NODES and final_answer:
+                        # The graph is regenerating: the client drops what it showed so far.
+                        final_answer = ""
+                        yield {"event": "token", "data": {"text": "", "reset": True}}
+                elif kind == "on_chat_model_stream":
                     chunk = data.get("chunk")
                     content = getattr(chunk, "content", "") if chunk else ""
                     node = (event.get("metadata") or {}).get("langgraph_node")
@@ -347,16 +374,7 @@ async def _stream_graph_events(
             chunk = word if i == len(words) - 1 else word + " "
             yield {"event": "token", "data": {"text": chunk}}
 
-    # Terminal done event
-    yield {
-        "event": "done",
-        "data": {
-            "conversation_id": conversation_id,
-            "status": final_status,
-        },
-    }
-
-    # Record message in conversation store
+    # Persist the turn first: the SSE wrapper stops at the terminal event, so nothing after it would run.
     if final_answer:
         await store.append_message(
             principal.tenant_id,
@@ -368,6 +386,19 @@ async def _stream_graph_events(
                 "created_at": datetime.now(timezone.utc).isoformat(),
             },
         )
+    if final_status == "escalated":
+        ticket = await _open_ticket(store, principal, conversation_id, user_query)
+        if ticket is not None:
+            yield {"event": "escalated", "data": ticket}
+
+    # Terminal done event
+    yield {
+        "event": "done",
+        "data": {
+            "conversation_id": conversation_id,
+            "status": final_status,
+        },
+    }
 
 
 @router.post(
@@ -452,6 +483,8 @@ async def ask_message(
         conversation_id,
         {"role": "assistant", "text": answer_text, "citations": citations, "created_at": now},
     )
+    if status_val == "escalated":
+        await _open_ticket(store, principal, conversation_id, req.content)
 
     return MessageResponse(
         conversation_id=conversation_id,

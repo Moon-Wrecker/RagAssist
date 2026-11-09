@@ -41,6 +41,14 @@ event: token
 data: {"text": " to the"}
 ```
 
+When the graph regenerates the answer (for example after a failed grounding check) it first sends a token event with
+`"reset": true` and empty text. The client discards the text it has shown so far and starts again from the next token.
+
+```sse
+event: token
+data: {"text": "", "reset": true}
+```
+
 ### 2. `citation`
 Emitted as citations for retrieved document chunks are finalized (prior to `done`).
 
