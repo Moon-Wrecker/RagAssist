@@ -120,9 +120,16 @@ class RequestTimingMiddleware(BaseHTTPMiddleware):
         method = request.method if request.method in _KNOWN_METHODS else "OTHER"
 
         self.registry.set_gauge("ragassist_active_requests", 1.0)
+        status_code = "500"
         try:
             response = await call_next(request)
             status_code = str(response.status_code)
+        except asyncio.CancelledError:
+            # The client went away mid-request (or a long-lived stream was cut): record it as 499 and let the
+            # cancellation propagate. Without this default the ``finally`` below raised UnboundLocalError and
+            # replaced the cancellation.
+            status_code = "499"
+            raise
         except Exception:
             status_code = "500"
             raise
