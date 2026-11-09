@@ -12,7 +12,7 @@
           "Observability"
         ],
         "summary": "Metrics Endpoint",
-        "description": "Expose Prometheus metrics in text format.",
+        "description": "Expose Prometheus metrics in text format (administrators only: it is process-wide telemetry).",
         "operationId": "metrics_endpoint_metrics_get",
         "responses": {
           "200": {
@@ -264,17 +264,35 @@
           "Authentication"
         ],
         "summary": "Generate Dev Token",
-        "description": "Generate a valid JWT with tenant_id, user_id, and role claims.",
+        "description": "Generate a valid JWT with tenant_id, user_id, and role claims.\n\nDevelopment and test only, and only for a caller that knows ``DEV_AUTH_SECRET`` (sent as ``X-Dev-Auth-Secret``):\nthe environment flag alone would let anyone who can reach a development stack sign in as any tenant's admin.",
         "operationId": "generate_dev_token_v1_auth_token_post",
+        "parameters": [
+          {
+            "name": "x-dev-auth-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Auth-Secret"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/TokenRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -664,7 +682,7 @@
           "Knowledge"
         ],
         "summary": "Delete a document and its indexed vectors",
-        "description": "Delete document by ID with tenant isolation verification.",
+        "description": "Delete document by ID with tenant isolation verification (administrators only, like upload).",
         "operationId": "delete_document_v1_documents__document_id__delete",
         "security": [
           {
@@ -714,7 +732,7 @@
           "Knowledge"
         ],
         "summary": "Re-index an existing document",
-        "description": "Trigger re-indexing of an existing document.",
+        "description": "Trigger re-indexing of an existing document (administrators only, like upload).",
         "operationId": "reindex_document_v1_documents__document_id__reindex_post",
         "security": [
           {
