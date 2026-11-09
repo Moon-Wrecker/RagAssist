@@ -184,6 +184,7 @@ class TestInsertPolicy:
                 "INSERT INTO users (id, tenant_id, email, role, created_at) VALUES (:i, :t, :e, 'user', now())",
                 i=uuid4(),
                 t=seed.tenant_a,
+                e=f"{uuid4()}@a.example",
             )
 
 
