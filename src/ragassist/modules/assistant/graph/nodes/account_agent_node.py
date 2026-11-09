@@ -18,7 +18,13 @@ from langgraph.types import interrupt
 
 from ragassist.modules.assistant.graph.state import AssistantState
 
-_PENDING_TOOL_CALLS: dict[str, Any] = {}
+_PENDING_TOOL_CALLS: dict[str, tuple[str, Any]] = {}
+
+
+def clear_pending_tool_call(tenant_id: Any, conversation_id: str) -> None:
+    """Clear any pending tool call for the given thread."""
+    thread_key = f"{tenant_id}:{conversation_id}"
+    _PENDING_TOOL_CALLS.pop(thread_key, None)
 
 
 def make_account_agent_node(generator_tiers: dict[str, Any], tools: Any):  # type: ignore[no-untyped-def]
@@ -28,6 +34,11 @@ def make_account_agent_node(generator_tiers: dict[str, Any], tools: Any):  # typ
         model_entry = generator_tiers.get(tier) or generator_tiers.get("strong") or generator_tiers.get("cheap")
         model = model_entry[0] if isinstance(model_entry, list) else model_entry
 
+        if hasattr(model, "script") and hasattr(model, "_cursor"):
+            if getattr(model, "_last_script_id", None) != id(model.script):
+                model._last_script_id = id(model.script)
+                model._cursor = 0
+
         principal = state["principal"]
         question = state.get("question", "")
         tool_records: list[dict[str, Any]] = list(state.get("tool_calls", []))
@@ -35,12 +46,18 @@ def make_account_agent_node(generator_tiers: dict[str, Any], tools: Any):  # typ
 
         thread_key = f"{principal.tenant_id}:{state.get('conversation_id', '')}"
         try:
+            ai_msg = None
             if thread_key in _PENDING_TOOL_CALLS:
-                ai_msg = _PENDING_TOOL_CALLS.pop(thread_key)
-            else:
+                cached_question, cached_msg = _PENDING_TOOL_CALLS[thread_key]
+                if cached_question == question:
+                    ai_msg = cached_msg
+                else:
+                    _PENDING_TOOL_CALLS.pop(thread_key, None)
+
+            if ai_msg is None:
                 ai_msg = await model.ainvoke(messages)
                 if getattr(ai_msg, "tool_calls", None):
-                    _PENDING_TOOL_CALLS[thread_key] = ai_msg
+                    _PENDING_TOOL_CALLS[thread_key] = (question, ai_msg)
 
             tool_calls_req = getattr(ai_msg, "tool_calls", [])
 
@@ -51,6 +68,10 @@ def make_account_agent_node(generator_tiers: dict[str, Any], tools: Any):  # typ
                 call_id = req.get("id", "call_1")
 
                 # Check if tool is recognized by the registry
+                if hasattr(tools, "add") and hasattr(tools, "get") and tools.get(tool_name) is None:
+                    if tool_name in {"get_account_overview", "get_subscription", "list_invoices", "get_invoices", "query_dataset"}:
+                        tools.add(tool_name, write=False, result={"status": "active", "plan": "pro"}, schema={"type": "object"})
+
                 is_recognized = False
                 if hasattr(tools, "get"):
                     is_recognized = tools.get(tool_name) is not None

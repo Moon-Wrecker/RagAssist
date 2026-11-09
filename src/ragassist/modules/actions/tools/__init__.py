@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 from ragassist.modules.actions.application import ToolSpec
+from ragassist.shared.security.jwt import UserRole
 
 if TYPE_CHECKING:
     from ragassist.modules.actions.adapters.saas_client import SaaSClient
@@ -22,6 +23,8 @@ def default_tools(saas: SaaSClient) -> list[ToolSpec]:
         return await saas.get_invoices(principal)
 
     async def _handle_update_billing_email(principal, arguments):  # type: ignore[no-untyped-def]
+        if getattr(principal, "role", None) != UserRole.ADMIN:
+            raise PermissionError("Admin role required to update billing email")
         return await saas.update_billing_email(principal, arguments["new_email"])
 
     async def _handle_query_dataset(principal, arguments):  # type: ignore[no-untyped-def]

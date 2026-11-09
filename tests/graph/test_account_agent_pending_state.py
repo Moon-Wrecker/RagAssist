@@ -2,8 +2,8 @@
 
 A write needs approval, so the turn pauses. If the user never answers and asks something else on the same
 conversation, the new turn must start clean. The node keeps the pending call in a module-level dict keyed by
-thread, so the stale write is replayed instead (DEFECT-41). The same leak makes the graph suite order-dependent
-(it failed once in CI under random ordering).
+thread; a stale entry must never be replayed for a different question (fixed; this test guards the regression, and
+the leak once made the graph suite order-dependent in CI).
 """
 
 from __future__ import annotations
@@ -11,13 +11,11 @@ from __future__ import annotations
 import pytest
 from factories.principals import make_principal
 from fakes.chat_model import tool_call_message
-from support.defects import defect
 from support.graph_harness import TENANT_A, make_graph, make_kit, paused, run_turn
 
 pytestmark = pytest.mark.graph
 
 
-@defect("DEFECT-41")
 async def test_an_abandoned_approval_is_not_replayed_on_the_next_turn() -> None:
     kit = make_kit(route="saas_action")
     principal = make_principal(tenant_id=TENANT_A)

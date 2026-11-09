@@ -175,9 +175,20 @@ async def main() -> None:
         "text/csv": TabularParser(),
     }
 
-    # Documents repository placeholder
-    from fakes.documents import InMemoryDocumentRepository
-    documents = InMemoryDocumentRepository()
+    # Documents repository backed by PostgreSQL with RLS or in-memory persistence
+    backend = getattr(settings, "PERSISTENCE_BACKEND", "postgres")
+    if backend == "memory":
+        from ragassist.modules.knowledge.adapters.persistence.in_memory import InMemoryDocumentRepository
+
+        documents = InMemoryDocumentRepository()
+    else:
+        from ragassist.modules.knowledge.adapters.persistence.repositories import PostgresIngestionRepository
+        from ragassist.shared.db.scoped import ScopedDatabase
+        from ragassist.shared.db.session import get_session_factory
+
+        session_factory = get_session_factory(settings)
+        scoped_db = ScopedDatabase(session_factory)
+        documents = PostgresIngestionRepository(scoped_db)
 
     handler_service = ProcessIngestionJob(
         documents=documents,

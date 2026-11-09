@@ -34,7 +34,7 @@ class TestBudget:
         assert sum(COUNTER.count(p.text) for p in pack.passages) <= 25
 
     def test_a_large_budget_keeps_every_hit(self) -> None:
-        hits = [hit(f"c{i}", "short text", 1.0 - i / 10) for i in range(3)]
+        hits = [hit(f"c{i}", f"short text {i}", 1.0 - i / 10) for i in range(3)]
         assert len(builder(budget=1000).build(hits).passages) == 3
 
     def test_a_single_hit_bigger_than_the_budget_is_not_over_stuffed(self) -> None:

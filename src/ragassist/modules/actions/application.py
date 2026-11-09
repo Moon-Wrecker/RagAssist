@@ -10,7 +10,7 @@ from typing import Any
 from uuid import UUID, uuid4
 
 from ragassist.modules.actions.domain import ToolExecutionError, UnknownTool
-from ragassist.shared.security.jwt import Principal
+from ragassist.shared.security.jwt import Principal, UserRole
 
 SECRET_KEYS = {"password", "api_key", "token", "authorization", "secret"}
 
@@ -99,11 +99,13 @@ class ToolRegistry:
             raise UnknownTool(f"Tool '{name}' is not recognized")
 
         tool = self._tools[name]
+        if tool.is_write and getattr(principal, "role", None) != UserRole.ADMIN:
+            raise PermissionError(f"Admin role required to execute write tool '{name}'")
         _validate_schema(tool.input_schema, arguments)
         try:
             return await tool.handler(principal, arguments)
         except Exception as exc:
-            if isinstance(exc, (UnknownTool, ValueError, TypeError)):
+            if isinstance(exc, (UnknownTool, ValueError, TypeError, PermissionError)):
                 raise
             raise ToolExecutionError(f"Error executing tool '{name}': {exc}") from exc
 
