@@ -1,6 +1,7 @@
 """Platform LLM Adapters."""
 
 from ragassist.platform.llm.adapters.anthropic_adapter import AnthropicAdapter
+from ragassist.platform.llm.adapters.gemini_adapter import GeminiAdapter
 from ragassist.platform.llm.adapters.openai_adapter import OpenAIAdapter
 from ragassist.platform.llm.adapters.openrouter_adapter import (
     OpenAICompatibleAdapter,
@@ -9,6 +10,7 @@ from ragassist.platform.llm.adapters.openrouter_adapter import (
 
 __all__ = [
     "AnthropicAdapter",
+    "GeminiAdapter",
     "OpenAIAdapter",
     "OpenAICompatibleAdapter",
     "OpenRouterAdapter",

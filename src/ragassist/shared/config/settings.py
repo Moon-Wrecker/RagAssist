@@ -106,6 +106,9 @@ class Settings(BaseSettings):
     OPENAI_BASE_URL: str = ""
     ANTHROPIC_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
+    # Google Gemini through its OpenAI-compatible endpoint (a first-class provider, independent of OPENAI_COMPATIBLE_*).
+    GEMINI_API_KEY: str = ""
+    GEMINI_BASE_URL: str
     OPENAI_COMPATIBLE_BASE_URL: str
     OPENAI_COMPATIBLE_API_KEY: str = ""
     # When set, every LLM role uses this one model on the OpenAI-compatible endpoint (Ollama, vLLM, Gemini...).
@@ -228,6 +231,7 @@ class Settings(BaseSettings):
             "OPENAI_API_KEY",
             "ANTHROPIC_API_KEY",
             "OPENROUTER_API_KEY",
+            "GEMINI_API_KEY",
             "OPENAI_COMPATIBLE_API_KEY",
             "TYPESAFE_API_KEY",
             "OPENAI_DECISIONS_API_KEY",
@@ -259,6 +263,7 @@ class Settings(BaseSettings):
             "OPENAI_API_KEY",
             "ANTHROPIC_API_KEY",
             "OPENROUTER_API_KEY",
+            "GEMINI_API_KEY",
             "OPENAI_COMPATIBLE_API_KEY",
             "TYPESAFE_API_KEY",
             "OPENAI_DECISIONS_API_KEY",

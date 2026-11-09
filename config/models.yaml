@@ -26,6 +26,15 @@ providers:
       X-Title: "RagAssist"
     timeout_seconds: 45.0
 
+  # Google Gemini via its OpenAI-compatible endpoint (GEMINI_BASE_URL). Optional: with GEMINI_API_KEY empty its models
+  # are skipped wherever they are listed as a fallback (see docs/adr/0010-gemini-provider.md).
+  gemini:
+    adapter: gemini
+    api_key_env: GEMINI_API_KEY
+    base_url_env: GEMINI_BASE_URL
+    timeout_seconds: 60.0
+    skip_when_unconfigured: true
+
   openai_compatible:
     adapter: openai_compatible
     api_key_env: OPENAI_COMPATIBLE_API_KEY
@@ -155,6 +164,100 @@ models:
     default_params:
       temperature: 0.1
 
+  # --- Google Gemini (OpenAI-compatible endpoint) ---
+  # Limits and prices verified 2026-11-10 against https://ai.google.dev/gemini-api/docs/models (per-model pages) and
+  # https://ai.google.dev/gemini-api/docs/pricing (Standard tier, USD per 1M tokens, thinking tokens billed as output).
+  # The "-latest" aliases are moving pointers (Google: "hot-swapped with every new release", 2-week email notice), so
+  # their limits and prices below are those of the model each currently resolves to, copied from the pinned model.
+  # Scheduled price change (docs): gemini-3.8-flash goes to 1.50 / 7.50 on 2027-01-01.
+  # UNVERIFIED: the docs do not list which model gemini-flash-latest / gemini-flash-lite-latest currently resolve to;
+  # gemini-pro-latest answered as gemini-3.1-pro in a live quota error. logprobs: not documented, so false.
+  gemini-flash-latest:
+    provider: gemini
+    model_name: "gemini-flash-latest"
+    context_window: 1048576   # gemini-3.8-flash: input limit 1,048,576
+    max_output_tokens: 65536  # gemini-3.8-flash: output limit 65,536
+    pricing:
+      input_cost_per_mtok: 0.75
+      output_cost_per_mtok: 3.75
+    capabilities:
+      tool_calling: true
+      json_mode: true
+      vision: true
+      logprobs: false
+      streaming: true
+    default_params:
+      temperature: 0.1
+
+  gemini-flash-lite-latest:
+    provider: gemini
+    model_name: "gemini-flash-lite-latest"
+    context_window: 1048576   # gemini-3.5-flash-lite
+    max_output_tokens: 65536
+    pricing:
+      input_cost_per_mtok: 0.30
+      output_cost_per_mtok: 2.50
+    capabilities:
+      tool_calling: true
+      json_mode: true
+      vision: true
+      logprobs: false
+      streaming: true
+    default_params:
+      temperature: 0.0
+
+  gemini-pro-latest:
+    provider: gemini
+    model_name: "gemini-pro-latest"
+    context_window: 1048576   # gemini-3.1-pro-preview (a preview model)
+    max_output_tokens: 65536
+    pricing:
+      input_cost_per_mtok: 2.00   # prompts up to 200k tokens; 4.00 above
+      output_cost_per_mtok: 12.00  # prompts up to 200k tokens; 18.00 above
+    capabilities:
+      tool_calling: true
+      json_mode: true
+      vision: true
+      logprobs: false
+      streaming: true
+    default_params:
+      temperature: 0.1
+
+  # Pinned stable models, for deployments that must not follow an alias.
+  gemini-3.8-flash:
+    provider: gemini
+    model_name: "gemini-3.8-flash"
+    context_window: 1048576
+    max_output_tokens: 65536
+    pricing:
+      input_cost_per_mtok: 0.75
+      output_cost_per_mtok: 3.75
+    capabilities:
+      tool_calling: true
+      json_mode: true
+      vision: true
+      logprobs: false
+      streaming: true
+    default_params:
+      temperature: 0.1
+
+  gemini-3.5-flash-lite:
+    provider: gemini
+    model_name: "gemini-3.5-flash-lite"
+    context_window: 1048576
+    max_output_tokens: 65536
+    pricing:
+      input_cost_per_mtok: 0.30
+      output_cost_per_mtok: 2.50
+    capabilities:
+      tool_calling: true
+      json_mode: true
+      vision: true
+      logprobs: false
+      streaming: true
+    default_params:
+      temperature: 0.0
+
   # --- Local / OpenAI-Compatible (Ollama / vLLM / Groq) ---
   local-llama-3.1-8b:
     provider: openai_compatible
@@ -179,6 +282,10 @@ aliases:
   fast-default: "gpt-4o-mini"
   claude-sonnet: "claude-3-5-sonnet"
   claude-haiku: "claude-3-5-haiku"
+  gemini-flash: "gemini-flash-latest"
+  gemini-flash-lite: "gemini-flash-lite-latest"
+  gemini-pro: "gemini-pro-latest"
+  gen-gemini: "gemini-flash-latest"
 
 roles:
   generator:
@@ -186,6 +293,7 @@ roles:
     fallbacks:
       - "claude-3-5-sonnet"
       - "gen-openrouter-llama"
+      - "gemini-flash-latest"
     temperature: 0.1
     max_tokens: 2048
 
@@ -193,6 +301,7 @@ roles:
     primary: "fast-default"
     fallbacks:
       - "claude-3-5-haiku"
+      - "gemini-flash-lite-latest"
     temperature: 0.0
     max_tokens: 512
 
@@ -200,6 +309,7 @@ roles:
     primary: "gen-default"
     fallbacks:
       - "claude-3-5-sonnet"
+      - "gemini-flash-latest"
     temperature: 0.0
     max_tokens: 4096
 
@@ -207,6 +317,7 @@ roles:
     primary: "fast-default"
     fallbacks:
       - "claude-3-5-haiku"
+      - "gemini-flash-lite-latest"
     temperature: 0.0
     max_tokens: 1024
 
@@ -214,5 +325,6 @@ roles:
     primary: "fast-default"
     fallbacks:
       - "claude-3-5-haiku"
+      - "gemini-flash-lite-latest"
     temperature: 0.0
     max_tokens: 256
