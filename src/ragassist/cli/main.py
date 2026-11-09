@@ -8,7 +8,9 @@ Consulted References:
 from __future__ import annotations
 
 import asyncio
+import sys
 from typing import Any
+
 import typer
 import uvicorn
 
@@ -29,12 +31,18 @@ def serve(
 ) -> None:
     """Run the production FastAPI HTTP & SSE application server."""
     settings = get_settings()
+    loop = "auto"
+    if sys.platform == "win32":
+        # psycopg (the LangGraph checkpointer) cannot run on Windows' default Proactor loop.
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+        loop = "none"
     uvicorn.run(
         "ragassist.main:app",
         host=host,
         port=port,
         reload=reload,
         log_level=settings.LOG_LEVEL.lower(),
+        loop=loop,
     )
 
 
@@ -63,8 +71,20 @@ def worker() -> None:
     """Run the background SQS ingestion worker."""
     from ragassist.worker.main import main as run_worker
 
-    asyncio.run(run_worker())
+    from ragassist.cli.ops import run_async
 
+    run_async(run_worker())
+
+
+def _register_operator_commands() -> None:
+    from ragassist.cli.ops import db_app, seed_command, token_command
+
+    app.add_typer(db_app, name="db")
+    app.command("seed")(seed_command)
+    app.command("token")(token_command)
+
+
+_register_operator_commands()
 
 if __name__ == "__main__":
     app()
