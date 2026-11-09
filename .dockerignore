@@ -53,7 +53,13 @@ tests/
 evals/reports/runs/
 docs/
 node_modules/
+# The API image never needs the web app. The web image (Slice 6) builds from frontend/ with its own context,
+# so these entries also keep a local node_modules and test output out of any root-context build.
 frontend/
+frontend/node_modules/
+frontend/dist/
+frontend/playwright-report/
+frontend/test-results/
 .vscode/
 .idea/
 *.md

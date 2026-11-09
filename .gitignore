@@ -104,6 +104,14 @@ node_modules/
 frontend/dist/
 frontend/.vite/
 frontend/.turbo/
+frontend/playwright-report/
+frontend/test-results/
+frontend/blob-report/
+frontend/coverage/
+frontend/*.tsbuildinfo
+frontend/screenshots/
+# the Python `lib/` rule above must not hide the shadcn utility folder
+!frontend/src/lib/
 
 # --- IDEs & OS ---
 .vscode/*
