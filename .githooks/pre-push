@@ -1,0 +1,10 @@
+#!/bin/sh
+# Refuse a push that would send credential-shaped text in any commit it carries (stdin: the refs being pushed).
+root=$(git rev-parse --show-toplevel) || exit 1
+for py in "$root/.venv/Scripts/python.exe" "$root/.venv/bin/python" python3 python; do
+  if command -v "$py" >/dev/null 2>&1 || [ -x "$py" ]; then
+    exec "$py" "$root/scripts/check_secrets.py" --push
+  fi
+done
+echo "pre-push: no Python found; cannot scan for secrets" >&2
+exit 1
