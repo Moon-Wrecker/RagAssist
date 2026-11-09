@@ -22,7 +22,8 @@ class UnitOfWork:
 
     async def __aenter__(self) -> "UnitOfWork":
         """Begin transaction and set RLS session context."""
-        if not self.session.in_transaction():
+        in_tx = getattr(self.session, "in_transaction", None)
+        if not (callable(in_tx) and in_tx()):
             await self.session.begin()
         self._in_transaction = True
 
