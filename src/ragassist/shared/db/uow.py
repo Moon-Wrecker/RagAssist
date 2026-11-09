@@ -22,7 +22,8 @@ class UnitOfWork:
 
     async def __aenter__(self) -> "UnitOfWork":
         """Begin transaction and set RLS session context."""
-        await self.session.begin()
+        if not self.session.in_transaction():
+            await self.session.begin()
         self._in_transaction = True
 
         if self.tenant_id is not None:

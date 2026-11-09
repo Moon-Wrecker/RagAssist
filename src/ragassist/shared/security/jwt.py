@@ -84,6 +84,7 @@ def decode_access_token(token: str) -> Principal:
             token,
             settings.SECRET_KEY,
             algorithms=[settings.JWT_ALGORITHM],
+            options={"require": ["exp", "sub", "tenant_id"]},
         )
         user_id = UserId(UUID(payload["sub"]))
         tenant_id = TenantId(UUID(payload["tenant_id"]))

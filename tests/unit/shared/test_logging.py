@@ -8,7 +8,6 @@ from collections.abc import Iterator
 
 import pytest
 import structlog
-from support.defects import defect
 
 from ragassist.shared.observability.logging import configure_logging
 
@@ -67,7 +66,6 @@ def test_calling_twice_does_not_duplicate_output(capsys: pytest.CaptureFixture[s
     assert len(logging.getLogger().handlers) == 1
 
 
-@defect("DEFECT-18")
 def test_json_records_do_not_leak_structlog_internals(capsys: pytest.CaptureFixture[str]) -> None:
     configure_logging("INFO", json_format=True)
     structlog.get_logger("svc").info("clean")

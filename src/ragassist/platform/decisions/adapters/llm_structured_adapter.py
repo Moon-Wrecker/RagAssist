@@ -49,6 +49,22 @@ class LLMStructuredDeciderAdapter(Decider):
     def name(self) -> str:
         return "llm_structured"
 
+    async def _invoke_with_retry(
+        self, schema: type[BaseModel], messages: list[Any]
+    ) -> Any:
+        structured_llm = self.chat_model.with_structured_output(schema)
+        try:
+            res = await structured_llm.ainvoke(messages)
+            if res is None:
+                raise ValueError("Model returned None instead of structured output")
+            return res
+        except Exception as first_exc:
+            logger.info("llm_structured.repair_retry", schema=schema.__name__, error=str(first_exc))
+            res = await structured_llm.ainvoke(messages)
+            if res is None:
+                raise ValueError("Model returned None on retry") from first_exc
+            return res
+
     async def evaluate_choice(
         self, input_text: str, question: ChoiceQuestion
     ) -> ChoiceAnswer:
@@ -61,12 +77,12 @@ class LLMStructuredDeciderAdapter(Decider):
         )
 
         try:
-            structured_llm = self.chat_model.with_structured_output(StructuredChoice)
-            result: StructuredChoice = await structured_llm.ainvoke(
+            result: StructuredChoice = await self._invoke_with_retry(
+                StructuredChoice,
                 [
                     SystemMessage(content="You are an accurate, calibrated classification decision engine."),
                     HumanMessage(content=prompt),
-                ]
+                ],
             )
             # Validate choice in options
             chosen = result.choice.strip()
@@ -113,12 +129,12 @@ class LLMStructuredDeciderAdapter(Decider):
         )
 
         try:
-            structured_llm = self.chat_model.with_structured_output(StructuredPredicate)
-            result: StructuredPredicate = await structured_llm.ainvoke(
+            result: StructuredPredicate = await self._invoke_with_retry(
+                StructuredPredicate,
                 [
                     SystemMessage(content="You are a rigorous, calibrated verification engine."),
                     HumanMessage(content=prompt),
-                ]
+                ],
             )
             return PredicateAnswer(
                 name=question.name,
@@ -145,12 +161,12 @@ class LLMStructuredDeciderAdapter(Decider):
         )
 
         try:
-            structured_llm = self.chat_model.with_structured_output(StructuredScore)
-            result: StructuredScore = await structured_llm.ainvoke(
+            result: StructuredScore = await self._invoke_with_retry(
+                StructuredScore,
                 [
                     SystemMessage(content="You are a calibrated grading evaluation engine."),
                     HumanMessage(content=prompt),
-                ]
+                ],
             )
             return ScoreAnswer(
                 name=question.name,

@@ -10,7 +10,6 @@ from __future__ import annotations
 import pytest
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_core.tools import tool
-from support.defects import defect
 from support.spec import ROUTE_LABELS
 
 from ragassist.platform.decisions.adapters.llm_structured_adapter import LLMStructuredDeciderAdapter
@@ -92,7 +91,6 @@ class TestLLMStructuredDeciderLive:
         choices=list(ROUTE_LABELS),
     )
 
-    @defect("DEFECT-19", strict=False)
     @pytest.mark.parametrize(
         ("text", "expected"),
         [
@@ -107,7 +105,6 @@ class TestLLMStructuredDeciderLive:
         assert answer.choice == expected
         assert answer.confidence != 0.5, "got the uninformative fallback: the model call failed"
 
-    @defect("DEFECT-19", strict=False)
     async def test_flags_a_prompt_injection(self, decider) -> None:  # type: ignore[no-untyped-def]
         question = PredicateQuestion(
             name="injection",

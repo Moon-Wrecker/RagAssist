@@ -13,7 +13,6 @@ from typing import Any
 import httpx
 import pytest
 from factories.principals import auth_header, forge_token
-from support.defects import defect_marks
 from support.specs.routes import concrete, mounted_routes
 
 from ragassist.main import create_app
@@ -60,7 +59,6 @@ def _params(marked: bool) -> list[Any]:
         pytest.param(
             route,
             id=f"{route[0]} {route[1]}",
-            marks=defect_marks("DEFECT-38") if marked and route == ("GET", "/metrics") else [],
         )
         for route in protected_routes()
     ] or [

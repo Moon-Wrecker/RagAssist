@@ -14,7 +14,6 @@ import respx
 from support.assertions import assert_probabilities
 from support.contracts import DeciderContract
 from support.contracts.decider import CHOICE, PREDICATE, SCORE
-from support.defects import defect
 from support.settings import make_settings
 
 from ragassist.platform.decisions.adapters.jev_adapter import JevAdapter
@@ -213,7 +212,6 @@ class TestAnswerMapping:
         assert answer.confidence < 0.5, "an absent answer must not look confident"
         assert_probabilities(answer.probabilities)
 
-    @defect("DEFECT-26")
     async def test_a_choice_outside_the_options_is_not_returned(self, wire: Wire, router) -> None:
         router.reset()
         wire.mount(
@@ -337,7 +335,6 @@ class TestProviderSpecifics:
         await adapter.evaluate_predicate("x", PREDICATE)
         assert router.calls.call_count == 1
 
-    @defect("DEFECT-23")
     async def test_openai_decisions_splits_batches_at_400_questions(self, router) -> None:
         route = router.post(f"{OPENAI_BASE}/decisions").mock(
             side_effect=lambda req: httpx.Response(

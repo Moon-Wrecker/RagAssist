@@ -15,7 +15,6 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, InvalidRequestError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
-from support.defects import defect
 
 from ragassist.shared.db.models import Base
 from ragassist.shared.db.uow import UnitOfWork
@@ -256,7 +255,6 @@ class TestRoleHardening:
         )
         assert owners and all(owner != "app_user" for (owner,) in owners)
 
-    @defect("DEFECT-09")
     async def test_every_tenant_table_has_forced_row_level_security(
         self, seed: Seed, admin_engine
     ) -> None:
@@ -267,7 +265,6 @@ class TestRoleHardening:
         )
         assert flags and all(enabled and forced for _, enabled, forced in flags)
 
-    @defect("DEFECT-09")
     async def test_every_tenant_table_has_a_policy(self, seed: Seed, admin_engine) -> None:
         policies = {
             t for (t,) in await ground_truth(admin_engine, "SELECT tablename FROM pg_policies")
@@ -330,7 +327,6 @@ class TestUnitOfWorkOnARealSession:
             await rows(engine, seed.tenant_a, "SELECT * FROM table_that_does_not_exist")
         assert await rows(engine, seed.tenant_a, "SELECT 1") == [(1,)]
 
-    @defect("DEFECT-10")
     async def test_works_on_a_session_that_has_already_started_a_transaction(
         self, seed: Seed, app_engines
     ) -> None:

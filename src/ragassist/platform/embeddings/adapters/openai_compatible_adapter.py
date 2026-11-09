@@ -22,7 +22,7 @@ class OpenAICompatibleEmbeddingAdapter(EmbeddingProvider):
         dimension: int | None = None,
         batch_size: int | None = None,
         api_key: str | None = None,
-        timeout: float = 20.0,
+        timeout: float | None = None,
         settings: Settings | None = None,
     ) -> None:
         self.settings = settings or get_settings()
@@ -31,7 +31,7 @@ class OpenAICompatibleEmbeddingAdapter(EmbeddingProvider):
         self._dimension = dimension or self.settings.EMBEDDING_DIMENSION
         self._batch_size = batch_size or self.settings.EMBEDDING_BATCH_SIZE
         self._api_key = api_key or self.settings.OPENAI_COMPATIBLE_API_KEY or UNCONFIGURED_KEY
-        self._timeout = timeout
+        self._timeout = timeout if timeout is not None else self.settings.EMBEDDING_TIMEOUT_SECONDS
         self._projector = DimensionProjector(target_dimension=self._dimension)
 
         self._client = OpenAIEmbeddings(

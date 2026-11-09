@@ -11,7 +11,6 @@ from uuid import UUID, uuid4
 import jwt
 import pytest
 from factories import forge_token, make_token, new_tenant, new_user
-from support.defects import defect
 from support.spec import TEST_SECRET_KEY
 
 from ragassist.shared.config import settings as settings_module
@@ -157,7 +156,6 @@ class TestRejection:
         principal = decode_access_token(forge_token(drop=("role",)))
         assert principal.role is UserRole.USER
 
-    @defect("DEFECT-15")
     def test_token_without_expiry_is_rejected(self) -> None:
         """A token that never expires is a standing credential; `exp` must be required."""
         with pytest.raises(ValueError):

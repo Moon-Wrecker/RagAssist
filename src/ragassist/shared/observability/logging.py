@@ -37,7 +37,10 @@ def configure_logging(log_level: str = "INFO", json_format: bool = False) -> Non
 
     formatter = structlog.stdlib.ProcessorFormatter(
         foreign_pre_chain=shared_processors,
-        processors=[renderer],
+        processors=[
+            structlog.stdlib.ProcessorFormatter.remove_processors_meta,
+            renderer,
+        ],
     )
 
     handler = logging.StreamHandler(sys.stdout)

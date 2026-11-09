@@ -23,7 +23,7 @@ class OpenAIEmbeddingAdapter(EmbeddingProvider):
         model_name: str | None = None,
         dimension: int | None = None,
         batch_size: int | None = None,
-        timeout: float = 15.0,
+        timeout: float | None = None,
         settings: Settings | None = None,
         **kwargs: Any,
     ) -> None:
@@ -38,7 +38,7 @@ class OpenAIEmbeddingAdapter(EmbeddingProvider):
         self._model_name = model_name or self.settings.EMBEDDING_MODEL
         self._dimension = dimension or self.settings.EMBEDDING_DIMENSION
         self._batch_size = batch_size or self.settings.EMBEDDING_BATCH_SIZE
-        self._timeout = timeout
+        self._timeout = timeout if timeout is not None else self.settings.EMBEDDING_TIMEOUT_SECONDS
 
         extra_kwargs: dict[str, Any] = {}
         if self._model_name.startswith("text-embedding-3"):

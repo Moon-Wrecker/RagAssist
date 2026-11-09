@@ -134,10 +134,14 @@ class RequestTimingMiddleware(BaseHTTPMiddleware):
 
 def setup_observability(app: FastAPI) -> None:
     """Wire request timing middleware and Prometheus metrics endpoint into FastAPI."""
+    from fastapi import Depends
+    from ragassist.shared.security.deps import get_current_principal
+    from ragassist.shared.security.jwt import Principal
+
     app.add_middleware(RequestTimingMiddleware)
 
     @app.get("/metrics", tags=["Observability"], response_model=None)
-    async def metrics_endpoint() -> Response:
+    async def metrics_endpoint(_principal: Principal = Depends(get_current_principal)) -> Response:
         """Expose Prometheus metrics in text format."""
         content = _global_registry.export_text()
         return Response(content=content, media_type="text/plain; version=0.0.4; charset=utf-8")

@@ -165,16 +165,23 @@ TABLES = [
 
 
 def _policies() -> list[str]:
-    statements: list[str] = []
+    statements: list[str] = [
+        "ALTER TABLE tenants ENABLE ROW LEVEL SECURITY",
+        "ALTER TABLE tenants FORCE ROW LEVEL SECURITY",
+        f"CREATE POLICY tenants_tenant_isolation ON tenants FOR ALL "
+        f"USING (id = {CURRENT_TENANT}) WITH CHECK (id = {CURRENT_TENANT})",
+    ]
     for table in TENANT_TABLES_FULL_ACCESS:
         statements += [
             f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY",
+            f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY",
             f"CREATE POLICY {table}_tenant_isolation ON {table} FOR ALL "
             f"USING (tenant_id = {CURRENT_TENANT}) WITH CHECK (tenant_id = {CURRENT_TENANT})",
         ]
     for table in TENANT_TABLES_WITH_GLOBAL_READ:
         statements += [
             f"ALTER TABLE {table} ENABLE ROW LEVEL SECURITY",
+            f"ALTER TABLE {table} FORCE ROW LEVEL SECURITY",
             f"CREATE POLICY {table}_read ON {table} FOR SELECT "
             f"USING (tenant_id IS NULL OR tenant_id = {CURRENT_TENANT})",
             f"CREATE POLICY {table}_write ON {table} FOR ALL "

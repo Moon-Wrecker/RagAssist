@@ -11,7 +11,6 @@ from textwrap import dedent
 
 import pytest
 from support.architecture import check_file, check_tree
-from support.defects import defect
 from support.repo import REPO_ROOT, SRC_ROOT, read
 
 
@@ -170,11 +169,9 @@ class TestRealSourceTree:
                 unknown = {p.name for p in module.iterdir() if p.is_dir()} - allowed
                 assert not unknown, f"module {module.name} has unexpected folders {sorted(unknown)}"
 
-    @defect("DEFECT-11")
     def test_import_linter_contracts_are_configured(self) -> None:
         assert "[tool.importlinter]" in read("pyproject.toml")
 
-    @defect("DEFECT-11")
     def test_ci_runs_lint_imports(self) -> None:
         workflows = "\n".join(
             p.read_text(encoding="utf-8")

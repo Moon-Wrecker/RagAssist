@@ -4,15 +4,18 @@ Validates the incoming caller JWT and provides tenant-isolated account data and 
 """
 
 from datetime import datetime, timezone
+import re
 from typing import Any
-from uuid import UUID
 from fastapi import Depends, FastAPI, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 import jwt
+
+from ragassist.shared.config.settings import get_settings
 
 app = FastAPI(title="Mock SaaS Service", version="1.0.0")
 _security = HTTPBearer()
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 # In-memory tenant account databases
 _ACCOUNTS: dict[str, dict[str, Any]] = {
@@ -50,19 +53,28 @@ _ACCOUNTS: dict[str, dict[str, Any]] = {
 _TICKETS: list[dict[str, Any]] = []
 
 
-def _extract_tenant_id(credentials: HTTPAuthorizationCredentials = Security(_security)) -> str:
-    """Decode JWT unverified for mock simplicity or verify with dev secret."""
+def _decode_jwt(credentials: HTTPAuthorizationCredentials = Security(_security)) -> dict[str, Any]:
+    """Verify JWT signature, expiry, algorithm, and tenant claim."""
+    settings = get_settings()
     try:
-        # In mock service we extract unverified claims or decode using common secret
-        payload = jwt.decode(credentials.credentials, options={"verify_signature": False})
+        payload: dict[str, Any] = jwt.decode(
+            credentials.credentials,
+            settings.SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM],
+            options={"require": ["exp", "tenant_id"]},
+        )
         tenant_id = payload.get("tenant_id")
         if not tenant_id:
             raise ValueError("Missing tenant_id in JWT")
-        return str(tenant_id)
+        return payload
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
         ) from exc
+
+
+def _extract_tenant_id(payload: dict[str, Any] = Depends(_decode_jwt)) -> str:
+    return str(payload["tenant_id"])
 
 
 @app.get("/healthz")
@@ -109,11 +121,23 @@ async def list_invoices(tenant_id: str = Depends(_extract_tenant_id)) -> list[di
 class UpdateBillingEmailRequest(BaseModel):
     new_email: str
 
+    @field_validator("new_email")
+    @classmethod
+    def _validate_email(cls, v: str) -> str:
+        if not v or not _EMAIL_RE.match(v):
+            raise ValueError("Invalid email address")
+        return v
+
 
 @app.post("/accounts/billing-email")
 async def update_billing_email(
-    req: UpdateBillingEmailRequest, tenant_id: str = Depends(_extract_tenant_id)
+    req: UpdateBillingEmailRequest, payload: dict[str, Any] = Depends(_decode_jwt)
 ) -> dict[str, Any]:
+    tenant_id = str(payload["tenant_id"])
+    if payload.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Admin role required"
+        )
     if tenant_id not in _ACCOUNTS:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Tenant account not found")
     _ACCOUNTS[tenant_id]["billing_email"] = req.new_email

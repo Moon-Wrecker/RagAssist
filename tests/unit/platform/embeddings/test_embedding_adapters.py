@@ -21,7 +21,6 @@ import pytest
 import tiktoken
 from fakes.embeddings import FakeEmbeddingProvider, vector_for
 from support.contracts import EmbeddingProviderContract
-from support.defects import defect
 from support.fake_openai_server import FakeOpenAIServer
 from support.settings import make_settings
 
@@ -229,7 +228,6 @@ class TestOpenAICompatible:
         for i, vector in enumerate(results):
             assert vector == pytest.approx(await adapter.embed_query(f"q{i}"), abs=1e-6)
 
-    @defect("DEFECT-28")
     async def test_timeout_follows_the_embedding_timeout_setting(self, embedding_server) -> None:
         embedding_server.delay_seconds = 1.5
         adapter = OpenAICompatibleEmbeddingAdapter(
@@ -278,7 +276,6 @@ class TestOpenAI:
         captured = capsys.readouterr()
         assert "dummy-key" not in captured.out + captured.err
 
-    @defect("DEFECT-28")
     async def test_timeout_follows_the_embedding_timeout_setting(
         self, openai_adapter, embedding_server
     ) -> None:
@@ -412,7 +409,6 @@ class TestSentenceTransformers:
         vector = await bridge.aembed_query("x")
         assert len(vector) == DIM
 
-    @defect("DEFECT-29")
     async def test_batch_size_follows_the_embedding_batch_size_setting(self, st_stubs) -> None:
         adapter = SentenceTransformersEmbeddingAdapter(
             settings=make_settings(EMBEDDING_DIMENSION=DIM, EMBEDDING_BATCH_SIZE=5)

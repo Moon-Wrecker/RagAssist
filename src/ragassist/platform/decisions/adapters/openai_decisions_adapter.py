@@ -70,14 +70,26 @@ class OpenAIDecisionsAdapter(Decider):
 
     def _parse_answer(self, q: Question, raw: dict[str, Any]) -> Answer:
         if isinstance(q, ChoiceQuestion):
-            choice = raw.get("choice", q.choices[0] if q.choices else "")
-            confidence = float(raw.get("confidence", 0.0))
-            probs = raw.get("probabilities", {c: 1.0 / max(len(q.choices), 1) for c in q.choices})
+            default_choice = q.choices[0] if q.choices else ""
+            raw_choice = raw.get("choice", default_choice)
+            if raw_choice not in q.choices:
+                choice = default_choice
+                confidence = 0.0
+                probs = {c: 1.0 / max(len(q.choices), 1) for c in q.choices}
+            else:
+                choice = raw_choice
+                confidence = max(0.0, min(1.0, float(raw.get("confidence", 0.0))))
+                raw_probs = raw.get("probabilities")
+                if isinstance(raw_probs, dict) and set(raw_probs.keys()) == set(q.choices) and sum(raw_probs.values()) > 0:
+                    total = sum(float(v) for v in raw_probs.values())
+                    probs = {k: float(v) / total for k, v in raw_probs.items()}
+                else:
+                    probs = {c: 1.0 / max(len(q.choices), 1) for c in q.choices}
             return ChoiceAnswer(name=q.name, choice=choice, confidence=confidence, probabilities=probs)
 
         if isinstance(q, PredicateQuestion):
             prob = float(raw.get("probability", 0.0))
-            verdict = bool(raw.get("verdict", False))
+            verdict = bool(raw.get("verdict", prob >= 0.5))
             return PredicateAnswer(name=q.name, probability=prob, verdict=verdict)
 
         if isinstance(q, ScoreQuestion):
@@ -92,25 +104,28 @@ class OpenAIDecisionsAdapter(Decider):
         if not questions:
             return []
 
-        payload = {
-            "model": self._model,
-            "input": input_text,
-            "questions": [self._format_question(q) for q in questions],
-        }
-
         headers = {
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
         }
-
         url = f"{self._base_url}/decisions"
+        answers_map: dict[str, dict[str, Any]] = {}
 
         async with httpx.AsyncClient(timeout=self._timeout) as client:
-            resp = await client.post(url, json=payload, headers=headers)
-            resp.raise_for_status()
-            data = resp.json()
+            for i in range(0, len(questions), 400):
+                batch = questions[i : i + 400]
+                payload = {
+                    "model": self._model,
+                    "input": input_text,
+                    "questions": [self._format_question(q) for q in batch],
+                }
+                resp = await client.post(url, json=payload, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+                for ans in data.get("answers", []):
+                    if isinstance(ans, dict) and "name" in ans:
+                        answers_map[ans["name"]] = ans
 
-        answers_map = {ans["name"]: ans for ans in data.get("answers", [])}
         return [self._parse_answer(q, answers_map.get(q.name, {})) for q in questions]
 
     async def evaluate_choice(

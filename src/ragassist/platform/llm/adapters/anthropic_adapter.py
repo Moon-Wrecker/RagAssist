@@ -18,12 +18,10 @@ class AnthropicAdapter(ChatModelProvider):
         return "anthropic"
 
     def get_pricing(self, model_name: str) -> ModelPricing:
-        low = model_name.lower()
-        if "claude-3-haiku" in low:
-            return ModelPricing(input_cost_per_mtok=0.25, output_cost_per_mtok=1.25)
-        if "haiku" in low:
-            return ModelPricing(input_cost_per_mtok=0.80, output_cost_per_mtok=4.00)
-        return ModelPricing(input_cost_per_mtok=3.00, output_cost_per_mtok=15.00)
+        from ragassist.platform.llm.catalog import ModelCatalog
+
+        catalog = ModelCatalog.load_from_yaml(self.settings.MODELS_CONFIG_PATH)
+        return catalog.resolve_pricing(model_name, provider_name="anthropic")
 
     def get_capabilities(self, model_name: str) -> ModelCapabilities:
         pricing = self.get_pricing(model_name)
