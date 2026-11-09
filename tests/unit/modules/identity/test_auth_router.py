@@ -107,7 +107,7 @@ class TestEnvironmentGating:
     async def test_token_minting_is_not_available_outside_dev_and_test(
         self, api_client_for: Callable[..., httpx.AsyncClient], env: str
     ) -> None:
-        async with api_client_for(APP_ENV=env) as production_client:
+        async with api_client_for(APP_ENV=env, AUTH_COOKIE_SECURE="true") as production_client:
             response = await production_client.post(TOKEN_URL, json=body(role="admin"))
         assert response.status_code in (403, 404)
 

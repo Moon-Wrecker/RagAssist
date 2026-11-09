@@ -162,7 +162,12 @@ class TestValidationGaps:
         assert override == Settings(_env_file=None).DATABASE_URL
 
     def test_production_accepts_an_explicit_strong_secret(self) -> None:
-        make_settings(APP_ENV="production", SECRET_KEY="x" * 64)
+        make_settings(APP_ENV="production", SECRET_KEY="x" * 64, AUTH_COOKIE_SECURE=True)
+
+    @pytest.mark.parametrize("env", ["staging", "production"])
+    def test_a_plain_http_refresh_cookie_is_refused_outside_dev(self, env: str) -> None:
+        with pytest.raises(ValidationError, match="AUTH_COOKIE_SECURE"):
+            make_settings(APP_ENV=env, SECRET_KEY="x" * 64, AUTH_COOKIE_SECURE=False)
 
     @pytest.mark.parametrize("name", ["ESCALATION_THRESHOLD", "DECIDER_MIN_CONFIDENCE"])
     @pytest.mark.parametrize("value", [-0.1, 1.5, 65])

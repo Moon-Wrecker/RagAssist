@@ -38,6 +38,7 @@ from ragassist.modules.assistant.adapters.persistence import (
 )
 from ragassist.modules.assistant.graph.builder import build_graph
 from ragassist.modules.escalation.adapters.helpdesk import HelpdeskClient
+from ragassist.modules.identity.adapters.postgres import PostgresIdentityStore
 from ragassist.modules.knowledge.adapters.persistence.repositories import (
     PostgresIngestionRepository,
     PostgresKnowledgeStore,
@@ -102,6 +103,7 @@ class Runtime:
     ingestion: PostgresIngestionRepository
     conversations: PostgresConversationStore
     audit: PostgresAuditRepository
+    identity: PostgresIdentityStore
     object_store: Any
     raw_queue: Any
     queue: DeferredQueue
@@ -333,6 +335,7 @@ async def build_runtime(settings: Settings) -> Runtime:
         ingestion=PostgresIngestionRepository(database),
         conversations=PostgresConversationStore(database),
         audit=audit,
+        identity=PostgresIdentityStore(database),
         object_store=object_store,
         raw_queue=raw_queue,
         queue=DeferredQueue(raw_queue, database),
