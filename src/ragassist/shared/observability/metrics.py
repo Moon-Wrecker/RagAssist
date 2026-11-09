@@ -20,13 +20,22 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 
+def _escape_label(value: str) -> str:
+    """Prometheus text format 0.0.4: escape backslash, double quote and line feed inside a label value."""
+    return str(value).replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+
+
+_KNOWN_METHODS = frozenset({"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"})
+
+
 class SimplePrometheusRegistry:
     """Thread-safe in-memory Prometheus metric collector matching Prometheus 0.0.4 format."""
 
     def __init__(self) -> None:
         self._lock = asyncio.Lock()
         self._counters: dict[str, dict[tuple[tuple[str, str], ...], float]] = defaultdict(lambda: defaultdict(float))
-        self._histograms: dict[str, list[float]] = defaultdict(list)
+        # name -> [observation count, running sum]: constant memory however many requests arrive.
+        self._histograms: dict[str, list[float]] = defaultdict(lambda: [0.0, 0.0])
         self._gauges: dict[str, dict[tuple[tuple[str, str], ...], float]] = defaultdict(lambda: defaultdict(float))
         self._help: dict[str, str] = {}
         self._types: dict[str, str] = {}
@@ -40,7 +49,9 @@ class SimplePrometheusRegistry:
         self._counters[name][label_tuple] += value
 
     def observe_histogram(self, name: str, value: float) -> None:
-        self._histograms[name].append(value)
+        series = self._histograms[name]
+        series[0] += 1.0
+        series[1] += value
 
     def set_gauge(self, name: str, value: float, **labels: str) -> None:
         label_tuple = tuple(sorted(labels.items()))
@@ -49,7 +60,7 @@ class SimplePrometheusRegistry:
     def format_labels(self, labels: tuple[tuple[str, str], ...]) -> str:
         if not labels:
             return ""
-        pairs = [f'{k}="{v}"' for k, v in labels]
+        pairs = [f'{k}="{_escape_label(v)}"' for k, v in labels]
         return "{" + ",".join(pairs) + "}"
 
     def export_text(self) -> str:
@@ -79,8 +90,8 @@ class SimplePrometheusRegistry:
             help_str = self._help.get(name, f"Help for {name}")
             lines.append(f"# HELP {name} {help_str}")
             lines.append(f"# TYPE {name} histogram")
-            count = len(values)
-            val_sum = sum(values) if values else 0.0
+            count = int(values[0])
+            val_sum = values[1]
             lines.append(f"{name}_count {count}")
             lines.append(f"{name}_sum {val_sum:.6f}")
 
@@ -106,8 +117,7 @@ class RequestTimingMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         start_time = time.perf_counter()
-        method = request.method
-        path = request.url.path
+        method = request.method if request.method in _KNOWN_METHODS else "OTHER"
 
         self.registry.set_gauge("ragassist_active_requests", 1.0)
         try:
@@ -117,6 +127,10 @@ class RequestTimingMiddleware(BaseHTTPMiddleware):
             status_code = "500"
             raise
         finally:
+            # The matched route template (``/v1/documents/{document_id}``), never the raw path: the raw path is
+            # attacker-chosen, so it would make the number of series unbounded and leak identifiers.
+            route = request.scope.get("route")
+            path = getattr(route, "path", None) or "unmatched"
             duration = time.perf_counter() - start_time
             self.registry.set_gauge("ragassist_active_requests", 0.0)
             self.registry.increment_counter(
@@ -141,7 +155,13 @@ def setup_observability(app: FastAPI) -> None:
     app.add_middleware(RequestTimingMiddleware)
 
     @app.get("/metrics", tags=["Observability"], response_model=None)
-    async def metrics_endpoint(_principal: Principal = Depends(get_current_principal)) -> Response:
-        """Expose Prometheus metrics in text format."""
+    async def metrics_endpoint(principal: Principal = Depends(get_current_principal)) -> Response:
+        """Expose Prometheus metrics in text format (administrators only: it is process-wide telemetry)."""
+        from fastapi import HTTPException
+
+        from ragassist.shared.security.jwt import UserRole
+
+        if principal.role != UserRole.ADMIN:
+            raise HTTPException(status_code=403, detail="Administrator role required")
         content = _global_registry.export_text()
         return Response(content=content, media_type="text/plain; version=0.0.4; charset=utf-8")

@@ -19,10 +19,19 @@ from starlette.types import ASGIApp
 class SlidingWindowRateLimiter:
     """Sliding-window in-memory rate limiter per client key."""
 
-    def __init__(self, limit: int = 300, window_seconds: float = 60.0) -> None:
+    def __init__(self, limit: int = 300, window_seconds: float = 60.0, max_keys: int = 50_000) -> None:
         self.limit = limit
         self.window_seconds = window_seconds
+        self._max_keys = max_keys
         self._history: dict[str, list[float]] = defaultdict(list)
+
+    def _make_room(self, now: float) -> None:
+        """Drop keys with no request inside the window; if the table is still full, drop the oldest keys."""
+        cutoff = now - self.window_seconds
+        for key in [k for k, v in self._history.items() if not v or v[-1] <= cutoff]:
+            del self._history[key]
+        while len(self._history) >= self._max_keys:
+            del self._history[next(iter(self._history))]
 
     def is_allowed(self, key: str) -> tuple[bool, int, float]:
         """Check if request for key is permitted under rate limit.
@@ -31,6 +40,8 @@ class SlidingWindowRateLimiter:
         """
         now = time.time()
         window_start = now - self.window_seconds
+        if key not in self._history and len(self._history) >= self._max_keys:
+            self._make_room(now)
         # Evict timestamps outside current sliding window
         self._history[key] = [t for t in self._history[key] if t > window_start]
 
@@ -66,10 +77,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if request.url.path in self.exempt_paths:
             return await call_next(request)
 
-        # Derive client key from auth token or IP address
-        auth_header = request.headers.get("authorization", "")
-        client_host = request.client.host if request.client else "unknown"
-        key = auth_header if auth_header else client_host
+        # Key on the client address. The Authorization header is unverified at this point, so keying on it would
+        # give every forged value its own fresh bucket (no limit at all) and an ever-growing table.
+        key = request.client.host if request.client else "unknown"
 
         allowed, remaining, reset_seconds = self.limiter.is_allowed(key)
         if not allowed:

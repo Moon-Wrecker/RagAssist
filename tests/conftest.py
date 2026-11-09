@@ -187,6 +187,17 @@ def _hermetic_environment(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
+def _fresh_rate_limiter() -> Iterator[None]:
+    """The global limiter is keyed on the client address, and every in-process test client shares one, so its
+    history is process-wide state. Start each test with an empty one."""
+    from ragassist.shared.security.rate_limiter import _global_limiter
+
+    _global_limiter._history.clear()
+    yield
+    _global_limiter._history.clear()
+
+
+@pytest.fixture(autouse=True)
 def _offline_assistant_graph(
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -656,7 +656,13 @@ async def test_auth_token_generation_endpoint(
         "tenant_id": str(tenant_a),
         "role": "admin",
     }
-    res = await api_client.post("/v1/auth/token", json=payload)
+    from ragassist.shared.config.settings import get_settings
+
+    res = await api_client.post(
+        "/v1/auth/token",
+        json=payload,
+        headers={"X-Dev-Auth-Secret": get_settings().DEV_AUTH_SECRET},
+    )
     assert res.status_code == 200
     data = res.json()
     assert "access_token" in data

@@ -11,8 +11,8 @@ class InMemoryConversationStore:
     """Thread-safe conversation store for production runtime and testing."""
 
     def __init__(self) -> None:
-        self._conversations: dict[str, dict[str, Any]] = {}
-        self._actions: dict[str, dict[str, Any]] = {}
+        self._conversations: dict[tuple[str, str], dict[str, Any]] = {}
+        self._actions: dict[tuple[str, str, str], dict[str, Any]] = {}
 
     def create(
         self,
@@ -34,14 +34,11 @@ class InMemoryConversationStore:
             "created_at": now,
             "updated_at": now,
         }
-        self._conversations[conversation_id] = row
+        self._conversations[(str(tenant_id), conversation_id)] = row
         return row
 
     async def get(self, tenant_id: object, conversation_id: str) -> dict[str, Any] | None:
-        row = self._conversations.get(conversation_id)
-        if row is None or row["tenant_id"] != str(tenant_id):
-            return None
-        return row
+        return self._conversations.get((str(tenant_id), conversation_id))
 
     async def list(
         self,
@@ -83,7 +80,7 @@ class InMemoryConversationStore:
         reason: str | None,
         approver_id: object | None = None,
     ) -> None:
-        self._actions[f"{conversation_id}:{interrupt_id}"] = {
+        self._actions[(str(tenant_id), conversation_id, interrupt_id)] = {
             "tenant_id": str(tenant_id),
             "conversation_id": conversation_id,
             "interrupt_id": interrupt_id,
