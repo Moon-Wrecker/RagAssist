@@ -20,6 +20,8 @@ from ragassist.modules.escalation.api.router import router as escalation_router
 from ragassist.modules.identity.api.router import router as auth_router
 from ragassist.modules.identity.api.team_router import router as team_router
 from ragassist.modules.knowledge.api.router import router as knowledge_router
+from ragassist.modules.retrieval.api.router import router as retrieval_router
+from ragassist.platform.events.router import router as events_router
 from ragassist.shared.config.settings import get_settings
 from ragassist.shared.observability.logging import configure_logging
 from ragassist.shared.observability.metrics import setup_observability
@@ -49,6 +51,14 @@ TAGS_METADATA = [
     {
         "name": "Assistant",
         "description": "Conversations, SSE streaming generation, and human-in-the-loop action decisions.",
+    },
+    {
+        "name": "Retrieval",
+        "description": "Passages behind citations.",
+    },
+    {
+        "name": "Events",
+        "description": "Live change notifications (SSE): ids only, filtered by tenant, owner and role.",
     },
     {
         "name": "Escalation",
@@ -115,6 +125,8 @@ def create_app() -> FastAPI:
     app.include_router(knowledge_router, prefix=settings.API_V1_PREFIX)
     app.include_router(assistant_router, prefix=settings.API_V1_PREFIX)
     app.include_router(escalation_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(retrieval_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(events_router, prefix=settings.API_V1_PREFIX)
 
     return app
 

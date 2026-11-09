@@ -17,16 +17,12 @@ Consulted References & Standards:
 from __future__ import annotations
 
 import asyncio
-import json
 from collections.abc import AsyncIterator
 from typing import Any
 
-SSE_HEADERS: dict[str, str] = {
-    "Content-Type": "text/event-stream; charset=utf-8",
-    "Cache-Control": "no-cache",
-    "X-Accel-Buffering": "no",
-    "Connection": "keep-alive",
-}
+from ragassist.shared.sse import SSE_HEADERS, format_sse_frame
+
+__all__ = ["ALLOWED_EVENTS", "SSE_HEADERS", "format_sse_frame", "sse_stream"]
 
 ALLOWED_EVENTS = frozenset({
     "token",
@@ -38,29 +34,6 @@ ALLOWED_EVENTS = frozenset({
     "done",
     "error",
 })
-
-
-def format_sse_frame(event: str, data: Any, event_id: str | None = None, retry: int | None = None) -> str:
-    """Format a single SSE frame according to WHATWG EventSource specification."""
-    lines: list[str] = [f"event: {event}"]
-    if event_id is not None:
-        lines.append(f"id: {event_id}")
-    if retry is not None:
-        lines.append(f"retry: {retry}")
-
-    if isinstance(data, str):
-        try:
-            json.loads(data)
-            payload = data
-        except (ValueError, TypeError):
-            payload = json.dumps(data)
-    else:
-        payload = json.dumps(data)
-
-    for data_line in payload.split("\n"):
-        lines.append(f"data: {data_line}")
-    lines.append("\n")
-    return "\n".join(lines)
 
 
 async def sse_stream(

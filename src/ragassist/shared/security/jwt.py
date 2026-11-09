@@ -98,3 +98,18 @@ def decode_access_token(token: str) -> Principal:
     except (jwt.PyJWTError, KeyError, ValueError) as exc:
         raise ValueError(f"Invalid or expired authentication token: {exc}") from exc
 
+
+
+def access_token_expiry(token: str) -> float:
+    """Expiry of a verified access token as epoch seconds (the signature and expiry are checked again)."""
+    settings = get_settings()
+    try:
+        payload = jwt.decode(
+            token,
+            settings.SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM],
+            options={"require": ["exp"]},
+        )
+        return float(payload["exp"])
+    except (jwt.PyJWTError, KeyError, ValueError) as exc:
+        raise ValueError(f"Invalid or expired authentication token: {exc}") from exc

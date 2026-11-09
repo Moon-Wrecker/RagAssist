@@ -15,6 +15,8 @@ from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from starlette.types import ASGIApp
 
+from ragassist.shared.config.settings import get_settings
+
 
 class SlidingWindowRateLimiter:
     """Sliding-window in-memory rate limiter per client key."""
@@ -71,7 +73,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     ) -> None:
         super().__init__(app)
         self.limiter = limiter or _global_limiter
-        self.exempt_paths = exempt_paths or {"/healthz", "/metrics", "/docs", "/redoc", "/openapi.json"}
+        # The events stream is one long-lived request per tab, not a flood of requests; the per-user stream cap
+        # (``EVENTS_MAX_STREAMS_PER_USER``) bounds it instead.
+        self.exempt_paths = exempt_paths or {
+            "/healthz",
+            "/metrics",
+            "/docs",
+            "/redoc",
+            "/openapi.json",
+            f"{get_settings().API_V1_PREFIX}/events",
+        }
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         if request.url.path in self.exempt_paths:
