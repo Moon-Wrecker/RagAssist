@@ -30,7 +30,7 @@ class IngestionWorker:
         self,
         queue: Any,
         handler: Any = None,
-        queue_name: str = "ragassist-ingest",
+        queue_name: str | None = None,
         concurrency: int = 4,
         poll_wait_seconds: int = 10,
         wait_time_seconds: int = 0,
@@ -41,6 +41,10 @@ class IngestionWorker:
             self.queue_name = handler
             self.handler = queue_name
         else:
+            if queue_name is None:
+                from ragassist.shared.config.settings import get_settings
+
+                queue_name = get_settings().SQS_QUEUE_INGEST
             self.queue_name = kwargs.get("queue_name", queue_name)
             self.handler = handler or kwargs.get("handler")
         self.concurrency = kwargs.get("concurrency", concurrency)
@@ -153,6 +157,7 @@ async def main() -> None:
     from ragassist.platform.queue.sqs_adapter import SQSMessageQueue
     from ragassist.platform.storage.s3_adapter import S3ObjectStore
     from ragassist.modules.knowledge.adapters.chunkers.hybrid_chunker import HybridChunker
+    from ragassist.modules.knowledge.adapters.chunkers.tokenizer import RegexTokenCounter
     from ragassist.modules.knowledge.adapters.parsers import (
         HtmlParser,
         MarkdownParser,
@@ -166,7 +171,7 @@ async def main() -> None:
     queue = SQSMessageQueue(settings)
     store = S3ObjectStore(settings)
     embedder = build_embedding_service(settings)
-    chunker = HybridChunker.from_settings(settings, tokenizer=None)
+    chunker = HybridChunker.from_settings(settings, tokenizer=RegexTokenCounter())
 
     parsers = {
         "text/markdown": MarkdownParser(),
