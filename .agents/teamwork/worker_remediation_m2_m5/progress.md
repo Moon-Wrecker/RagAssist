@@ -1,8 +1,8 @@
 # Progress Tracker — worker_remediation_m2_m5
 
-Last visited: 2026-11-08T19:05:45Z
+Last visited: 2026-11-08T19:26:00Z
 
-## Status: VERIFYING_FULL_SUITE
+## Status: COMPLETE
 
 ### Checklist
 - [x] Read MANDATORY files (ORIGINAL_REQUEST.md, PROJECT.md, explorer handoff reports)
@@ -14,7 +14,7 @@ Last visited: 2026-11-08T19:05:45Z
 - [x] Task 6: Fix DEFECT-32 (Storage/Queue Adapter Decoupling in `s3_adapter.py` and `sqs_adapter.py`)
 - [x] Task 7: Align M3 Public Facade (`RetrievedChunk` & `RetrievalService`)
 - [x] Task 8: Complete Layout Artifacts (`container.py`, `cli/main.py`, `pyproject.toml`)
-- [ ] Task 9: Full test run and verification (`tests/security/`, `tests/unit/`, `tests/hygiene/`, `tests/e2e/`)
+- [x] Task 9: Full test run and verification (`tests/security/`, `tests/unit/`, `tests/hygiene/`, `tests/e2e/`, `tests/graph/`, `tests/selfcheck/`)
 - [x] Document in `changes.md`
-- [ ] Generate 5-component `handoff.md`
-- [ ] Send completion message to parent
+- [x] Generate 5-component `handoff.md`
+- [x] Send completion message to parent

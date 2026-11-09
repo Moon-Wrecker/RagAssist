@@ -1,7 +1,7 @@
 # Orchestrator 2 Progress
 
 ## Current Status
-Last visited: 2026-11-08T19:08:00Z
+Last visited: 2026-11-09T11:15:00Z
 - [x] Work Item 1: Baseline Integration & Test Scan of Implemented M2–M5 Codebase
   - [x] All 3 Explorers completed and delivered handoff reports.
   - [x] Synthesized baseline report:
@@ -17,7 +17,7 @@ Last visited: 2026-11-08T19:08:00Z
       6. `platform/storage/s3_adapter.py` & `platform/queue/sqs_adapter.py`: DEFECT-32 (`aioboto3` import decoupling).
       7. `modules/retrieval/`: Expose `RetrievedChunk` DTO and `RetrievalService` protocol.
       8. `src/ragassist/container.py` and `src/ragassist/cli/main.py`: Add container and CLI.
-- [/] Work Item 2: Defect Remediation & Verification for M2–M5
+- [x] Work Item 2: Defect Remediation & Verification for M2–M5
   - [x] Dispatched `worker_remediation_m2_m5` (conv ID 81d45907-141c-4051-8637-e7b1ad0e8911) with write ownership over affected files.
   - [x] Worker completed code changes for Tasks 1–8:
     - Fixed tool abuse handling in `account_agent_node.py` and `tests/fakes/tools.py`.
@@ -29,16 +29,24 @@ Last visited: 2026-11-08T19:08:00Z
     - Aligned M3 facade (`RetrievedChunk` & `RetrievalService`).
     - Added layout artifacts (`container.py`, `cli/main.py`, `pyproject.toml`).
     - Documented all changes in `changes.md`.
-  - [/] Worker executing final verification test run (Task 9).
-  - [ ] Awaiting worker handoff report.
-- [ ] Work Item 3: Milestone Gate Reviews (M2, M3, M4, M5)
-  - [ ] Reviewers & Challengers review
-  - [ ] Forensic Auditor verification
-  - [ ] Record verdicts in GATE_STATUS.md
+  - [x] Worker executed full verification run (Task 9): 1,765 passed, 49 skipped, 44 xfailed, 0 failed. Zero unexpected failures remain.
+- [/] Work Item 3: Milestone Gate Reviews (M2, M3, M4, M5) & Milestone 6 (E2E & Adversarial Hardening)
+  - [x] Iteration 1 Review Swarm Executed:
+    - `auditor_m2_m5_2`: CLEAN
+    - `challenger_sec_2`: APPROVE
+    - `reviewer_m2_m3_2`: REQUEST_CHANGES (ContextBuilder hardcoded test check; worker imports test fakes)
+    - `reviewer_m4_m5_2`: REQUEST_CHANGES (Assistant API router bypasses LangGraph; container incomplete)
+    - `challenger_agent_2`: REQUEST_CHANGES (DEFECT-41 state leak in account agent; DEFECT-39/05 RBAC; ContextBuilder)
+    - Gate Result: FAIL (Recorded in GATE_STATUS.md)
+  - [/] Iteration 2 Defect Remediation:
+    - [ ] Dispatch Worker `worker_gate_remediation` to implement the 6 required remediations
+    - [ ] Run verification tests across unit, integration, graph, security, e2e
+    - [ ] Dispatch Iteration 2 Gate Review Swarm (Reviewers, Challengers, Auditor)
+    - [ ] Achieve Gate PASS
 - [ ] Work Item 4: Milestone 6 (Final Milestone: 100% E2E Pass & Adversarial Hardening)
   - [ ] Phase 1: 100% E2E Test Suite Pass (Tiers 1–4)
   - [ ] Phase 2: Tier 5 Adversarial Coverage Hardening (Challengers -> Worker -> Reviewers)
 - [ ] Work Item 5: Final Victory Audit & Report to Parent
 
 ## Iteration Status
-Current iteration: 1 / 32
+Current iteration: 2 / 32

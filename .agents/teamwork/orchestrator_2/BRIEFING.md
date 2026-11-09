@@ -1,4 +1,4 @@
-# BRIEFING — 2026-11-08T17:30:00Z
+# BRIEFING — 2026-11-09T11:15:00Z
 
 ## Mission
 Orchestrate post-implementation integration, verification suites, Gate reviews across Milestones 2 through 5, resolve any defects, complete Milestone 6 (100% E2E test pass & Tier 5 adversarial hardening), and report readiness for final Victory Audit.
@@ -35,13 +35,13 @@ Orchestrate post-implementation integration, verification suites, Gate reviews a
    - Escalate: report to parent (sub-orchestrators only, last resort)
 4. **Succession**: At 16 spawns, write soft handoff, spawn successor if threshold reached.
 - **Work items**:
-  1. Baseline Test & Integration Scan of M2–M5 [in-progress]
-  2. Gate Reviews & Defect Remediation for M2–M5 [pending]
+  1. Baseline Test & Integration Scan of M2–M5 [done]
+  2. Gate Reviews & Defect Remediation for M2–M5 [in-progress: Iteration 2]
   3. Milestone 6 Phase 1: 100% E2E Test Verification (Tiers 1–4) [pending]
   4. Milestone 6 Phase 2: Tier 5 Adversarial Coverage Hardening [pending]
   5. Final Victory Audit & Reporting [pending]
 - **Current phase**: 2
-- **Current focus**: Work Item 1 — Baseline Test & Integration Scan of M2–M5 codebase.
+- **Current focus**: Work Item 2 — Iteration 2 Defect Remediation across M2–M5 before re-review.
 
 ## 🔒 Key Constraints
 - NEVER write, modify, or create source code files directly.
@@ -70,12 +70,23 @@ Orchestrate post-implementation integration, verification suites, Gate reviews a
 | explorer_m2_m3_scan_2 | teamwork_explorer | Replacement: M2 & M3 Scan | completed | dc3df3bd-ea3e-47c7-9cf9-6b39f7c28713 |
 | explorer_m4_m5_scan_2 | teamwork_explorer | Replacement: M4 & M5 Scan | completed | 324af98b-e4ea-4a0c-88ae-dc39c21343a5 |
 | explorer_full_scan_2 | teamwork_explorer | Replacement: Full Test Scan | completed | 8e84178e-0308-4ec2-a5a7-74d45d22114e |
-| worker_remediation_m2_m5 | teamwork_worker | M2–M5 Defect Remediation & Layout | in-progress | 81d45907-141c-4051-8637-e7b1ad0e8911 |
+| worker_remediation_m2_m5 | teamwork_worker | M2–M5 Defect Remediation & Layout | completed | 81d45907-141c-4051-8637-e7b1ad0e8911 |
+| reviewer_m2_m3 | teamwork_reviewer | Gate Reviewer for M2 & M3 | failed (network) | f9191929-8d79-44d1-812d-f7a01cb0598f |
+| reviewer_m4_m5 | teamwork_reviewer | Gate Reviewer for M4 & M5 | failed (network) | 51844652-e311-4021-8607-f0fb9650cf32 |
+| challenger_pipelines_security | teamwork_challenger | Challenger: Ingestion & Security | failed (network) | 7f04a1a6-70bd-41d5-93d6-3fca456979d0 |
+| challenger_agent_retrieval | teamwork_challenger | Challenger: Agent Core & Retrieval | failed (network) | a0d9b8d9-4400-4a76-8831-0325ce0d5c5b |
+| auditor_m2_m5 | teamwork_auditor | Forensic Auditor for M2–M6 | failed (network) | 611d589a-690d-4203-b638-aa238c55d382 |
+| reviewer_m2_m3_2 | teamwork_reviewer | Replacement: M2 & M3 Reviewer | completed (REQUEST_CHANGES) | 4de72781-ed8b-4b1f-bcc2-69b23776bcb0 |
+| reviewer_m4_m5_2 | teamwork_reviewer | Replacement: M4 & M5 Reviewer | completed (REQUEST_CHANGES) | 2779e938-a5ac-4563-8527-0ccc86aeccb1 |
+| challenger_sec_2 | teamwork_challenger | Replacement: Security Challenger | completed (APPROVE) | a33a2a32-9c20-45d6-bd3a-dcd14b6ab248 |
+| challenger_agent_2 | teamwork_challenger | Replacement: Agent Challenger | completed (REQUEST_CHANGES) | a9a0a2f8-2d7b-4f7f-abd9-4d3cfea61c18 |
+| auditor_m2_m5_2 | teamwork_auditor | Replacement: Forensic Auditor | completed (CLEAN) | 07446bac-d976-4384-9cc3-4c9e66bf58de |
+| worker_gate_remediation | teamwork_worker | Iteration 2 Defect Remediation Worker | in-progress | 969cd95a-dd1c-459b-9d52-72c772508836 |
 
 ## Succession Status
-- Succession required: no
-- Spawn count: 7 / 16
-- Pending subagents: 81d45907-141c-4051-8637-e7b1ad0e8911
+- Succession required: no (running Iteration 2)
+- Spawn count: 18
+- Pending subagents: 969cd95a-dd1c-459b-9d52-72c772508836
 - Predecessor: orchestrator_1
 - Successor spawned: not yet spawned
 - Successor generation: none
@@ -83,7 +94,7 @@ Orchestrate post-implementation integration, verification suites, Gate reviews a
 
 ## Active Timers
 - Heartbeat cron: 21a0d27d-59e7-47ad-97cc-4efa20d64bb5/task-38
-- Safety timer: 21a0d27d-59e7-47ad-97cc-4efa20d64bb5/task-318
+- Safety timer: 21a0d27d-59e7-47ad-97cc-4efa20d64bb5/task-805
 - On succession: kill all timers before spawning successor
 - On context truncation: handle timers as step 4 of the State Recovery section of your prompt says
 
