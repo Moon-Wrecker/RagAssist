@@ -10,9 +10,15 @@
 .editorconfig
 .pre-commit-config.yaml
 
+# --- Secrets & Environment Variables ---
 .env
 .env.*
 !.env.example
+
+# --- Agent Workspaces, Sessions & Swarm Artifacts ---
+.agents/
+.gemini/
+.claude/
 
 __pycache__/
 *.py[cod]

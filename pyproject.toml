@@ -118,6 +118,7 @@ markers = [
     "defect: asserts specified behaviour that the code currently violates (xfail strict)",
     "network: opts out of the external-network guard (needs real internet access)",
     "live: opt-in tests against a real model endpoint (--run-live or RAGASSIST_LIVE=1)",
+    "real_assistant_graph: keep the container's real graph wiring (no scripted fake graph)",
     "pending: suite for code not written yet; skips with a PENDING reason (see reports/pending.md)",
     "selfcheck: proves fakes and oracles match their contracts and definitions (live, no product code)",
 ]
