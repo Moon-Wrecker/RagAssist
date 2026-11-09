@@ -16,7 +16,7 @@ test.describe("invite and reset links", () => {
     await page.getByLabel("Repeat the password").fill(password);
     await page.getByRole("button", { name: /set password and sign in/i }).click();
 
-    await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "New conversation" })).toBeVisible();
     expect(api.lastBody("/v1/auth/invites/accept")).toEqual({ token, password });
     // The secret never went to the server as part of a URL.
     expect(api.requests.every((r) => !r.path.includes(token))).toBe(true);
@@ -31,7 +31,7 @@ test.describe("invite and reset links", () => {
     await page.getByLabel("New password").fill(password);
     await page.getByLabel("Repeat the password").fill(password);
     await page.getByRole("button", { name: /save password and sign in/i }).click();
-    await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "New conversation" })).toBeVisible();
     expect(api.lastBody("/v1/auth/invites/accept")).toEqual({ token, password });
   });
 

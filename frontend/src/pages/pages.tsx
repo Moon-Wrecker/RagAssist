@@ -1,13 +1,5 @@
 import { PlaceholderPage } from "./placeholder-page";
 
-export function ChatPage() {
-  return (
-    <PlaceholderPage title="Chat">
-      Conversations with the assistant arrive in the next release. There is nothing to do here yet.
-    </PlaceholderPage>
-  );
-}
-
 export function InboxPage() {
   return (
     <PlaceholderPage title="Inbox">

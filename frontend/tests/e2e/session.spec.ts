@@ -20,16 +20,16 @@ test.describe("session and role-aware shell", () => {
   test("restores the session after a reload from the refresh cookie", async ({ page }) => {
     const api = await mockApi(page, { signedIn: true });
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "New conversation" })).toBeVisible();
     await page.reload();
-    await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "New conversation" })).toBeVisible();
     expect(api.requests.filter((r) => r.path === "/v1/auth/refresh").length).toBeGreaterThanOrEqual(2);
   });
 
   test("keeps the access token out of storage and the URL", async ({ page }) => {
     await mockApi(page, { signedIn: true });
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "New conversation" })).toBeVisible();
     const stored = await page.evaluate(() => JSON.stringify({ ...localStorage }) + JSON.stringify({ ...sessionStorage }) + document.cookie);
     expect(stored).not.toContain("test-access-");
     expect(page.url()).not.toContain("test-access-");
@@ -40,7 +40,7 @@ test.describe("session and role-aware shell", () => {
     await page.goto("/team");
     await expect(page.getByRole("heading", { name: /not available to your role/i })).toBeVisible();
     await page.getByRole("link", { name: "Back to chat" }).click();
-    await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "New conversation" })).toBeVisible();
   });
 
   test("a signed-out visit to a protected page goes to sign-in", async ({ page }) => {
@@ -58,7 +58,7 @@ test.describe("session and role-aware shell", () => {
   test("Ctrl+K opens the palette, filters, navigates and closes", async ({ page }) => {
     await mockApi(page, { role: "admin", signedIn: true });
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "New conversation" })).toBeVisible();
     await page.keyboard.press("Control+k");
     const palette = page.getByRole("dialog", { name: "Command palette" });
     await expect(palette).toBeVisible();
@@ -90,7 +90,7 @@ test.describe("session and role-aware shell", () => {
   test("the page does not scroll sideways", async ({ page }) => {
     await mockApi(page, { role: "admin", signedIn: true });
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "New conversation" })).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow).toBeLessThanOrEqual(0);
   });
