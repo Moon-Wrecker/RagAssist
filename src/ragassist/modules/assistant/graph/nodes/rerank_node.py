@@ -18,7 +18,8 @@ def make_rerank_node(reranker: Any):  # type: ignore[no-untyped-def]
             Candidate(chunk_id=c.chunk_id, text=c.text, score=getattr(c, "score", 0.0))
             for c in chunks
         ]
-        scored = await reranker.rerank(query, candidates, top_n=min(len(chunks), 4))
+        result = await reranker.rerank(query, candidates, top_n=min(len(chunks), 4))
+        scored = getattr(result, "items", result)  # the chain returns a ChainResult, a bare reranker a list
 
         scored_map = {s.chunk_id: s.score for s in scored}
         reranked = [c for c in chunks if c.chunk_id in scored_map]
