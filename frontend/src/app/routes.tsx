@@ -4,7 +4,9 @@ import { PublicOnly, RequireAuth, RequireRole } from "@/auth/guards";
 import { AcceptInvitePage, ResetPasswordPage } from "@/features/auth/set-password-page";
 import { SignInPage } from "@/features/auth/sign-in-page";
 import { ChatPage } from "@/features/chat/chat-page";
-import { InboxPage, KnowledgePage, TeamPage } from "@/pages/pages";
+import { InboxPage } from "@/features/inbox/inbox-page";
+import { KnowledgePage } from "@/features/knowledge/knowledge-page";
+import { TeamPage } from "@/features/team/team-page";
 import { NotFoundPage } from "@/pages/not-found-page";
 import { APP_ROUTES } from "./access";
 

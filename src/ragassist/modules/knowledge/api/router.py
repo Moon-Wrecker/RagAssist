@@ -48,6 +48,7 @@ class DocumentSummary(BaseModel):
     content_type: str
     file_size_bytes: int
     status: str
+    error_message: str | None = None
     created_at: str
     updated_at: str
 
@@ -356,6 +357,7 @@ async def list_documents(
             content_type=d.get("content_type", "application/octet-stream"),
             file_size_bytes=d.get("file_size_bytes", 0),
             status=d.get("status", "completed"),
+            error_message=d.get("error_message"),
             created_at=d.get("created_at", datetime.now(timezone.utc).isoformat()),
             updated_at=d.get("updated_at", datetime.now(timezone.utc).isoformat()),
         )
