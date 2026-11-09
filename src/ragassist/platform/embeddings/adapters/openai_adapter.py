@@ -1,10 +1,12 @@
 """OpenAI Dense Embedding Adapter."""
 
 import asyncio
+import os
 from typing import Any
+
+import structlog
 from langchain_core.embeddings import Embeddings
 from langchain_openai import OpenAIEmbeddings
-import structlog
 
 from ragassist.platform.embeddings.ports import EmbeddingProvider
 from ragassist.shared.config.settings import Settings, get_settings
@@ -17,13 +19,22 @@ class OpenAIEmbeddingAdapter(EmbeddingProvider):
 
     def __init__(
         self,
+        base_url: str | None = None,
         model_name: str | None = None,
         dimension: int | None = None,
         batch_size: int | None = None,
         timeout: float = 15.0,
         settings: Settings | None = None,
+        **kwargs: Any,
     ) -> None:
         self.settings = settings or get_settings()
+        self._base_url = (
+            base_url
+            or kwargs.get("base_url")
+            or getattr(self.settings, "OPENAI_BASE_URL", "")
+            or os.environ.get("OPENAI_BASE_URL")
+            or os.environ.get("OPENAI_API_BASE")
+        )
         self._model_name = model_name or self.settings.EMBEDDING_MODEL
         self._dimension = dimension or self.settings.EMBEDDING_DIMENSION
         self._batch_size = batch_size or self.settings.EMBEDDING_BATCH_SIZE
@@ -37,12 +48,17 @@ class OpenAIEmbeddingAdapter(EmbeddingProvider):
         if not api_key:
             logger.warning("openai_embeddings.no_api_key", model=self._model_name)
 
-        self._client = OpenAIEmbeddings(
-            model=self._model_name,
-            api_key=api_key or "<redacted>",
-            timeout=self._timeout,
+        client_kwargs: dict[str, Any] = {
+            "model": self._model_name,
+            "api_key": api_key or "<redacted>",
+            "timeout": self._timeout,
+            "check_embedding_ctx_length": False,
             **extra_kwargs,
-        )
+        }
+        if self._base_url:
+            client_kwargs["base_url"] = self._base_url
+
+        self._client = OpenAIEmbeddings(**client_kwargs)
 
     @property
     def name(self) -> str:
