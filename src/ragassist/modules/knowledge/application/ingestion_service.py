@@ -152,7 +152,10 @@ class UploadDocument:
             except Exception:
                 if object_written:
                     try:
-                        await self.store.delete(object_key)
+                        if hasattr(self.store, "delete_object"):
+                            await self.store.delete_object(object_key)
+                        elif hasattr(self.store, "delete"):
+                            await self.store.delete(object_key)
                     except Exception:
                         pass
                 raise

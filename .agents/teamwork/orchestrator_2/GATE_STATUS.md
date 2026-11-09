@@ -8,7 +8,14 @@
 ---
 
 ## Baseline Scan
-*Pending baseline test execution report.*
+- **Total Tests Collected**: 2,048
+- **Passed**: 1,901 (92.8%)
+- **Failed**: 2 (both in `tests/security/test_authz_and_tool_abuse.py`)
+- **Skipped**: 75 (optional ML dependencies / offline DB containers)
+- **XFailed**: 70 (strict defect markers)
+- **E2E 4-Tier Test Suite**: 163 / 163 passed (100% pass rate)
+- **Architecture & Layering**: 100% compliant with Hexagonal Inward Dependency Rule (`check_tree(SRC_ROOT)` passed with 0 violations)
+- **Action Plan**: Dispatch Worker `worker_remediation_m2_m5` to fix tool abuse handling, generate OpenAPI snapshot, resolve NDCG oracle metric, clean up DEFECT-33/40/32, expose M3 `RetrievalService`/`RetrievedChunk`, and add `container.py` and `cli/main.py`.
 
 ---
 

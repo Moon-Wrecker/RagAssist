@@ -1,0 +1,7 @@
+# e2e test functions that build their own models and never reach product code.
+# See tests/hygiene/test_no_tautological_tests.py. Replace each with a real test, then delete its line.
+# This list may only shrink.
+e2e/test_tier1_features.py::test_feature_20_query_intent_router_contract
+e2e/test_tier1_features.py::test_feature_21_safety_guard_contract
+e2e/test_tier1_features.py::test_feature_22_chunk_relevance_grader_contract
+e2e/test_tier1_features.py::test_feature_23_grounding_judge_contract

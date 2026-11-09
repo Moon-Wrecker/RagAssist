@@ -67,14 +67,15 @@ Orchestrate post-implementation integration, verification suites, Gate reviews a
 | explorer_m2_m3_scan | teamwork_explorer | Baseline scan of M2 & M3 | failed (network) | 4c7fe6db-1257-4cf2-90bb-ebc37f46c757 |
 | explorer_m4_m5_scan | teamwork_explorer | Baseline scan of M4 & M5 | failed (network) | 5d0158c5-b364-4664-9f26-20f47d223272 |
 | explorer_e2e_full_scan | teamwork_explorer | Full repository test scan | failed (network) | 4e102794-4655-491a-8ba5-3765377c4581 |
-| explorer_m2_m3_scan_2 | teamwork_explorer | Replacement: M2 & M3 Scan | in-progress | dc3df3bd-ea3e-47c7-9cf9-6b39f7c28713 |
-| explorer_m4_m5_scan_2 | teamwork_explorer | Replacement: M4 & M5 Scan | in-progress | 324af98b-e4ea-4a0c-88ae-dc39c21343a5 |
-| explorer_full_scan_2 | teamwork_explorer | Replacement: Full Test Scan | in-progress | 8e84178e-0308-4ec2-a5a7-74d45d22114e |
+| explorer_m2_m3_scan_2 | teamwork_explorer | Replacement: M2 & M3 Scan | completed | dc3df3bd-ea3e-47c7-9cf9-6b39f7c28713 |
+| explorer_m4_m5_scan_2 | teamwork_explorer | Replacement: M4 & M5 Scan | completed | 324af98b-e4ea-4a0c-88ae-dc39c21343a5 |
+| explorer_full_scan_2 | teamwork_explorer | Replacement: Full Test Scan | completed | 8e84178e-0308-4ec2-a5a7-74d45d22114e |
+| worker_remediation_m2_m5 | teamwork_worker | M2–M5 Defect Remediation & Layout | in-progress | 81d45907-141c-4051-8637-e7b1ad0e8911 |
 
 ## Succession Status
 - Succession required: no
-- Spawn count: 6 / 16
-- Pending subagents: dc3df3bd-ea3e-47c7-9cf9-6b39f7c28713, 324af98b-e4ea-4a0c-88ae-dc39c21343a5, 8e84178e-0308-4ec2-a5a7-74d45d22114e
+- Spawn count: 7 / 16
+- Pending subagents: 81d45907-141c-4051-8637-e7b1ad0e8911
 - Predecessor: orchestrator_1
 - Successor spawned: not yet spawned
 - Successor generation: none
@@ -82,7 +83,7 @@ Orchestrate post-implementation integration, verification suites, Gate reviews a
 
 ## Active Timers
 - Heartbeat cron: 21a0d27d-59e7-47ad-97cc-4efa20d64bb5/task-38
-- Safety timer: 21a0d27d-59e7-47ad-97cc-4efa20d64bb5/task-151
+- Safety timer: 21a0d27d-59e7-47ad-97cc-4efa20d64bb5/task-318
 - On succession: kill all timers before spawning successor
 - On context truncation: handle timers as step 4 of the State Recovery section of your prompt says
 
