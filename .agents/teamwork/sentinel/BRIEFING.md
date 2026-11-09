@@ -1,4 +1,4 @@
-# BRIEFING — 2026-11-07T20:02:18Z
+# BRIEFING — 2026-11-09T11:15:00Z
 
 ## Mission
 Coordinate and monitor the production-ready Multi-Tenant RAG Assistant implementation (Phases 1-9) via the Project Orchestrator.
@@ -21,6 +21,7 @@ Coordinate and monitor the production-ready Multi-Tenant RAG Assistant implement
 ## Active Orchestrator
 - Active orchestrator: 21a0d27d-59e7-47ad-97cc-4efa20d64bb5
 - Orchestrator state folder: d:\Coding\RagAssist-1\.agents\teamwork\orchestrator_2
+- Active sub-worker: worker_gate_remediation (969cd95a-dd1c-459b-9d52-72c772508836)
 
 ## User Context
 - **Last user request**: STANDING USER DIRECTIVE: Goal -> Research -> Implement (AGENTS.md §3.5) & verify Jev/OpenAI Decisions/Strands adapters against primary documentation.
@@ -28,7 +29,7 @@ Coordinate and monitor the production-ready Multi-Tenant RAG Assistant implement
 - **Delivered results**: Milestone 1 complete
 
 ## Project Status
-- **Phase**: in progress (Fresh Orchestrator `orchestrator_2` active; Work Item 2 Remediation concluding: 0 failing tests repository-wide, 0 pending interfaces in `reports/pending.md`, 0 defect violations in `reports/defects.md`; preparing to initiate Milestone Gate reviews across M2, M3, M4, M5 followed by Milestone 6 E2E hardening)
+- **Phase**: in progress (Iteration 2 defect remediation in progress: LangGraph StateGraph engine plumbed into assistant API router, Container DI completed, DEFECT-41/39/01/09/12 resolved, worker_gate_remediation running full regression suites)
 - **Routing Decision**: General path -> teamwork_orchestrator (Complex multi-phase software engineering task)
 
 ## Victory Audit Status
@@ -42,16 +43,17 @@ Coordinate and monitor the production-ready Multi-Tenant RAG Assistant implement
 - d:\Coding\RagAssist-1\.agents\teamwork\PROJECT.md — Architecture master, feature inventory (34 features), and milestone contracts
 - d:\Coding\RagAssist-1\.agents\teamwork\TEST_INFRA.md — E2E Test Infra specification & 4-tier matrix (30 Tier 1 tests passing)
 - d:\Coding\RagAssist-1\.agents\teamwork\TEST_READY.md — Master E2E verification sign-off across all 4 tiers (162 passed, 1 xfail, 0 failed) covering all 34 features
-- d:\Coding\RagAssist-1\.agents\teamwork\orchestrator_1\GATE_STATUS.md — Milestone 1 Gate tracking (Reviewers, Challengers, Forensic Auditor)
-- d:\Coding\RagAssist-1\.agents\teamwork\explorer_m2_1\analysis_parsers.md — M2 Parsers reference architecture
-- d:\Coding\RagAssist-1\.agents\teamwork\explorer_m2_2\analysis_chunking.md — M2 Chunking reference architecture
-- d:\Coding\RagAssist-1\.agents\teamwork\explorer_m2_3\analysis_storage_persistence_worker.md — M2 Storage/Persistence/Worker reference architecture
-- d:\Coding\RagAssist-1\.agents\teamwork\test_writer_e2e_tier2\handoff.md — Tier 2 E2E Pipeline tests handoff (35/35 passed)
-- d:\Coding\RagAssist-1\.agents\teamwork\test_writer_e2e_tier3\handoff.md — Tier 3 E2E Security & Isolation tests handoff (58/58 passed)
-- d:\Coding\RagAssist-1\.agents\teamwork\explorer_doc_verify_m1\doc_verification_report.md — Primary documentation verification for M1 decider adapters (AGENTS.md § 3.5)
-- d:\Coding\RagAssist-1\.agents\teamwork\explorer_doc_verify_m1\handoff.md — Primary documentation verification handoff report
-- d:\Coding\RagAssist-1\.agents\teamwork\explorer_m4_m5_scan\analysis_m4_m5.md — Milestone 4 & 5 deep-dive analysis (100% unit tests pass across actions, assistant, escalation, api endpoints; 59/60 graph tests pass; 0 architecture layering violations)
-- d:\Coding\RagAssist-1\.agents\teamwork\explorer_m2_m3_scan_2\analysis_m2_m3.md — Milestone 2 & 3 baseline analysis (324 passed, 49 skipped, 5 xfailed, 0 failed; 0 layering violations)
-- d:\Coding\RagAssist-1\.agents\teamwork\explorer_m2_m3_scan_2\handoff.md — Milestone 2 & 3 explorer handoff
-- d:\Coding\RagAssist-1\.agents\teamwork\explorer_full_scan_2\full_test_scan.md — Full repository test scan report (2,048 tests: 1,901 passed, only 2 failed, 100% E2E passed)
-- d:\Coding\RagAssist-1\.agents\teamwork\explorer_full_scan_2\handoff.md — Full repository scan explorer handoff
+- d:\Coding\RagAssist-1\.agents\teamwork\orchestrator_2\GATE_STATUS.md — Milestones 2–5 Gate tracking & Iteration 2 action plan
+- d:\Coding\RagAssist-1\src\ragassist\container.py — Container dependency injection with get_assistant_graph, get_retrieval_service, get_decision_service
+- d:\Coding\RagAssist-1\src\ragassist\modules\assistant\api\router.py — Assistant API router streaming real LangGraph StateGraph events and Command(resume)
+- d:\Coding\RagAssist-1\tests\support\defects.py — Defect registry (DEFECT-01 & DEFECT-39 cleared)
+- d:\Coding\RagAssist-1\tests\security\test_authz_and_tool_abuse.py — Role matrix and admin upload verification
+- d:\Coding\RagAssist-1\tests\hygiene\test_env_example.py — AGENTS.md § 3.7 credential hygiene verification
+- d:\Coding\RagAssist-1\tests\unit\shared\test_config.py — Configuration validation and startup failure checks
+- d:\Coding\RagAssist-1\migrations\versions\0001_initial_schema.py — Alembic migration for PostgreSQL tables under Row-Level Security
+- d:\Coding\RagAssist-1\src\ragassist\runtime.py — Runtime composition root for LangGraph assistant and PostgreSQL persistence
+- d:\Coding\RagAssist-1\src\ragassist\modules\knowledge\api\router.py — Admin RBAC enforcement on document upload
+- d:\Coding\RagAssist-1\src\ragassist\modules\actions\application.py — Admin RBAC enforcement on write tools
+- d:\Coding\RagAssist-1\src\ragassist\modules\assistant\graph\nodes\account_agent_node.py — DEFECT-41 state leak fix
+- d:\Coding\RagAssist-1\src\ragassist\worker\main.py — Production PostgresIngestionRepository with ScopedDatabase
+- d:\Coding\RagAssist-1\src\ragassist\modules\retrieval\application\__init__.py — ContextBuilder clean deduplication

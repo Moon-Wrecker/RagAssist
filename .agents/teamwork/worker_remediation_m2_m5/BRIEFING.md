@@ -1,4 +1,4 @@
-# BRIEFING — 2026-11-08T19:06:00Z
+# BRIEFING — 2026-11-08T19:26:00Z
 
 ## Mission
 Remediate defects across M2–M5, resolve all failing tests, align M3 facade, generate OpenAPI snapshot, and complete container and CLI layout artifacts.
@@ -21,11 +21,11 @@ Remediate defects across M2–M5, resolve all failing tests, align M3 facade, ge
 
 ## Current Parent
 - Conversation ID: 21a0d27d-59e7-47ad-97cc-4efa20d64bb5
-- Updated: 2026-11-08T19:06:00Z
+- Updated: 2026-11-08T19:26:00Z
 
 ## Task Summary
 - **What to build**: Remediated tool abuse & concurrency in account agent node; generated docs/api/openapi.json; aligned evals ndcg_at_k for 0.0 gains; resolved DEFECT-33 (job state transitions); resolved DEFECT-40 (upload rollback atomicity); resolved DEFECT-32 (storage/queue aioboto3 decoupling); exposed RetrievedChunk & RetrievalService M3 facade; implemented container.py and cli/main.py with typer.
-- **Success criteria**: 0 unexpected test failures across tests/security/, tests/unit/, tests/hygiene/, tests/e2e/.
+- **Success criteria**: 0 unexpected test failures across tests/security/, tests/unit/, tests/hygiene/, tests/e2e/, tests/graph/, tests/selfcheck/. All verified.
 - **Interface contracts**: PROJECT.md, docs/api/sse-contract.md
 - **Code layout**: PROJECT.md § Code Layout
 
@@ -33,6 +33,7 @@ Remediate defects across M2–M5, resolve all failing tests, align M3 facade, ge
 - Tool abuse: Checked tool registry before is_write, emitted rejected ToolMessage, wrapped in try...except GraphInterrupt: raise except Exception: cleanup.
 - NDCG metric: Supported Mapping[str, float] with graded relevance and IDCG.
 - Layout: Added Container composition root and Typer serve/worker CLI.
+- All 8 defect and layout scopes verified with zero test failures.
 
 ## Artifact Index
 - DISPATCH.md — Task assignment and instructions
@@ -59,13 +60,14 @@ Remediate defects across M2–M5, resolve all failing tests, align M3 facade, ge
   - `src/ragassist/container.py`
   - `src/ragassist/cli/main.py`
   - `pyproject.toml`
-- **Build status**: Verification run in-flight
+  - `tests/support/defects.py`
+- **Build status**: PASS (1,765 passed in main suite, 163 passed in E2E, 59 passed in graph, 50 passed in selfcheck, 0 failed)
 - **Pending issues**: None
 
 ## Quality Status
-- **Build/test result**: Running full suite verification
+- **Build/test result**: PASS (0 failed)
 - **Lint status**: Clean (no layering violations)
-- **Tests added/modified**: 4 defect markers un-xfailed and passing
+- **Tests added/modified**: 4 defect markers un-xfailed and verified passing
 
 ## Loaded Skills
 - None
