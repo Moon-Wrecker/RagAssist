@@ -136,6 +136,42 @@ jobs:
             coverage.json
           if-no-files-found: ignore
 
+  frontend:
+    # Web app: lint, types, generated-API drift, unit tests, build and the mocked Playwright specs (no backend).
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Type-check
+        run: npm run typecheck
+      - name: API types match docs/api/openapi.json
+        run: npm run api:check
+      - name: Unit tests
+        run: npm test
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+      - name: Build and mocked Playwright specs
+        run: npm run e2e
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          if-no-files-found: ignore
+
   flake-nightly:
     # Plan section 8: a test that fails under another random order is a flake.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'

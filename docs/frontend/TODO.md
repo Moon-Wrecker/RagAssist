@@ -1,7 +1,7 @@
 # Frontend to-do
 
-One checkbox per planned item, updated in the same PR that does the work. Design brief: React with shadcn/ui, black
-and white, a little glass, no AI slop. Order: backend first, then UI slices, each its own PR.
+One checkbox per planned item, updated in the same PR that does the work. Design brief: React with shadcn/ui, true
+monochrome, glass as the primary surface style over a calm monochrome backdrop, no AI slop. Order: backend first, then UI slices, each its own PR.
 
 ## Step 0: Prerequisites
 - [x] `UnitOfWork` refuses a session that already has a transaction open (PR #11)
@@ -32,12 +32,15 @@ and white, a little glass, no AI slop. Order: backend first, then UI slices, eac
 - [x] `docs/api/sse-contract.md`, `openapi.json`, ADR, unit, integration (two listeners) and security tests
 
 ## Slice 3: Scaffold, design system, sign-in
-- [ ] `frontend/` with npm, strict TypeScript, ESLint, Vitest, Playwright; types from `docs/api/openapi.json` with a CI drift check
-- [ ] Same-origin API (Vite proxy in dev, nginx in compose); proxy target from env only
-- [ ] Design tokens, self-hosted fonts, shadcn base components
-- [ ] API client: in-memory token, single-flight refresh, role-aware route guards
-- [ ] Screens: sign-in, accept invite and reset password (token from the URL fragment), top-bar shell, theme toggle, Cmd/Ctrl K
-- [ ] `useEvents` hook: fetch-based stream, backoff, invalidation by event type, full invalidate on `resync`
+- [x] `frontend/` with npm, strict TypeScript, ESLint, Vitest, Playwright; types from `docs/api/openapi.json` with a CI drift check (`npm run api:check`)
+- [x] Same-origin API (Vite proxy in dev; nginx in compose stays in Slice 6); proxy target from env only (`API_PROXY_TARGET`)
+- [x] Design tokens (zero chroma, light and dark), self-hosted fonts, shadcn-style base components
+- [x] Glass as the primary surface style (levels 1 and 2, solid fallbacks, contrast test) over a static monochrome ambient backdrop
+- [x] API client: in-memory token, single-flight refresh, role-aware route guards
+- [x] Screens: sign-in, accept invite and reset password (token from the URL fragment, scrubbed), top-bar shell, theme toggle, Cmd/Ctrl K
+- [x] `useEvents` hook: fetch-based stream, backoff, invalidation by event type, full invalidate on `resync` and after every reconnect, re-auth on `reauth`
+- [x] Unit tests (client, guards, fragment token, event stream and hook, contrast) and mocked Playwright specs at phone and desktop width in light and dark
+- [x] Design review: screenshots of the Slice 3 screens in both themes at both widths checked against the rules (`E2E_SCREENSHOT_DIR=screenshots npm run e2e`)
 
 ## Slice 4: Chat
 - [ ] Streaming over POST with `eventsource-parser` feeding a pure reducer; tokens batched per animation frame
@@ -55,7 +58,7 @@ and white, a little glass, no AI slop. Order: backend first, then UI slices, eac
 
 ## Slice 6: Delivery
 - [ ] `infra/docker/web.Dockerfile`, nginx (SSE buffering off, security headers, CSP), `web` service in compose; API behind the proxy with `--proxy-headers` so the throttle sees client addresses
-- [ ] CI `frontend` job: lint, typecheck, unit, build, mocked Playwright
+- [x] CI `frontend` job: lint, typecheck, API type drift check, unit, build, mocked Playwright (added in Slice 3)
 - [ ] `.gitignore`, `.dockerignore`, `.gitattributes`, README section, arc42 update
 - [ ] Real-stack smoke run
 
