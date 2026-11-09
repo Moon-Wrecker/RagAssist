@@ -69,10 +69,15 @@ TAGS_METADATA = [
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    """Start the PostgreSQL runtime (pools, checkpointer, graph) when PERSISTENCE_BACKEND=postgres."""
+    """Start the PostgreSQL runtime (pools, checkpointer, graph, events listener) when PERSISTENCE_BACKEND=postgres."""
+    from ragassist.modules.assistant.application.turns import drain
+
     settings = get_settings()
     if settings.PERSISTENCE_BACKEND != "postgres":
-        yield
+        try:
+            yield
+        finally:
+            await drain()
         return
     from ragassist.runtime import start_runtime, stop_runtime
 
@@ -80,6 +85,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        await drain()  # finish in-flight assistant turns before the pools they use close
         await stop_runtime()
 
 
