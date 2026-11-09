@@ -18,7 +18,6 @@ import pytest
 F = TypeVar("F", bound=Callable[..., Any])
 
 DEFECTS: dict[str, str] = {
-    "DEFECT-01": "Insecure default SECRET_KEY is accepted when APP_ENV=production.",
     "DEFECT-04": "Mock SaaS decodes JWTs with verify_signature=False (forged tokens accepted).",
     "DEFECT-05": "Mock SaaS billing-email endpoint is documented admin-only but checks no role.",
     "DEFECT-06": "Mock SaaS billing-email endpoint does not validate the e-mail address.",
@@ -58,15 +57,6 @@ DEFECTS: dict[str, str] = {
     ),
     "DEFECT-38": (
         "GET /metrics answers without credentials and is not restricted to the internal network."
-    ),
-    "DEFECT-41": (
-        "The account agent keeps the pending tool call in a module-level dict keyed by thread (_PENDING_TOOL_CALLS). "
-        "A turn abandoned at the approval step leaves a stale entry, so the next turn on that conversation replays "
-        "the old write instead of starting clean; the state is lost on restart and is not shared across workers. "
-        "It also makes the graph suite order-dependent."
-    ),
-    "DEFECT-39": (
-        "POST /v1/documents accepts uploads from a plain user; the plan makes upload admin-only (section 5.8)."
     ),
     "DEFECT-18": (
         "JSON log lines contain structlog internals (_record, _from_structlog): "

@@ -228,7 +228,7 @@ class OpenAIEmbeddingAdapter(EmbeddingProvider):
 
         self._client = OpenAIEmbeddings(
             model=self._model_name,
-            api_key=api_key or "<redacted>",
+            api_key=api_key or "<placeholder-key>",
             timeout=self._timeout,
             **extra_kwargs,
         )

@@ -16,6 +16,7 @@ Why this exists (found while surveying the repo):
 from __future__ import annotations
 
 import copy
+import os
 import sys
 from collections.abc import Iterator
 from pathlib import Path
@@ -71,16 +72,40 @@ except ImportError:
     sys.modules["multipart.multipart"] = _mp_sub
 
 import pytest
+from dotenv import dotenv_values
 from hypothesis import HealthCheck
 from hypothesis import settings as hypothesis_settings
+from support.repo import REPO_ROOT
 from support.spec import TEST_SECRET_KEY
 
 from ragassist.shared.config import settings as settings_module
+from ragassist.shared.config.envfile import blank_required_fields, generate_value
 from ragassist.shared.config.settings import Settings
 
 # Never read the developer's real .env during the test session. Individual tests that need a
 # file pass ``Settings(_env_file=path)`` explicitly.
 Settings.model_config["env_file"] = None
+
+
+def _baseline_env() -> dict[str, str]:
+    """The test environment: ``.env.example`` for every non-secret value, random values for the blank secrets.
+
+    ``Settings`` has no defaults and no credential is committed, so each test run builds its own secrets.
+    """
+    example = REPO_ROOT / ".env.example"
+    values = {name: (value or "") for name, value in dotenv_values(example).items()}
+    for name in blank_required_fields(example):
+        values[name] = generate_value(name)
+    values["SECRET_KEY"] = TEST_SECRET_KEY
+    # The automated tests run on the in-process stores, whatever the shell exports.
+    values["PERSISTENCE_BACKEND"] = "memory"
+    return {name: value for name, value in values.items() if name in Settings.model_fields}
+
+
+BASELINE_ENV = _baseline_env()
+for _name, _value in BASELINE_ENV.items():
+    os.environ.setdefault(_name, _value)
+os.environ["PERSISTENCE_BACKEND"] = "memory"
 
 hypothesis_settings.register_profile(
     "default",
@@ -152,7 +177,7 @@ def _hermetic_environment(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     """Known env, empty settings cache, no DB singletons, for every test."""
     for field in Settings.model_fields:
         monkeypatch.delenv(field, raising=False)
-    for key, value in TEST_ENV.items():
+    for key, value in {**BASELINE_ENV, **TEST_ENV}.items():
         monkeypatch.setenv(key, value)
     settings_module._settings = None
     _reset_db_singletons()

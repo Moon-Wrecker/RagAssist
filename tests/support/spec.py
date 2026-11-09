@@ -8,6 +8,7 @@ one-line change here.
 
 from __future__ import annotations
 
+import secrets
 from typing import Final
 
 # --- C1: router labels --------------------------------------------------------------------------
@@ -35,6 +36,5 @@ DEMO_TENANT_A_ID: Final = "a0000000-0000-0000-0000-000000000001"  # Acme Corp
 DEMO_TENANT_B_ID: Final = "b0000000-0000-0000-0000-000000000002"  # Globex Corp
 
 # --- Settings values used by every test run (see tests/conftest.py) -----------------------------
-TEST_SECRET_KEY: Final = (
-    "unit-test-secret-key-long-enough-even-for-hs512-0123456789-abcdefghijklmnop"
-)
+# Generated per run: no signing key is committed, and a token from one run is useless in the next.
+TEST_SECRET_KEY: Final = secrets.token_urlsafe(48)

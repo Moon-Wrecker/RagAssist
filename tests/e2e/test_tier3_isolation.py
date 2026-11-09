@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import json
+import secrets
 from datetime import timedelta
 from typing import Any
 from unittest.mock import AsyncMock
@@ -700,7 +701,13 @@ class TestRoleBasedAccessControlAndToolAbuse:
         )
 
         registry = ToolRegistry([tool])
-        principal = make_principal(user_id=user_a, tenant_id=tenant_a)
+        principal = make_principal(user_id=user_a, tenant_id=tenant_a, role=UserRole.ADMIN)
+
+        # Authorization runs before argument validation: a plain user learns nothing about the schema.
+        plain_user = make_principal(user_id=user_a, tenant_id=tenant_a, role=UserRole.USER)
+        with pytest.raises(PermissionError, match="Admin role required"):
+            await registry.invoke("update_billing_email", {}, plain_user)
+        assert executed is False
 
         # Missing required parameter raises ValueError
         with pytest.raises(ValueError, match="Missing required argument: new_email"):
@@ -769,10 +776,10 @@ class TestRoleBasedAccessControlAndToolAbuse:
         principal = make_principal(user_id=user_a, tenant_id=tenant_a)
 
         sensitive_arguments = {
-            "password": "SuperSecretPassword123!",
-            "api_key": "<redacted>",
-            "token": "<redacted>",
-            "authorization": "Bearer secret_jwt",
+            "password": secrets.token_urlsafe(12),
+            "api_key": "sk-" + secrets.token_hex(12),
+            "token": "ghp_" + secrets.token_hex(18),
+            "authorization": "Bearer " + secrets.token_urlsafe(24),
             "public_field": "safe_information",
         }
 

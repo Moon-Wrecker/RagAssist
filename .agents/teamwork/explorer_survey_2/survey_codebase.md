@@ -82,7 +82,7 @@ Vertical bounded contexts following Hexagonal Architecture:
   - Acme Corp (`a0000000-0000-0000-0000-000000000001`): Enterprise Scale plan, 50 seats (38 used), $2400/mo, active invoices `inv_acme_101`, `inv_acme_102`.
   - Globex Corp (`b0000000-0000-0000-0000-000000000002`): Pro Starter plan, 10 seats (9 used), $490/mo, active invoice `inv_globex_201`.
   - Endpoints: `GET /healthz`, `GET /accounts/overview`, `GET /accounts/subscription`, `GET /accounts/invoices`, `POST /accounts/billing-email`, `POST /helpdesk/tickets`.
-- `infra/postgres/init.sql`: Enables `vector` and `uuid-ossp` extensions. Creates unprivileged role `app_user` with password `<redacted>` and grants database/schema permissions for RLS enforcement.
+- `infra/postgres/init.sql`: Enables `vector` and `uuid-ossp` extensions. Creates unprivileged role `app_user` with a password from the environment and grants database/schema permissions for RLS enforcement.
 - `infra/localstack/init.sh`: Creates S3 bucket `ragassist-docs`, SQS dead-letter queue `ragassist-ingest-dlq`, and ingestion queue `ragassist-ingest` with redrive policy (`maxReceiveCount: 3`).
 - `compose.yaml`: Multi-container topology for PostgreSQL 16 (`pgvector:pg16`), LocalStack 3.8.1 (s3, sqs, secretsmanager), mock SaaS (port 8001), and RagAssist API (port 8000).
 

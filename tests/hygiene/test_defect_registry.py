@@ -47,8 +47,8 @@ class TestReport:
         assert all(defect_id in text for defect_id in DEFECTS)
 
     def test_the_report_counts_the_tests_that_assert_each_defect(self) -> None:
-        text = render_markdown({"DEFECT-01": ["tests/a.py::t1", "tests/b.py::t2"]})
-        assert "| DEFECT-01 |" in text and "2 test(s)" in text
+        text = render_markdown({"DEFECT-04": ["tests/a.py::t1", "tests/b.py::t2"]})
+        assert "| DEFECT-04 |" in text and "2 test(s)" in text
 
     def test_undetected_defects_are_flagged(self) -> None:
         assert "none in this run" in render_markdown({})
