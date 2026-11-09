@@ -272,7 +272,9 @@ async def build_checkpointer(settings: Settings, closers: list[Callable[[], Awai
     )
     await pool.open(wait=True, timeout=15)
     closers.append(pool.close)
-    return AsyncPostgresSaver(pool)  # type: ignore[arg-type]
+    from ragassist.modules.assistant.graph.serde import checkpoint_serde
+
+    return AsyncPostgresSaver(pool, serde=checkpoint_serde())  # type: ignore[arg-type]
 
 
 async def build_runtime(settings: Settings) -> Runtime:
