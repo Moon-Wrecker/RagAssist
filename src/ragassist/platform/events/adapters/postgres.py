@@ -33,6 +33,8 @@ logger = structlog.get_logger(__name__)
 
 #: Fixed identifier (never user input), so it is safe to splice into ``LISTEN``.
 CHANNEL = "ragassist_events"
+#: Label of the listener connection in ``pg_stat_activity``.
+APPLICATION_NAME = "ragassist-events"
 
 #: The listener probes the connection with ``SELECT 1`` at this interval, which also detects a dead socket.
 LISTENER_PROBE_SECONDS = 30.0
@@ -112,7 +114,9 @@ class PostgresEventBus(PostgresEventPublisher):
         backoff = RECONNECT_BACKOFF_START
         while True:
             try:
-                async with await psycopg.AsyncConnection.connect(self._conninfo, autocommit=True) as conn:
+                async with await psycopg.AsyncConnection.connect(
+                    self._conninfo, autocommit=True, application_name=APPLICATION_NAME
+                ) as conn:
                     await conn.execute(f"LISTEN {CHANNEL}")
                     if self._connected_before:
                         # Notifications sent while we were away are gone: every stream refetches everything.
