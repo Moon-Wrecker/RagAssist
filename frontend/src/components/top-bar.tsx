@@ -24,7 +24,7 @@ export function TopBar({ liveStatus }: { liveStatus: EventsStatus }) {
   const routes = routesFor(state.user.role);
 
   return (
-    <header className="glass sticky top-0 z-40 border-b">
+    <header className="glass-2 sticky top-0 z-40 border-x-0 border-t-0">
       <div className="mx-auto flex w-full max-w-[90rem] flex-wrap items-center gap-x-6 px-4 sm:px-6 md:flex-nowrap">
         <NavLink to="/" className="flex h-14 items-center rounded-md" aria-label="RagAssist home">
           <Wordmark />

@@ -7,62 +7,86 @@
 @import "@fontsource/geist-mono/latin-500.css";
 @import "tailwindcss";
 
-/* The theme attribute on <html> is always "light" or "dark" (set before first paint by index.html and kept in
+/* The theme attribute on <html> is always "light" or "dark" (set before first paint by theme-init.js and kept in
    sync by ThemeProvider, which resolves "system" itself). */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-/* Design contract (docs/frontend/README.md in the plan): true monochrome, zero chroma in every token. Status is
-   carried by glyph, weight and pattern, never by colour, so "destructive" is a neutral too. */
+/* Design contract: true monochrome, zero chroma in every token. Status is carried by glyph, weight and pattern,
+   never by colour, so "destructive" is a neutral too. Glass is the primary surface style: panels, the top bar,
+   dialogs and the palette are translucent neutrals over a calm monochrome backdrop (see .ambient below). */
 :root {
   color-scheme: light;
-  --background: oklch(1 0 0);
+  --background: oklch(0.955 0 0);
   --foreground: oklch(0.145 0 0);
   --muted: oklch(0.965 0 0);
   --muted-foreground: oklch(0.44 0 0);
-  --border: oklch(0.88 0 0);
-  --border-strong: oklch(0.7 0 0);
-  --input: oklch(0.88 0 0);
+  --border: oklch(0 0 0 / 0.12);
+  --border-strong: oklch(0 0 0 / 0.3);
+  --input: oklch(0 0 0 / 0.16);
   --ring: oklch(0.145 0 0);
   --primary: oklch(0.145 0 0);
   --primary-foreground: oklch(0.99 0 0);
   --secondary: oklch(0.965 0 0);
   --secondary-foreground: oklch(0.145 0 0);
-  --accent: oklch(0.955 0 0);
+  --accent: oklch(0 0 0 / 0.06);
   --accent-foreground: oklch(0.145 0 0);
   --destructive: oklch(0.145 0 0);
   --destructive-foreground: oklch(0.99 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  /* Glass: the page colour at high opacity, so text keeps at least 7:1 over any content behind it. */
-  --glass: oklch(1 0 0 / 0.82);
-  --glass-solid: oklch(1 0 0);
-  --scrim: oklch(0 0 0 / 0.35);
+  --scrim: oklch(0 0 0 / 0.3);
   --radius: 0.25rem;
+
+  /* Glass levels. 1 = panels and containers that sit on the page; 2 = floating layers (top bar, dialogs,
+     palette, menus). Never nest glass inside glass. The solid values are the fallbacks. */
+  --glass-1: oklch(1 0 0 / 0.58);
+  --glass-2: oklch(1 0 0 / 0.74);
+  --glass-1-solid: oklch(0.985 0 0);
+  --glass-2-solid: oklch(1 0 0);
+  --glass-border: oklch(0 0 0 / 0.11);
+  --glass-edge: oklch(1 0 0 / 0.85);
+  --glass-shadow: 0 1px 2px oklch(0 0 0 / 0.04), 0 12px 32px -12px oklch(0 0 0 / 0.14);
+
+  /* Backdrop: the darkest and lightest tones the glass can sit over (also read by the contrast test), and the
+     strength of the grain. */
+  --ambient-lo: oklch(0.8 0 0);
+  --ambient-hi: oklch(1 0 0);
+  --grain-opacity: 0.05;
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --background: oklch(0.145 0 0);
+  --background: oklch(0.13 0 0);
   --foreground: oklch(0.985 0 0);
   --muted: oklch(0.205 0 0);
-  --muted-foreground: oklch(0.72 0 0);
-  --border: oklch(0.3 0 0);
-  --border-strong: oklch(0.5 0 0);
-  --input: oklch(0.3 0 0);
+  --muted-foreground: oklch(0.77 0 0);
+  --border: oklch(1 0 0 / 0.14);
+  --border-strong: oklch(1 0 0 / 0.34);
+  --input: oklch(1 0 0 / 0.2);
   --ring: oklch(0.985 0 0);
   --primary: oklch(0.985 0 0);
   --primary-foreground: oklch(0.145 0 0);
   --secondary: oklch(0.205 0 0);
   --secondary-foreground: oklch(0.985 0 0);
-  --accent: oklch(0.235 0 0);
+  --accent: oklch(1 0 0 / 0.09);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.985 0 0);
   --destructive-foreground: oklch(0.145 0 0);
-  --popover: oklch(0.145 0 0);
+  --popover: oklch(0.18 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  --glass: oklch(0.145 0 0 / 0.82);
-  --glass-solid: oklch(0.145 0 0);
-  --scrim: oklch(0 0 0 / 0.6);
+  --scrim: oklch(0 0 0 / 0.55);
+
+  --glass-1: oklch(0.22 0 0 / 0.56);
+  --glass-2: oklch(0.2 0 0 / 0.7);
+  --glass-1-solid: oklch(0.19 0 0);
+  --glass-2-solid: oklch(0.16 0 0);
+  --glass-border: oklch(1 0 0 / 0.14);
+  --glass-edge: oklch(1 0 0 / 0.16);
+  --glass-shadow: 0 1px 2px oklch(0 0 0 / 0.3), 0 16px 40px -12px oklch(0 0 0 / 0.55);
+
+  --ambient-lo: oklch(0.05 0 0);
+  --ambient-hi: oklch(0.32 0 0);
+  --grain-opacity: 0.07;
 }
 
 @theme inline {
@@ -102,6 +126,7 @@
   }
   body {
     background: var(--background);
+    min-height: 100dvh;
     color: var(--foreground);
     font-family: var(--font-sans);
     font-size: 0.9375rem;
@@ -119,19 +144,107 @@
   }
 }
 
-/* Glass is for floating layers only (top bar, dialogs, palette, later the composer and panels). It falls back to
-   a solid surface when the browser lacks backdrop-filter or the user asks for less transparency. */
-@utility glass {
-  background: var(--glass-solid);
-  @supports (backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px)) {
-    background: var(--glass);
-    -webkit-backdrop-filter: blur(14px);
-    backdrop-filter: blur(14px);
+/* Glass surfaces. Translucent neutral fill, modest blur, a hairline border with a faint light edge on top and a
+   very soft shadow. Falls back to a solid surface when the browser lacks backdrop-filter or the person asks for
+   less transparency; src/theme/contrast.test.ts checks text over the busiest part of the backdrop. */
+@utility glass-1 {
+  background: var(--glass-1-solid);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    background: var(--glass-1);
+    -webkit-backdrop-filter: blur(14px) saturate(1.15);
+    backdrop-filter: blur(14px) saturate(1.15);
+    box-shadow:
+      inset 0 1px 0 var(--glass-edge),
+      var(--glass-shadow);
   }
   @media (prefers-reduced-transparency: reduce) {
-    background: var(--glass-solid);
+    background: var(--glass-1-solid);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
+  }
+}
+
+@utility glass-2 {
+  background: var(--glass-2-solid);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    background: var(--glass-2);
+    -webkit-backdrop-filter: blur(20px) saturate(1.2);
+    backdrop-filter: blur(20px) saturate(1.2);
+    box-shadow:
+      inset 0 1px 0 var(--glass-edge),
+      var(--glass-shadow);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background: var(--glass-2-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* The backdrop that glass blurs: large, soft, flat-coloured neutral shapes plus faint grain, fixed behind the
+   content. CSS only, static (nothing animates), no gradients, no colour. The shapes are blurred elements on their
+   own layer, rasterised once, so scrolling stays cheap. Hidden when the person asks for less transparency. */
+.ambient {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  contain: strict;
+}
+.ambient > i {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(72px);
+  transform: translateZ(0);
+}
+.ambient > i:nth-child(1) {
+  width: 46vmax;
+  height: 40vmax;
+  left: -12vmax;
+  top: -14vmax;
+  background: var(--ambient-hi);
+}
+.ambient > i:nth-child(2) {
+  width: 38vmax;
+  height: 38vmax;
+  right: -10vmax;
+  top: 6vh;
+  background: var(--ambient-lo);
+}
+.ambient > i:nth-child(3) {
+  width: 44vmax;
+  height: 34vmax;
+  left: 18vw;
+  bottom: -18vmax;
+  background: var(--ambient-lo);
+}
+.ambient > i:nth-child(4) {
+  width: 30vmax;
+  height: 30vmax;
+  right: 8vw;
+  bottom: -8vmax;
+  background: var(--ambient-hi);
+}
+.ambient::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: var(--grain-opacity);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27160%27 height=%27160%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%27.8%27 numOctaves=%272%27 stitchTiles=%27stitch%27/%3E%3CfeColorMatrix type=%27saturate%27 values=%270%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27/%3E%3C/svg%3E");
+}
+@media (max-width: 640px) {
+  .ambient > i {
+    filter: blur(48px);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .ambient {
+    display: none;
   }
 }
 
