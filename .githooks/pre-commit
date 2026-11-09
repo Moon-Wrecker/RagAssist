@@ -1,0 +1,10 @@
+#!/bin/sh
+# Refuse a commit that adds credential-shaped text. Enable once per clone: git config core.hooksPath .githooks
+root=$(git rev-parse --show-toplevel) || exit 1
+for py in "$root/.venv/Scripts/python.exe" "$root/.venv/bin/python" python3 python; do
+  if command -v "$py" >/dev/null 2>&1 || [ -x "$py" ]; then
+    exec "$py" "$root/scripts/check_secrets.py" --staged
+  fi
+done
+echo "pre-commit: no Python found; cannot scan for secrets" >&2
+exit 1

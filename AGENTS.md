@@ -57,3 +57,9 @@ Every commit or change MUST keep the repository hygiene files synchronized:
    - The only permitted code defaults are an empty string for optional third-party API keys and overrides.
    - Tests and CI generate their own throwaway secrets at run time (`secrets.token_urlsafe`); they never embed key-shaped literals either.
    - Before committing, grep the diff for `password`, `secret`, `token`, `api_key` literals. If a secret was ever committed, treat it as leaked: rotate it and purge it from history.
+8. **Secret Guards (Hard Rule, Always On):** a key must never reach the remote. Four layers enforce it; do not bypass any of them.
+   - **Git hooks** (`.githooks/pre-commit`, `.githooks/pre-push`, both run `scripts/check_secrets.py`). Enable once per clone with `git config core.hooksPath .githooks`. Never use `--no-verify`.
+   - **CI** runs the same scanner over the whole tree and over every commit of a pull request (blocking); a hygiene test does the same in the unit run.
+   - **GitHub push protection and secret scanning** are enabled on the repository and reject known provider keys server-side.
+   - **Where real values live:** only the git-ignored `.env` (or the deployment's secret store). A value a user pastes into a chat goes into `.env` and nowhere else: not into code, tests, docs, fixtures, commit messages, PR text or logs.
+   - A hook is a seatbelt, not a vault: a key that was ever pushed is leaked. Rotate it first, then purge it. A line may carry `secret-scan: allow` only for a documented non-secret value.

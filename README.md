@@ -36,6 +36,15 @@ uv venv && uv pip install -e ".[dev]"
 ragassist init-env
 ```
 
+Turn on the secret guard once per clone. It refuses any commit or push that contains a key, token or password
+(`scripts/check_secrets.py`; CI runs the same scan, and GitHub push protection is enabled on the repository):
+
+```bash
+git config core.hooksPath .githooks
+```
+
+Real keys live only in the git-ignored `.env`.
+
 ### 2. Start Local Infrastructure (Docker Compose)
 
 ```bash
