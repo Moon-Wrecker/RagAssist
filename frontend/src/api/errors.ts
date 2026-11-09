@@ -41,12 +41,7 @@ export function detailFromBody(body: unknown): string | null {
 }
 
 export async function apiErrorFromResponse(response: Response): Promise<ApiError> {
-  let detail: string | null = null;
-  try {
-    detail = detailFromBody(await response.json());
-  } catch {
-    detail = null;
-  }
+  const detail = await response.json().then(detailFromBody, () => null);
   const retry = Number(response.headers.get("Retry-After"));
   return new ApiError(response.status, detail, Number.isFinite(retry) && retry > 0 ? retry : null);
 }

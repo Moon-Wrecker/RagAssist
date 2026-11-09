@@ -7,13 +7,8 @@
     <meta name="referrer" content="no-referrer" />
     <title>RagAssist</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-    <script>
-      // Apply the stored theme before first paint so there is no flash. "system" leaves the attribute off.
-      try {
-        var t = localStorage.getItem("ragassist-theme");
-        if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
-      } catch (e) {}
-    </script>
+    <!-- Sets data-theme before first paint (external file so a strict CSP needs no inline allowance). -->
+    <script src="/theme-init.js"></script>
   </head>
   <body>
     <div id="root"></div>
