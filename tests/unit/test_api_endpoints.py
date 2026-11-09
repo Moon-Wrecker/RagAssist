@@ -88,13 +88,13 @@ class TestSystemAndObservability:
             assert "app" in data
 
     @pytest.mark.asyncio
-    async def test_metrics_endpoint_exposition(self, app):
+    async def test_metrics_endpoint_exposition(self, app, user_headers):
         async with httpx.AsyncClient(
             transport=httpx.ASGITransport(app=app), base_url="http://test"
         ) as client:
             # Send a request to trigger metrics
             await client.get("/healthz")
-            resp = await client.get("/metrics")
+            resp = await client.get("/metrics", headers=user_headers)
             assert resp.status_code == 200
             assert "text/plain" in resp.headers["content-type"]
             text = resp.text

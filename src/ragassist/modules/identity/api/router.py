@@ -3,6 +3,7 @@
 from uuid import UUID
 from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel
+from ragassist.shared.config.settings import get_settings
 from ragassist.shared.domain import TenantId, UserId
 from ragassist.shared.security.jwt import UserRole, create_access_token
 
@@ -26,6 +27,12 @@ class TokenResponse(BaseModel):
 @router.post("/token", response_model=TokenResponse)
 async def generate_dev_token(req: TokenRequest) -> TokenResponse:
     """Generate a valid JWT with tenant_id, user_id, and role claims."""
+    settings = get_settings()
+    if settings.APP_ENV not in ("development", "test"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Development token issuance is disabled in this environment",
+        )
     token = create_access_token(
         user_id=UserId(req.user_id),
         tenant_id=TenantId(req.tenant_id),

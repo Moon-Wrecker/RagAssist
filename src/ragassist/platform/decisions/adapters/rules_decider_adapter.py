@@ -32,10 +32,14 @@ class RulesDeciderAdapter(Decider):
     def __init__(self) -> None:
         self._injection_patterns = [
             re.compile(r"ignore\s+(?:all\s+)?(?:previous|prior)\s+instructions", re.IGNORECASE),
-            re.compile(r"dump\s+(?:the\s+)?system\s+prompt", re.IGNORECASE),
+            re.compile(r"dump\s+(?:the\s+|your\s+)?(?:system\s+prompt|configuration)", re.IGNORECASE),
             re.compile(r"you\s+are\s+now\s+in\s+dan\s+mode", re.IGNORECASE),
             re.compile(r"system\s*prompt\s*override", re.IGNORECASE),
-            re.compile(r"reveal\s+(?:your\s+)?(?:system\s+)?instructions", re.IGNORECASE),
+            re.compile(r"reveal\s+(?:your\s+)?(?:system\s+)?(?:instructions|prompt)", re.IGNORECASE),
+            re.compile(r"print\s+your\s+hidden\s+instructions", re.IGNORECASE),
+            re.compile(r"disregard\s+the\s+system\s+prompt", re.IGNORECASE),
+            re.compile(r"forget\s+your\s+rules", re.IGNORECASE),
+            re.compile(r"pretend\s+the\s+safety\s+policy\s+does\s+not\s+apply", re.IGNORECASE),
             re.compile(r"jailbreak", re.IGNORECASE),
         ]
 

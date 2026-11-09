@@ -18,9 +18,10 @@ class OpenAIAdapter(ChatModelProvider):
         return "openai"
 
     def get_pricing(self, model_name: str) -> ModelPricing:
-        if "mini" in model_name.lower():
-            return ModelPricing(input_cost_per_mtok=0.15, output_cost_per_mtok=0.60)
-        return ModelPricing(input_cost_per_mtok=2.50, output_cost_per_mtok=10.00)
+        from ragassist.platform.llm.catalog import ModelCatalog
+
+        catalog = ModelCatalog.load_from_yaml(self.settings.MODELS_CONFIG_PATH)
+        return catalog.resolve_pricing(model_name, provider_name="openai")
 
     def get_capabilities(self, model_name: str) -> ModelCapabilities:
         pricing = self.get_pricing(model_name)

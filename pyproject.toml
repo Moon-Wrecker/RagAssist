@@ -136,6 +136,22 @@ exclude_lines = [
     "\\.\\.\\.$",
 ]
 
+[tool.importlinter]
+root_package = "ragassist"
+
+[[tool.importlinter.contracts]]
+name = "Domain layers do not depend on outer layers"
+type = "forbidden"
+source_modules = [
+    "ragassist.modules.knowledge.domain",
+    "ragassist.modules.retrieval.domain",
+    "ragassist.shared.domain",
+]
+forbidden_modules = [
+    "ragassist.main",
+    "ragassist.container",
+]
+
 [tool.poe.tasks]
 up = "docker compose up -d"
 down = "docker compose down"

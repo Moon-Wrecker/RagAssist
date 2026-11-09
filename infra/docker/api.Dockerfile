@@ -13,7 +13,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 COPY pyproject.toml README.md ./
 RUN uv pip install --system --no-cache -r pyproject.toml
 COPY src/ src/
-RUN uv pip install --system --no-cache --no-deps .
+RUN uv pip install --system --no-cache --no-deps -e .
 
 # Runtime assets: model catalog, Alembic migrations and the demo seed documents.
 COPY config/ config/

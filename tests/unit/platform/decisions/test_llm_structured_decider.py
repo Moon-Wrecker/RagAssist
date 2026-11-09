@@ -13,7 +13,6 @@ from fakes.chat_model import ScriptedChatModel, tool_call_message
 from fakes.structured_model import StructuredFakeModel
 from support.assertions import assert_probabilities
 from support.contracts import DeciderContract
-from support.defects import defect
 from support.spec import ROUTE_LABELS
 
 from ragassist.platform.decisions.adapters.llm_structured_adapter import LLMStructuredDeciderAdapter
@@ -141,7 +140,6 @@ class TestFailureHandling:
         answer = await LLMStructuredDeciderAdapter(chat_model=model).evaluate_choice("x", ROUTE)
         assert 0.0 <= answer.confidence <= 1.0
 
-    @defect("DEFECT-19")
     async def test_one_malformed_reply_is_repaired_with_a_retry(self) -> None:
         """Plan section 2: JSON mode with one repair retry. A plain-text reply followed by a valid
         tool call must yield the valid answer."""

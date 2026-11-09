@@ -7,7 +7,6 @@ from uuid import uuid4
 
 import httpx
 import pytest
-from support.defects import defect
 
 from ragassist.shared.security.jwt import UserRole, decode_access_token
 
@@ -97,7 +96,6 @@ class TestValidation:
 
 
 class TestEnvironmentGating:
-    @defect("DEFECT-08")
     @pytest.mark.parametrize("env", ["staging", "production"])
     async def test_token_minting_is_not_available_outside_dev_and_test(
         self, api_client_for: Callable[..., httpx.AsyncClient], env: str

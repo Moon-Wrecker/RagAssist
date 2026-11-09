@@ -11,7 +11,6 @@ import logging
 import httpx
 import pytest
 from factories.principals import auth_header, forge_token, make_token
-from support.defects import defect
 from support.fake_openai_server import FakeOpenAIServer
 from support.settings import make_settings
 from support.spec import TEST_SECRET_KEY
@@ -30,7 +29,6 @@ def client() -> httpx.AsyncClient:
 
 
 class TestTokensNeverLeak:
-    @defect("DEFECT-04")  # the mock SaaS decodes without verifying, so an altered token is accepted
     async def test_a_tampered_token_is_refused_and_not_echoed(self) -> None:
         token = make_token() + "marker-token-body-do-not-echo"
         async with client() as http:
@@ -88,7 +86,6 @@ class TestProviderKeysNeverLeak:
         assert OPENAI_MARKER not in message
         assert OPENAI_MARKER not in captured.out + captured.err + caplog.text
 
-    @defect("DEFECT-30")
     def test_settings_repr_and_json_hide_secret_values(self) -> None:
         settings = make_settings(OPENAI_API_KEY=OPENAI_MARKER)
         assert OPENAI_MARKER not in repr(settings)

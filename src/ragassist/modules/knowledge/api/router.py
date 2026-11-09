@@ -387,7 +387,8 @@ async def reindex_document(
         import json
         await queue.send(json.dumps(msg))
     else:
-        await queue.send_message("ragassist-ingest", msg)
+        from ragassist.shared.config.settings import get_settings
+        await queue.send_message(get_settings().SQS_QUEUE_INGEST, msg)
 
     return {"document_id": document_id, "job_id": job_id, "status": "queued"}
 

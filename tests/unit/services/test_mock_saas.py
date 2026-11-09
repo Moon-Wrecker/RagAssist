@@ -12,7 +12,6 @@ from uuid import uuid4
 import httpx
 import pytest
 from factories.principals import auth_header, forge_token, make_token
-from support.defects import defect
 from support.spec import DEMO_TENANT_A_ID, DEMO_TENANT_B_ID
 
 from ragassist.shared.security.jwt import UserRole
@@ -80,7 +79,6 @@ class TestAuthentication:
         response = await mock_saas_client.get("/accounts/overview", headers=auth_header("x.y.z"))
         assert response.json() == {"detail": "Invalid token"}
 
-    @defect("DEFECT-04")
     async def test_token_signed_with_the_wrong_key_is_rejected(
         self, mock_saas_client: httpx.AsyncClient
     ) -> None:
@@ -92,7 +90,6 @@ class TestAuthentication:
             await mock_saas_client.get("/accounts/overview", headers=auth_header(token))
         ).status_code == 401
 
-    @defect("DEFECT-04")
     async def test_expired_token_is_rejected(self, mock_saas_client: httpx.AsyncClient) -> None:
         token = make_token(
             tenant_id=DEMO_TENANT_A_ID, expires_delta=__import__("datetime").timedelta(minutes=-5)
@@ -101,7 +98,6 @@ class TestAuthentication:
             await mock_saas_client.get("/accounts/overview", headers=auth_header(token))
         ).status_code == 401
 
-    @defect("DEFECT-04")
     async def test_unsigned_alg_none_token_is_rejected(
         self, mock_saas_client: httpx.AsyncClient
     ) -> None:
@@ -244,7 +240,6 @@ class TestBillingEmail:
             await mock_saas_client.post("/accounts/billing-email", json=payload, headers=acme_admin)
         ).status_code == 422
 
-    @defect("DEFECT-05")
     async def test_a_plain_user_cannot_change_the_billing_email(
         self, mock_saas_client: httpx.AsyncClient, acme: dict[str, str]
     ) -> None:
@@ -253,7 +248,6 @@ class TestBillingEmail:
         )
         assert response.status_code == 403
 
-    @defect("DEFECT-06")
     @pytest.mark.parametrize("email", ["not-an-email", "a@", "@b.example", "a b@c.example", ""])
     async def test_invalid_email_addresses_are_rejected(
         self, mock_saas_client: httpx.AsyncClient, acme_admin: dict[str, str], email: str

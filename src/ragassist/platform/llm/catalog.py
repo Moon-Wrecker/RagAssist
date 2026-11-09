@@ -40,6 +40,35 @@ class ModelCatalog:
         config = ModelsFileConfig.model_validate(raw_data)
         return cls(config)
 
+    def resolve_pricing(self, model_or_alias: str, provider_name: str | None = None) -> ModelPricing:
+        """Resolve pricing for a model name, alias, or provider family from the YAML catalog."""
+        low = model_or_alias.strip().lower()
+        # 1. Exact or case-insensitive key/alias match
+        for k, v in self._aliases.items():
+            if k.lower() == low:
+                return self._models[v].pricing.to_domain()
+        for k, m in self._models.items():
+            if k.lower() == low or m.model_name.lower() == low:
+                return m.pricing.to_domain()
+        # 2. Substring match on model definitions for this provider
+        for k, m in self._models.items():
+            if provider_name and m.provider != provider_name:
+                continue
+            if k.lower() in low or low in m.model_name.lower():
+                return m.pricing.to_domain()
+        # 3. Family keyword match within provider's catalog models
+        for k, m in self._models.items():
+            if provider_name and m.provider != provider_name:
+                continue
+            for token in ("mini", "haiku", "sonnet", "llama", "mistral"):
+                if token in low and token in k.lower():
+                    return m.pricing.to_domain()
+        # 4. Default to primary model of provider in catalog
+        for m in self._models.values():
+            if provider_name and m.provider == provider_name:
+                return m.pricing.to_domain()
+        return next(iter(self._models.values())).pricing.to_domain()
+
     def resolve_model_id(self, key_or_alias: str) -> str:
         """Resolve alias to canonical model key, or return key if already canonical."""
         target = key_or_alias.strip()

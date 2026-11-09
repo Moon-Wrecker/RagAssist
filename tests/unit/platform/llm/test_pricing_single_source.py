@@ -6,7 +6,6 @@ from __future__ import annotations
 import re
 
 import pytest
-from support.defects import defect
 from support.repo import REPO_ROOT
 
 pytestmark = pytest.mark.unit
@@ -16,7 +15,6 @@ PRICE_LITERAL = re.compile(r"(input|output)_cost_per_mtok\s*=\s*\d")
 
 
 class TestSingleSourceOfPrices:
-    @defect("DEFECT-17")
     def test_adapters_contain_no_literal_prices(self) -> None:
         offenders = [
             path.name

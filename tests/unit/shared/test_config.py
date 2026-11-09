@@ -8,7 +8,6 @@ from urllib.parse import quote
 
 import pytest
 from pydantic import ValidationError
-from support.defects import defect
 from support.settings import make_settings
 
 from ragassist.shared.config import settings as settings_module
@@ -165,7 +164,6 @@ class TestValidationGaps:
     def test_production_accepts_an_explicit_strong_secret(self) -> None:
         make_settings(APP_ENV="production", SECRET_KEY="x" * 64)
 
-    @defect("DEFECT-16")
     @pytest.mark.parametrize("name", ["ESCALATION_THRESHOLD", "DECIDER_MIN_CONFIDENCE"])
     @pytest.mark.parametrize("value", [-0.1, 1.5, 65])
     def test_confidence_thresholds_must_be_probabilities(self, name: str, value: float) -> None:

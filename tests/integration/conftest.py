@@ -39,7 +39,6 @@ from sqlalchemy import text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import AsyncEngine, create_async_engine
 from sqlalchemy.pool import NullPool
-from support.defects import defect_marks
 from support.repo import REPO_ROOT
 
 from ragassist.shared.db.models import Base
@@ -49,6 +48,8 @@ DB_NAME = "ragassist"
 CURRENT_TENANT = "NULLIF(current_setting('app.tenant_id', true), '')::uuid"
 
 SPEC_POLICIES = f"""
+DROP POLICY IF EXISTS tenant_isolation ON users;
+DROP POLICY IF EXISTS tenant_isolation ON tenants;
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON users
@@ -61,10 +62,6 @@ CREATE POLICY tenant_isolation ON tenants
 DROP_POLICIES = """
 DROP POLICY IF EXISTS tenant_isolation ON users;
 DROP POLICY IF EXISTS tenant_isolation ON tenants;
-ALTER TABLE users NO FORCE ROW LEVEL SECURITY;
-ALTER TABLE users DISABLE ROW LEVEL SECURITY;
-ALTER TABLE tenants NO FORCE ROW LEVEL SECURITY;
-ALTER TABLE tenants DISABLE ROW LEVEL SECURITY;
 """
 
 
@@ -268,7 +265,7 @@ class Seed:
 @pytest.fixture(
     params=[
         "spec_policies",
-        pytest.param("as_shipped", marks=defect_marks("DEFECT-09")),
+        "as_shipped",
     ]
 )
 def rls_mode(request: pytest.FixtureRequest) -> str:

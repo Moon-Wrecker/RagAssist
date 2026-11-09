@@ -5,7 +5,6 @@ from __future__ import annotations
 import fnmatch
 
 import pytest
-from support.defects import defect
 from support.repo import REPO_ROOT, active_lines, project_files, read
 
 # Entries both ignore files must carry whenever the matching tool/path exists in the project.
@@ -177,7 +176,6 @@ class TestPackaging:
 
 
 class TestDockerfile:
-    @defect("DEFECT-12")
     def test_the_source_is_copied_before_the_package_is_installed(self) -> None:
         lines = read("infra/docker/api.Dockerfile").splitlines()
         install = next(
@@ -206,7 +204,6 @@ class TestDeclaredDependencies:
 
 
 class TestConfigurationHygiene:
-    @defect("DEFECT-37")
     def test_queue_names_come_from_settings_not_literals(self) -> None:
         offenders = [
             str(path.relative_to(REPO_ROOT))

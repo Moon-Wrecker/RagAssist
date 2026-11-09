@@ -672,9 +672,12 @@ async def test_feature_30_upload_requires_authentication(tier4_client: httpx.Asy
 
 
 @pytest.mark.asyncio
-async def test_feature_32_prometheus_metrics_exposition_format(tier4_client: httpx.AsyncClient):
+async def test_feature_32_prometheus_metrics_exposition_format(
+    tier4_client: httpx.AsyncClient,
+    auth_headers_a: dict[str, str],
+):
     """Verify GET /metrics returns 200 OK with Prometheus exposition format."""
-    res = await tier4_client.get("/metrics")
+    res = await tier4_client.get("/metrics", headers=auth_headers_a)
     assert res.status_code == status.HTTP_200_OK
     assert "text/plain" in res.headers["content-type"]
     body = res.text
@@ -692,7 +695,7 @@ async def test_feature_32_http_request_metrics_counter(
     """Verify HTTP request counter reflects processed requests."""
     await tier4_client.get("/healthz")
 
-    res = await tier4_client.get("/metrics")
+    res = await tier4_client.get("/metrics", headers=auth_headers_a)
     assert res.status_code == status.HTTP_200_OK
     body = res.text
     assert "http_requests_total" in body
@@ -700,11 +703,14 @@ async def test_feature_32_http_request_metrics_counter(
 
 
 @pytest.mark.asyncio
-async def test_feature_32_http_request_duration_histogram(tier4_client: httpx.AsyncClient):
+async def test_feature_32_http_request_duration_histogram(
+    tier4_client: httpx.AsyncClient,
+    auth_headers_a: dict[str, str],
+):
     """Verify HTTP latency histogram provides count and sum series."""
     await tier4_client.get("/healthz")
 
-    res = await tier4_client.get("/metrics")
+    res = await tier4_client.get("/metrics", headers=auth_headers_a)
     body = res.text
     assert "http_request_duration_seconds" in body
     assert "http_request_duration_seconds_count" in body

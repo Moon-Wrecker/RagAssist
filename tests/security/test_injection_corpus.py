@@ -18,7 +18,6 @@ from collections import defaultdict
 
 import pytest
 from support.corpus import all_cases, load_categories, load_floors
-from support.defects import defect
 from support.repo import REPO_ROOT
 from support.settings import make_settings
 
@@ -80,7 +79,6 @@ class TestBenignTraffic:
 
 
 class TestAttacks:
-    @defect("DEFECT-31")
     def test_every_attack_category_meets_its_floor(self, verdicts: dict[str, bool]) -> None:
         measured = rates(verdicts)
         misses = {

@@ -140,9 +140,9 @@ class Settings(BaseSettings):
     # --- Decisions ---
     DECIDER_CHAIN: str
     ROUTER_DECIDER_CHAIN: str
-    DECIDER_MIN_CONFIDENCE: float
+    DECIDER_MIN_CONFIDENCE: float = Field(ge=0.0, le=1.0)
     DECIDER_TIMEOUT_MS: int
-    ESCALATION_THRESHOLD: float
+    ESCALATION_THRESHOLD: float = Field(ge=0.0, le=1.0)
 
     TYPESAFE_API_KEY: str = ""
     OPENAI_DECISIONS_API_KEY: str = ""
@@ -187,6 +187,60 @@ class Settings(BaseSettings):
                     f"SECRET_KEY must be at least {_MIN_SECRET_LENGTH} random characters in {self.APP_ENV}."
                 )
         return self
+
+    def __repr__(self) -> str:
+        """Mask secret fields in repr() so logged Settings instances never leak credentials."""
+        secret_fields = {
+            "SECRET_KEY",
+            "DEV_AUTH_SECRET",
+            "DB_APP_PASSWORD",
+            "DB_ADMIN_PASSWORD",
+            "DATABASE_URL",
+            "DATABASE_ADMIN_URL",
+            "AWS_ACCESS_KEY_ID",
+            "AWS_SECRET_ACCESS_KEY",
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "OPENROUTER_API_KEY",
+            "OPENAI_COMPATIBLE_API_KEY",
+            "TYPESAFE_API_KEY",
+            "OPENAI_DECISIONS_API_KEY",
+            "LANGSMITH_API_KEY",
+        }
+        parts = []
+        for k in self.__class__.model_fields:
+            val = getattr(self, k, None)
+            if k in secret_fields and val:
+                parts.append(f"{k}=SecretStr('**********')")
+            else:
+                parts.append(f"{k}={val!r}")
+        return f"Settings({', '.join(parts)})"
+
+    def model_dump_json(self, **kwargs: object) -> str:
+        """Mask secret fields when serializing Settings to JSON."""
+        import json
+
+        data = self.model_dump()
+        for k in (
+            "SECRET_KEY",
+            "DEV_AUTH_SECRET",
+            "DB_APP_PASSWORD",
+            "DB_ADMIN_PASSWORD",
+            "DATABASE_URL",
+            "DATABASE_ADMIN_URL",
+            "AWS_ACCESS_KEY_ID",
+            "AWS_SECRET_ACCESS_KEY",
+            "OPENAI_API_KEY",
+            "ANTHROPIC_API_KEY",
+            "OPENROUTER_API_KEY",
+            "OPENAI_COMPATIBLE_API_KEY",
+            "TYPESAFE_API_KEY",
+            "OPENAI_DECISIONS_API_KEY",
+            "LANGSMITH_API_KEY",
+        ):
+            if data.get(k):
+                data[k] = "**********"
+        return json.dumps(data)
 
 
 _settings: Settings | None = None

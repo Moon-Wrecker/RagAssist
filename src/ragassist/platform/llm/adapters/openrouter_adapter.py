@@ -18,12 +18,10 @@ class OpenRouterAdapter(ChatModelProvider):
         return "openrouter"
 
     def get_pricing(self, model_name: str) -> ModelPricing:
-        low = model_name.lower()
-        if "llama" in low:
-            return ModelPricing(input_cost_per_mtok=0.40, output_cost_per_mtok=0.40)
-        if "mistral" in low:
-            return ModelPricing(input_cost_per_mtok=2.00, output_cost_per_mtok=6.00)
-        return ModelPricing(input_cost_per_mtok=0.80, output_cost_per_mtok=2.40)
+        from ragassist.platform.llm.catalog import ModelCatalog
+
+        catalog = ModelCatalog.load_from_yaml(self.settings.MODELS_CONFIG_PATH)
+        return catalog.resolve_pricing(model_name, provider_name="openrouter")
 
     def get_capabilities(self, model_name: str) -> ModelCapabilities:
         low = model_name.lower()
@@ -92,7 +90,10 @@ class OpenAICompatibleAdapter(ChatModelProvider):
         return "openai_compatible"
 
     def get_pricing(self, model_name: str) -> ModelPricing:
-        return ModelPricing(input_cost_per_mtok=0.0, output_cost_per_mtok=0.0)
+        from ragassist.platform.llm.catalog import ModelCatalog
+
+        catalog = ModelCatalog.load_from_yaml(self.settings.MODELS_CONFIG_PATH)
+        return catalog.resolve_pricing(model_name, provider_name="openai_compatible")
 
     def get_capabilities(self, model_name: str) -> ModelCapabilities:
         low = model_name.lower()
