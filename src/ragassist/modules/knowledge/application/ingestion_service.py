@@ -21,6 +21,8 @@ from types import SimpleNamespace
 from typing import Any, Mapping
 from uuid import UUID, uuid4
 
+import structlog
+
 from ragassist.modules.knowledge.domain import (
     Document,
     FileTooLarge,
@@ -29,6 +31,9 @@ from ragassist.modules.knowledge.domain import (
     Parser,
     UnsupportedMimeType,
 )
+
+
+logger = structlog.get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -149,8 +154,11 @@ class UploadDocument:
                 if hasattr(self.queue, "send"):
                     await self.queue.send(message_body)
                 elif hasattr(self.queue, "send_message"):
+                    from ragassist.shared.config.settings import get_settings
+
                     await self.queue.send_message(
-                        queue_name="ragassist-ingest", message_body=json.loads(message_body)
+                        queue_name=get_settings().SQS_QUEUE_INGEST,
+                        message_body=json.loads(message_body),
                     )
             except Exception:
                 if object_written:
@@ -239,17 +247,20 @@ class ProcessIngestionJob:
         if not claimed:
             return IngestOutcome.DUPLICATE_SKIPPED
 
-        def _with_status(j: Any, status: str) -> Any:
+        def _with_status(j: Any, status: str, error: str | None = None) -> Any:
             try:
-                return replace(j, status=status)
+                return replace(j, status=status, error_message=error)
             except Exception:
                 try:
                     j.status = status
+                    j.error_message = error
                     return j
                 except Exception:
                     return j
 
-        async def _handle_failure() -> IngestOutcome:
+        async def _handle_failure(stage: str, exc: BaseException | None = None) -> IngestOutcome:
+            reason = f"{stage}: {exc}"[:500] if exc is not None else stage
+            logger.warning("ingestion.step_failed", job_id=job_id, stage=stage, error=reason)
             current_attempts = getattr(job, "attempts", 0)
             if hasattr(self.documents, "attempts_for"):
                 current_attempts = max(current_attempts, self.documents.attempts_for(job_id))
@@ -259,23 +270,23 @@ class ProcessIngestionJob:
                 current_attempts = current_attempts + 1
 
             if current_attempts >= self.max_retries:
-                updated = _with_status(job, "failed")
+                updated = _with_status(job, "failed", reason)
                 await self.documents.save_job(updated, tenant_id=tenant_id)
                 return IngestOutcome.DEAD_LETTERED
             else:
-                updated = _with_status(job, "queued")
+                updated = _with_status(job, "queued", reason)
                 await self.documents.save_job(updated, tenant_id=tenant_id)
                 return IngestOutcome.RETRY
 
         # Retrieve document record and object bytes
         try:
             doc = await self.documents.get_document(job.document_id)
-        except Exception:
-            return await _handle_failure()
+        except Exception as exc:
+            return await _handle_failure("load document", exc)
 
         key = object_key or (getattr(doc, "object_key", None) or getattr(doc, "s3_key", None))
         if not key:
-            return await _handle_failure()
+            return await _handle_failure("document has no object key")
 
         try:
             if hasattr(self.store, "get_object"):
@@ -284,8 +295,8 @@ class ProcessIngestionJob:
                 content = await self.store.get(key)
             else:
                 content = None
-        except Exception:
-            return await _handle_failure()
+        except Exception as exc:
+            return await _handle_failure("read object", exc)
 
         # Parse document
         mime = getattr(doc, "mime", getattr(doc, "content_type", "text/markdown"))
@@ -296,20 +307,20 @@ class ProcessIngestionJob:
                     parser = p
                     break
         if not parser:
-            return await _handle_failure()
+            return await _handle_failure(f"no parser for {mime}")
 
         try:
             filename = getattr(doc, "title", getattr(doc, "filename", "document"))
             parsed = await parser.parse(content, mime=mime, filename=filename)
-        except Exception:
-            return await _handle_failure()
+        except Exception as exc:
+            return await _handle_failure("parse", exc)
 
         # Chunk document
         try:
             title = getattr(doc, "title", getattr(parsed, "title", "Document"))
             chunks = self.chunker.chunk(parsed, title=title)
-        except Exception:
-            return await _handle_failure()
+        except Exception as exc:
+            return await _handle_failure("chunk", exc)
 
         # Generate dense embeddings
         try:
@@ -318,8 +329,8 @@ class ProcessIngestionJob:
                 for c in chunks
             ]
             vectors = await self.embedder.embed_documents(embed_texts)
-        except Exception:
-            return await _handle_failure()
+        except Exception as exc:
+            return await _handle_failure("embed", exc)
 
         # Atomic chunk swap
         try:
@@ -343,8 +354,8 @@ class ProcessIngestionJob:
             await self.documents.replace_chunks(
                 job.document_id, chunk_records, tenant_id=tenant_id
             )
-        except Exception:
-            return await _handle_failure()
+        except Exception as exc:
+            return await _handle_failure("store chunks", exc)
 
         # Mark job completed
         updated = _with_status(job, "completed")
