@@ -66,14 +66,25 @@ data: {"tool": "get_subscription", "arguments": {}}
 ```
 
 ### 4. `interrupt`
-Emitted when an action requires human-in-the-loop approval before proceeding.
+Emitted when the turn pauses on a write action that needs human approval. The frame carries the id of the
+interrupt the conversation is paused on and the call the human is asked to approve. The stream then ends with
+`done` and `"status": "interrupted"`.
 
 ```sse
 event: interrupt
-data: {"interrupt_id": "intr_abc123", "tool": "update_billing_email", "arguments": {"email": "new@example.com"}}
+data: {"interrupt_id": "9f2c...", "action": "approval_required", "tool": "update_billing_email", "arguments": {"new_email": "new@example.com"}, "call_id": "call_1"}
 ```
 
-To resolve an interrupt, call `POST /v1/conversations/{conversation_id}/actions/{interrupt_id}` with `{"approved": true}` or `{"approved": false}`.
+Resolve it with `POST /v1/conversations/{conversation_id}/actions/{interrupt_id}` and a body of
+`{"approved": true}` or `{"approved": false}` (optional `reason`):
+
+- The decision is bound to the pending interrupt. An `interrupt_id` that is not the one the conversation is
+  paused on (or a conversation with nothing pending, or one already decided) answers `409`.
+- What runs on approval is the tool and arguments stored with the interrupt, never anything in the request.
+- Only the conversation's owner or an admin may decide: another user of the tenant gets `404`, an agent who
+  is not the owner gets `403`.
+- `200` with `"status": "resumed"` carries the assistant's `answer` (also saved to the conversation). A new
+  pause answers `"status": "interrupted"` with the next `interrupt`. If resuming fails the answer is `502`.
 
 ### 5. `escalated`
 Emitted when query confidence is below threshold or when the conversation is escalated to human support.

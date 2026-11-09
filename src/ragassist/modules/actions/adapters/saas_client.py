@@ -14,9 +14,11 @@ from ragassist.shared.security.jwt import Principal
 class SaaSClientError(DomainError):
     """Raised on 4xx responses from SaaS service."""
 
-    def __init__(self, message: str, status_code: int = 400) -> None:
+    def __init__(self, message: str, status_code: int = 400, body: str = "") -> None:
         super().__init__(message)
         self.status_code = status_code
+        #: The upstream response body, for logs only: it is never part of the message shown to users or the model.
+        self.body = body
 
 
 class SaaSUnavailable(DomainError):
@@ -47,7 +49,9 @@ class SaaSClient:
         self._sleep = sleep or asyncio.sleep
 
     def _headers(self, principal: Principal) -> dict[str, str]:
-        token = getattr(principal, "raw_token", str(principal.tenant_id))
+        token = getattr(principal, "raw_token", None)
+        if not token:
+            raise SaaSClientError("The caller has no access token to forward.", status_code=401)
         return {
             "Authorization": f"Bearer {token}",
             "Accept": "application/json",
@@ -77,7 +81,7 @@ class SaaSClient:
                 raise SaaSTimeout(f"Request to {path} timed out") from exc
             except httpx.RequestError as exc:
                 if attempt + 1 >= max_attempts:
-                    raise SaaSUnavailable(f"Request failed: {exc}") from exc
+                    raise SaaSUnavailable("The account service could not be reached.") from exc
                 delay = self._backoff_seconds * (2**attempt)
                 if delay > 0:
                     await self._sleep(delay)
@@ -91,15 +95,14 @@ class SaaSClient:
 
             if 400 <= response.status_code < 500:
                 raise SaaSClientError(
-                    f"Client error {response.status_code} for {path}: {response.text}",
+                    f"The account service rejected the request ({response.status_code}).",
                     status_code=response.status_code,
+                    body=response.text[:500],
                 )
 
             if response.status_code >= 500:
                 if is_write or (attempt + 1 >= max_attempts):
-                    raise SaaSUnavailable(
-                        f"Server error {response.status_code} for {path}: {response.text}"
-                    )
+                    raise SaaSUnavailable(f"The account service failed ({response.status_code}).")
                 delay = self._backoff_seconds * (2**attempt)
                 if delay > 0:
                     await self._sleep(delay)

@@ -167,8 +167,10 @@ class UploadDocument:
                             await self.store.delete_object(object_key)
                         elif hasattr(self.store, "delete"):
                             await self.store.delete(object_key)
-                    except Exception:
-                        pass
+                    except Exception as cleanup_exc:  # noqa: BLE001 - the original error is re-raised below
+                        logger.warning(
+                            "ingestion.orphan_object", object_key=object_key, error=str(cleanup_exc)
+                        )
                 raise
 
         return UploadResult(job_id=job_id, document_id=document_id, object_key=object_key)
@@ -259,8 +261,15 @@ class ProcessIngestionJob:
                     return j
 
         async def _handle_failure(stage: str, exc: BaseException | None = None) -> IngestOutcome:
-            reason = f"{stage}: {exc}"[:500] if exc is not None else stage
-            logger.warning("ingestion.step_failed", job_id=job_id, stage=stage, error=reason)
+            # The job row is returned by the API, so it carries the stage and exception class only; the
+            # exception text (hosts, SQL, file contents) goes to the log.
+            reason = f"{stage} failed ({type(exc).__name__})" if exc is not None else f"{stage} failed"
+            logger.warning(
+                "ingestion.step_failed",
+                job_id=job_id,
+                stage=stage,
+                error=str(exc) if exc is not None else stage,
+            )
             current_attempts = getattr(job, "attempts", 0)
             if hasattr(self.documents, "attempts_for"):
                 current_attempts = max(current_attempts, self.documents.attempts_for(job_id))

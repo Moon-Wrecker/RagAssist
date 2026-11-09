@@ -407,7 +407,7 @@
           "Assistant"
         ],
         "summary": "List tenant conversations",
-        "description": "List conversations belonging exclusively to the authenticated tenant.",
+        "description": "List the caller's conversations (staff see every conversation of the tenant).",
         "operationId": "list_conversations_v1_conversations_get",
         "security": [
           {
@@ -471,7 +471,7 @@
           "Assistant"
         ],
         "summary": "Get conversation details and history",
-        "description": "Retrieve conversation details and messages with tenant verification.",
+        "description": "Retrieve conversation details and messages with tenant and owner verification.",
         "operationId": "get_conversation_v1_conversations__conversation_id__get",
         "security": [
           {
@@ -593,7 +593,7 @@
           "Assistant"
         ],
         "summary": "Approve or deny a human-in-the-loop action",
-        "description": "Approve or deny an action interrupted by human-in-the-loop policy.",
+        "description": "Approve or deny the write action the conversation is paused on.\n\nThe decision is bound to the pending interrupt: ``interrupt_id`` must be the one the checkpoint is paused\non, and the tool and arguments that run are the ones stored with it, never anything sent by the client.\nOnly the conversation's owner or an admin may decide.",
         "operationId": "decide_action_v1_conversations__conversation_id__actions__interrupt_id__post",
         "security": [
           {
@@ -660,7 +660,7 @@
           "Escalation"
         ],
         "summary": "List escalated conversations",
-        "description": "List all escalated conversations for the tenant.",
+        "description": "List the tenant's escalated conversations (agents and admins only).",
         "operationId": "list_escalations_v1_escalations_get",
         "security": [
           {
@@ -897,6 +897,17 @@
               }
             ],
             "title": "Reason"
+          },
+          "feedback": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Feedback"
           }
         },
         "type": "object",
@@ -923,6 +934,29 @@
             "type": "string",
             "title": "Status",
             "default": "resumed"
+          },
+          "answer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Answer"
+          },
+          "interrupt": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Interrupt"
           }
         },
         "type": "object",

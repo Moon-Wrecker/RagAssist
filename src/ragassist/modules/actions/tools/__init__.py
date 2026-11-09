@@ -2,12 +2,26 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
+
 from ragassist.modules.actions.application import ToolSpec
+from ragassist.modules.actions.domain import ToolExecutionError
 from ragassist.shared.security.jwt import UserRole
 
 if TYPE_CHECKING:
     from ragassist.modules.actions.adapters.saas_client import SaaSClient
+
+
+_EMAIL = re.compile(r"^[^@\s<>,;]+@[^@\s<>,;]+\.[^@\s<>,;]+$")
+
+
+def _valid_email(value: str) -> str:
+    """A plain address only: no whitespace, header injection characters or display names."""
+    candidate = value.strip()
+    if len(candidate) > 254 or not _EMAIL.match(candidate):
+        raise ValueError("new_email must be a valid email address")
+    return candidate
 
 
 def default_tools(saas: SaaSClient) -> list[ToolSpec]:
@@ -25,15 +39,11 @@ def default_tools(saas: SaaSClient) -> list[ToolSpec]:
     async def _handle_update_billing_email(principal, arguments):  # type: ignore[no-untyped-def]
         if getattr(principal, "role", None) != UserRole.ADMIN:
             raise PermissionError("Admin role required to update billing email")
-        return await saas.update_billing_email(principal, arguments["new_email"])
+        return await saas.update_billing_email(principal, _valid_email(arguments["new_email"]))
 
     async def _handle_query_dataset(principal, arguments):  # type: ignore[no-untyped-def]
-        return {
-            "status": "success",
-            "query": arguments["query"],
-            "dataset": arguments.get("dataset", "default"),
-            "rows": [],
-        }
+        # No dataset backend exists yet. Say so instead of reporting an empty result as a success.
+        raise ToolExecutionError("Dataset queries are not available yet.")
 
     return [
         ToolSpec(

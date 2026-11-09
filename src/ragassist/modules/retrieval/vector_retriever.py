@@ -14,6 +14,7 @@ Consulted References:
 """
 
 from collections.abc import Callable
+import re
 from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -86,6 +87,11 @@ def _parse_row(row: Any) -> Hit:
     )
 
 
+#: pgvector ``hnsw.iterative_scan`` values this retriever accepts (the value is interpolated into SET LOCAL).
+ITERATIVE_SCAN_MODES = frozenset({"off", "relaxed_order", "strict_order"})
+_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]{0,62}$")
+
+
 class VectorRetriever:
     """Dense vector retriever using pgvector HNSW index scans and strict tenant isolation."""
 
@@ -100,6 +106,10 @@ class VectorRetriever:
         self.session_factory = session_factory
         settings = get_settings()
         self.iterative_scan = iterative_scan or getattr(settings, "VECTOR_SEARCH_ITERATIVE_SCAN", "relaxed_order")
+        if self.iterative_scan not in ITERATIVE_SCAN_MODES:
+            raise ValueError(f"iterative_scan must be one of {sorted(ITERATIVE_SCAN_MODES)}")
+        if not _IDENTIFIER.match(table_name):
+            raise ValueError("table_name must be a plain SQL identifier")
         self.table_name = table_name
 
     async def search(
@@ -150,7 +160,7 @@ class VectorRetriever:
         async with self.session_factory() as session:
             async with UnitOfWork(session, tenant_id=tenant_id):
                 # Enable iterative index scan if supported by pgvector
-                if self.iterative_scan:
+                if self.iterative_scan != "off":
                     try:
                         await session.execute(
                             text(f"SET LOCAL hnsw.iterative_scan = '{self.iterative_scan}'")

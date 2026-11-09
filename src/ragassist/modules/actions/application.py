@@ -94,13 +94,17 @@ class ToolRegistry:
             for t in self._tools.values()
         ]
 
-    async def invoke(self, name: str, arguments: dict[str, Any], principal: Principal) -> Any:
-        if name not in self._tools:
+    def authorize(self, name: str, principal: Principal) -> None:
+        """Raise unless ``principal`` may run the tool. Checked before a human is asked to approve it."""
+        tool = self._tools.get(name)
+        if tool is None:
             raise UnknownTool(f"Tool '{name}' is not recognized")
-
-        tool = self._tools[name]
         if tool.is_write and getattr(principal, "role", None) != UserRole.ADMIN:
             raise PermissionError(f"Admin role required to execute write tool '{name}'")
+
+    async def invoke(self, name: str, arguments: dict[str, Any], principal: Principal) -> Any:
+        self.authorize(name, principal)
+        tool = self._tools[name]
         _validate_schema(tool.input_schema, arguments)
         try:
             return await tool.handler(principal, arguments)
