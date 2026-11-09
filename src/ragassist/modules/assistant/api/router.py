@@ -40,6 +40,7 @@ from ragassist.platform.events import (
     publish_safely,
 )
 from ragassist.shared.security.deps import get_current_principal
+from ragassist.shared.observability.tracing import TurnContext, get_tracing
 from ragassist.shared.security.jwt import Principal
 
 logger = structlog.get_logger(__name__)
@@ -144,6 +145,21 @@ async def _visible_conversation(store: Any, principal: Principal, conversation_i
     if conv is None or not can_access_conversation(principal, conv):
         return None
     return conv
+
+
+def _turn_context(
+    principal: Principal, conversation_id: str, question: str, *, name: str, mode: str
+) -> TurnContext:
+    """What identifies this turn in a trace: the user, the conversation (the session) and the tenant."""
+    return TurnContext(
+        name=name,
+        mode=mode,
+        question=question,
+        conversation_id=conversation_id,
+        user_id=str(principal.user_id),
+        tenant_id=str(principal.tenant_id),
+        role=principal.role.value,
+    )
 
 
 def get_assistant_graph(request: Request) -> Any:
@@ -265,6 +281,34 @@ ANSWER_NODES = frozenset({"generate", "account_agent"})
 
 
 async def _stream_graph_events(
+    graph: Any,
+    input_state: dict[str, Any],
+    config: dict[str, Any],
+    conversation_id: str,
+    principal: Principal,
+    store: Any,
+    events: Any = None,
+    owner_id: object | None = None,
+) -> AsyncIterator[dict[str, Any]]:
+    """Run the streamed turn inside one trace: the question in, the answer out, the graph nested between."""
+    ctx = _turn_context(
+        principal, conversation_id, str(input_state.get("question", "")), name="answer-question", mode="stream"
+    )
+    answer, status_seen = "", "completed"
+    with get_tracing().turn(ctx) as turn:
+        async for event in _run_stream_graph(
+            graph, input_state, turn.config(config), conversation_id, principal, store, events, owner_id
+        ):
+            kind, data = event.get("event"), event.get("data") or {}
+            if kind == "token":
+                answer = data.get("text", "") if data.get("reset") else answer + data.get("text", "")
+            elif kind == "done":
+                status_seen = str(data.get("status", status_seen))
+            yield event
+        turn.finish(answer, status=status_seen)
+
+
+async def _run_stream_graph(
     graph: Any,
     input_state: dict[str, Any],
     config: dict[str, Any],
@@ -513,6 +557,27 @@ async def _complete_turn(
     events: Any,
     owner_id: object | None,
 ) -> MessageResponse:
+    """Non-streaming turn inside one trace (see ``_run_json_turn``)."""
+    ctx = _turn_context(principal, conversation_id, content, name="answer-question", mode="json")
+    with get_tracing().turn(ctx) as turn:
+        response = await _run_json_turn(
+            graph, input_state, turn.config(config), conversation_id, principal, store, content, events, owner_id
+        )
+        turn.finish(response.answer, route=response.route, status=response.status)
+        return response
+
+
+async def _run_json_turn(
+    graph: Any,
+    input_state: dict[str, Any],
+    config: dict[str, Any],
+    conversation_id: str,
+    principal: Principal,
+    store: Any,
+    content: str,
+    events: Any,
+    owner_id: object | None,
+) -> MessageResponse:
     """Non-streaming turn: run the graph, save the answer, open the ticket, announce. Runs detached (see ask_message)."""
     pending: dict[str, Any] | None = None
     final_state: Any = {}
@@ -728,8 +793,21 @@ async def decide_action(
             "call_id": pending.get("call_id"),
         }
 
+        ctx = _turn_context(
+            principal,
+            conversation_id,
+            "approve action" if decision.approved else "deny action",
+            name="decide-action",
+            mode="approval",
+        )
         try:
-            result = await graph.ainvoke(Command(resume=resume_payload), config)
+            with get_tracing().turn(ctx) as turn:
+                result = await graph.ainvoke(Command(resume=resume_payload), turn.config(config))
+                turn.finish(
+                    str(result.get("answer", "")) if isinstance(result, dict) else "",
+                    tool=str(pending.get("tool") or ""),
+                    decision="approved" if decision.approved else "denied",
+                )
         except GraphInterrupt:
             result = {}
         except Exception as exc:  # noqa: BLE001

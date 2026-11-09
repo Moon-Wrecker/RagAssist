@@ -171,6 +171,11 @@ class Settings(BaseSettings):
     LANGSMITH_API_KEY: str = ""
     LANGSMITH_PROJECT: str
     LANGSMITH_ENDPOINT: str
+    LANGFUSE_TRACING: bool
+    LANGFUSE_PUBLIC_KEY: str = ""
+    LANGFUSE_SECRET_KEY: str = ""
+    LANGFUSE_BASE_URL: str
+    LANGFUSE_SAMPLE_RATE: float = Field(ge=0.0, le=1.0)
     PROMETHEUS_METRICS_ENABLED: bool
 
     # --- Worker ---
@@ -236,6 +241,7 @@ class Settings(BaseSettings):
             "TYPESAFE_API_KEY",
             "OPENAI_DECISIONS_API_KEY",
             "LANGSMITH_API_KEY",
+            "LANGFUSE_SECRET_KEY",
         }
         parts = []
         for k in self.__class__.model_fields:
@@ -268,6 +274,7 @@ class Settings(BaseSettings):
             "TYPESAFE_API_KEY",
             "OPENAI_DECISIONS_API_KEY",
             "LANGSMITH_API_KEY",
+            "LANGFUSE_SECRET_KEY",
         ):
             if data.get(k):
                 data[k] = "**********"
