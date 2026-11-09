@@ -80,12 +80,14 @@ def openai_adapter(embedding_server: FakeOpenAIServer, monkeypatch: pytest.Monke
     monkeypatch.setattr(tiktoken, "get_encoding", lambda *_a, **_k: _ByteEncoding())
 
     def build(**kwargs: Any) -> OpenAIEmbeddingAdapter:
+        base_url = kwargs.pop("base_url", embedding_server.base_url)
         settings = make_settings(
             OPENAI_API_KEY="sk-test",
+            OPENAI_BASE_URL=base_url,
             EMBEDDING_DIMENSION=DIM,
             **kwargs.pop("settings_overrides", {}),
         )
-        return OpenAIEmbeddingAdapter(settings=settings, **kwargs)
+        return OpenAIEmbeddingAdapter(base_url=base_url, settings=settings, **kwargs)
 
     return build
 

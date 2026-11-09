@@ -4,6 +4,7 @@ Every setting is synchronized with .env.example and AGENTS.md.
 """
 
 from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -31,12 +32,8 @@ class Settings(BaseSettings):
     ]
 
     # --- Database & Row-Level Security ---
-    DATABASE_URL: str = (
-        "postgresql+asyncpg://app_user:app_password@localhost:5432/ragassist"
-    )
-    DATABASE_ADMIN_URL: str = (
-        "postgresql+asyncpg://postgres:postgres@localhost:5432/ragassist"
-    )
+    DATABASE_URL: str = "postgresql+asyncpg://app_user:app_password@localhost:5432/ragassist"
+    DATABASE_ADMIN_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/ragassist"
     DB_POOL_SIZE: int = 20
     DB_MAX_OVERFLOW: int = 10
     DB_POOL_TIMEOUT: float = 30.0
@@ -64,6 +61,7 @@ class Settings(BaseSettings):
     # --- Model Providers ---
     MODELS_CONFIG_PATH: str = "config/models.yaml"
     OPENAI_API_KEY: str = ""
+    OPENAI_BASE_URL: str = ""
     ANTHROPIC_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""
     OPENAI_COMPATIBLE_BASE_URL: str = "http://localhost:11434/v1"
@@ -143,4 +141,3 @@ def get_settings() -> Settings:
     if _settings is None:
         _settings = Settings()
     return _settings
-
