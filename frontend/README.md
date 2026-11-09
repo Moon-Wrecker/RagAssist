@@ -36,7 +36,8 @@ src/auth         auth context and provider, route guards, URL-fragment token han
 src/app          route table (one source for navigation and guards), routes, providers
 src/events       live-event stream (fetch + eventsource-parser), invalidation map, useEvents hook
 src/components   shell (top bar, palette), panel, status page; ui/ holds the shadcn-style primitives
-src/features     feature screens (auth; chat: stream parser, pure turn reducer, frame batcher, markdown, citations, approval)
+src/features     feature screens (auth; chat: stream parser, pure turn reducer, frame batcher, markdown, citations, approval;
+                 inbox, knowledge and team: pure list and optimistic-update logic beside the screens)
 src/theme        theme context and provider, contrast test for the design tokens
 tests/e2e        mocked Playwright specs; every /v1 call is intercepted, no backend runs
 ```

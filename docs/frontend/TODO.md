@@ -52,11 +52,11 @@ monochrome, glass as the primary surface style over a calm monochrome backdrop, 
 - [x] Design review of the chat states in both themes at both widths; rounder glass (shared radius token, backdrop contrast, softer shadow), pill composer, right-aligned user block (ADR 0010)
 
 ## Slice 5: Inbox, knowledge base, team
-- [ ] Inbox (agent, admin): split list and thread, reply, resolve
-- [ ] Knowledge base (admin): upload, live job status, failure reason, re-index, delete
-- [ ] Team (admin): members, roles, deactivate, invites with copy link, reset link
-- [ ] Navigation by role
-- [ ] Design review: screenshots of every screen in both themes against the design rules
+- [x] Inbox (agent, admin): split list and thread, reply, resolve (ADR 0011)
+- [x] Knowledge base (admin): upload, live job status, failure reason (the document list now returns `error_message`), re-index, delete
+- [x] Team (admin): members, roles, deactivate, invites with copy link, reset link
+- [x] Navigation by role (table-driven guards; role-gating specs)
+- [x] Design review: screenshots of every screen in both themes against the design rules
 
 ## Slice 6: Delivery
 - [ ] `infra/docker/web.Dockerfile`, nginx (SSE buffering off, security headers, CSP), `web` service in compose; API behind the proxy with `--proxy-headers` so the throttle sees client addresses
