@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from typing import Any
 from langchain_core.messages import HumanMessage, ToolMessage
+from langgraph.errors import GraphInterrupt
 from langgraph.types import interrupt
 
 from ragassist.modules.assistant.graph.state import AssistantState
@@ -33,86 +34,120 @@ def make_account_agent_node(generator_tiers: dict[str, Any], tools: Any):  # typ
         messages = [HumanMessage(content=question)]
 
         thread_key = f"{principal.tenant_id}:{state.get('conversation_id', '')}"
-        if thread_key in _PENDING_TOOL_CALLS:
-            ai_msg = _PENDING_TOOL_CALLS.pop(thread_key)
-        else:
-            ai_msg = await model.ainvoke(messages)
-            if getattr(ai_msg, "tool_calls", None):
-                _PENDING_TOOL_CALLS[thread_key] = ai_msg
+        try:
+            if thread_key in _PENDING_TOOL_CALLS:
+                ai_msg = _PENDING_TOOL_CALLS.pop(thread_key)
+            else:
+                ai_msg = await model.ainvoke(messages)
+                if getattr(ai_msg, "tool_calls", None):
+                    _PENDING_TOOL_CALLS[thread_key] = ai_msg
 
-        tool_calls_req = getattr(ai_msg, "tool_calls", [])
+            tool_calls_req = getattr(ai_msg, "tool_calls", [])
 
-        if tool_calls_req:
-            req = tool_calls_req[0]
-            tool_name = req["name"]
-            tool_args = req["args"]
-            call_id = req.get("id", "call_1")
+            if tool_calls_req:
+                req = tool_calls_req[0]
+                tool_name = req["name"]
+                tool_args = req["args"]
+                call_id = req.get("id", "call_1")
 
-            is_write = tools.is_write(tool_name)
-            if is_write:
-                # Pause and interrupt for human approval
-                resume_payload = interrupt({
-                    "action": "approval_required",
-                    "tool": tool_name,
-                    "arguments": tool_args,
-                })
+                # Check if tool is recognized by the registry
+                is_recognized = False
+                if hasattr(tools, "get"):
+                    is_recognized = tools.get(tool_name) is not None
+                elif hasattr(tools, "_tools"):
+                    is_recognized = tool_name in tools._tools
+                elif hasattr(tools, "schemas"):
+                    is_recognized = any(s.get("name") == tool_name for s in tools.schemas())
+                else:
+                    is_recognized = True
 
-                # Clear pending cache since interrupt resumed
-                _PENDING_TOOL_CALLS.pop(thread_key, None)
+                if not is_recognized:
+                    _PENDING_TOOL_CALLS.pop(thread_key, None)
+                    tool_msg = ToolMessage(
+                        tool_call_id=call_id,
+                        content=f"Error: Unknown tool '{tool_name}'.",
+                    )
+                    ai_final = await model.ainvoke([*messages, ai_msg, tool_msg])
+                    ans_text = str(ai_final.content)
+                    return {
+                        "answer": ans_text,
+                        "tool_calls": tool_records,
+                    }
 
-                decision = (
-                    resume_payload.get("decision")
-                    if isinstance(resume_payload, dict)
-                    else resume_payload
-                )
+                try:
+                    is_write = tools.is_write(tool_name)
+                except Exception:
+                    is_write = False
 
-                if decision == "approve":
+                if is_write:
+                    # Pause and interrupt for human approval
+                    resume_payload = interrupt({
+                        "action": "approval_required",
+                        "tool": tool_name,
+                        "arguments": tool_args,
+                    })
+
+                    # Clear pending cache since interrupt resumed
+                    _PENDING_TOOL_CALLS.pop(thread_key, None)
+
+                    decision = (
+                        resume_payload.get("decision")
+                        if isinstance(resume_payload, dict)
+                        else resume_payload
+                    )
+
+                    if decision == "approve":
+                        res = await tools.invoke(tool_name, tool_args, principal)
+                        tool_records.append({
+                            "name": tool_name,
+                            "arguments": tool_args,
+                            "result": res,
+                            "approved": True,
+                        })
+                        tool_msg = ToolMessage(tool_call_id=call_id, content=str(res))
+                        ai_final = await model.ainvoke([*messages, ai_msg, tool_msg])
+                        ans_text = str(ai_final.content)
+                    else:
+                        tool_records.append({
+                            "name": tool_name,
+                            "arguments": tool_args,
+                            "approved": False,
+                        })
+                        tool_msg = ToolMessage(
+                            tool_call_id=call_id,
+                            content="User denied permission to execute this write action.",
+                        )
+                        ai_final = await model.ainvoke([*messages, ai_msg, tool_msg])
+                        ans_text = str(ai_final.content)
+                else:
+                    _PENDING_TOOL_CALLS.pop(thread_key, None)
+                    # Read tool executes immediately
                     res = await tools.invoke(tool_name, tool_args, principal)
                     tool_records.append({
                         "name": tool_name,
                         "arguments": tool_args,
                         "result": res,
-                        "approved": True,
                     })
                     tool_msg = ToolMessage(tool_call_id=call_id, content=str(res))
                     ai_final = await model.ainvoke([*messages, ai_msg, tool_msg])
                     ans_text = str(ai_final.content)
-                else:
-                    tool_records.append({
-                        "name": tool_name,
-                        "arguments": tool_args,
-                        "approved": False,
-                    })
-                    tool_msg = ToolMessage(
-                        tool_call_id=call_id,
-                        content="User denied permission to execute this write action.",
-                    )
-                    ai_final = await model.ainvoke([*messages, ai_msg, tool_msg])
-                    ans_text = str(ai_final.content)
             else:
                 _PENDING_TOOL_CALLS.pop(thread_key, None)
-                # Read tool executes immediately
-                res = await tools.invoke(tool_name, tool_args, principal)
-                tool_records.append({
-                    "name": tool_name,
-                    "arguments": tool_args,
-                    "result": res,
-                })
-                tool_msg = ToolMessage(tool_call_id=call_id, content=str(res))
-                ai_final = await model.ainvoke([*messages, ai_msg, tool_msg])
-                ans_text = str(ai_final.content)
-        else:
+                ans_text = str(ai_msg.content)
+
+            used_name = getattr(
+                model, "label", getattr(model, "model_name", getattr(model, "_llm_type", "model"))
+            )
+
+            return {
+                "answer": ans_text,
+                "tool_calls": tool_records,
+                "model_used": used_name,
+            }
+        except GraphInterrupt:
+            raise
+        except Exception:
             _PENDING_TOOL_CALLS.pop(thread_key, None)
-            ans_text = str(ai_msg.content)
-
-        used_name = getattr(
-            model, "label", getattr(model, "model_name", getattr(model, "_llm_type", "model"))
-        )
-
-        return {
-            "answer": ans_text,
-            "tool_calls": tool_records,
-            "model_used": used_name,
-        }
+            raise
 
     return account_agent

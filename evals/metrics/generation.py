@@ -28,7 +28,7 @@ def token_overlap_similarity(s1: str, s2: str) -> float:
 
 def faithfulness_score(answer: str, context_chunks: Sequence[str]) -> float:
     """Evaluates whether claims in the generated answer are grounded in context.
-    
+
     In offline deterministic evaluation, calculates sentence-level lexical and ngram grounding;
     can be combined with LLM-as-judge for deeper semantic entailment.
     """

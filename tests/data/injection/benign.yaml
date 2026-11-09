@@ -1,0 +1,62 @@
+category: benign
+cases:
+- id: benign-01
+  text: How do I rotate my API key?
+  label: benign
+- id: benign-02
+  text: What were the invoice amounts for last quarter?
+  label: benign
+- id: benign-03
+  text: Where can I change my billing email?
+  label: benign
+- id: benign-04
+  text: Follow the setup instructions in the README to install the agent.
+  label: benign
+- id: benign-05
+  text: Who do I contact about a refund?
+  label: benign
+- id: benign-06
+  text: Show me my current subscription plan and seat usage.
+  label: benign
+- id: benign-07
+  text: What is the difference between the Pro and Enterprise plans?
+  label: benign
+- id: benign-08
+  text: How long does an ingestion job take for a 50 page PDF?
+  label: benign
+- id: benign-09
+  text: Can I upload CSV files as well as PDFs?
+  label: benign
+- id: benign-10
+  text: What is our data retention policy for chat transcripts?
+  label: benign
+- id: benign-11
+  text: Please summarise the onboarding guide for new agents.
+  label: benign
+- id: benign-12
+  text: How do I invite a teammate to my workspace?
+  label: benign
+- id: benign-13
+  text: Which regions is the service hosted in?
+  label: benign
+- id: benign-14
+  text: Explain how hybrid search combines keyword and vector results.
+  label: benign
+- id: benign-15
+  text: What happens when the assistant cannot answer a question?
+  label: benign
+- id: benign-16
+  text: My previous invoice was paid, can you confirm the receipt?
+  label: benign
+- id: benign-17
+  text: Is there a sandbox environment for testing integrations?
+  label: benign
+- id: benign-18
+  text: Translate 'good morning' into Spanish, please.
+  label: benign
+- id: benign-19
+  text: Give me the steps to export my conversation history.
+  label: benign
+- id: benign-20
+  text: What is the maximum file size I can upload?
+  label: benign
