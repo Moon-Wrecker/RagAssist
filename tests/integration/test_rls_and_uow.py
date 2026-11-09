@@ -13,12 +13,12 @@ from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import text
-from sqlalchemy.exc import DBAPIError, InvalidRequestError
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from ragassist.shared.db.models import Base
 from ragassist.shared.db.uow import UnitOfWork
-from ragassist.shared.domain import TenantId
+from ragassist.shared.domain import TenantId, TenantIsolationError
 
 from .conftest import Seed
 
@@ -327,18 +327,38 @@ class TestUnitOfWorkOnARealSession:
             await rows(engine, seed.tenant_a, "SELECT * FROM table_that_does_not_exist")
         assert await rows(engine, seed.tenant_a, "SELECT 1") == [(1,)]
 
-    async def test_works_on_a_session_that_has_already_started_a_transaction(
+    async def test_refuses_a_session_that_has_already_started_a_transaction(
         self, seed: Seed, app_engines
     ) -> None:
-        """A session that ran a query (autobegin) must still be usable with the UnitOfWork, e.g. when a
-        FastAPI dependency touched the shared session first."""
+        """A statement that ran before the tenant was set (autobegin) means the transaction has no tenant
+        context. The UnitOfWork must not adopt it, set a tenant on it, or commit it."""
         async with AsyncSession(app_engines()) as session:
             await session.execute(text("SELECT 1"))
-            try:
+            with pytest.raises(TenantIsolationError):
                 async with UnitOfWork(session, TenantId(seed.tenant_a)):
-                    pass
-            except InvalidRequestError as exc:
-                pytest.fail(f"UnitOfWork cannot join an already-begun transaction: {exc}")
+                    pytest.fail("body must not run")
+            assert session.in_transaction(), (
+                "the caller's transaction was neither committed nor rolled back"
+            )
+            assert (
+                await session.execute(text("SELECT current_setting('app.tenant_id', true)"))
+            ).scalar() in (
+                None,
+                "",
+            ), "no tenant context was applied to it"
+
+    async def test_two_tenants_cannot_share_one_session_at_the_same_time(
+        self, seed: Seed, app_engines
+    ) -> None:
+        async with AsyncSession(app_engines()) as session:
+            async with UnitOfWork(session, TenantId(seed.tenant_a)):
+                with pytest.raises(TenantIsolationError):
+                    async with UnitOfWork(session, TenantId(seed.tenant_b)):
+                        pass
+                current = (
+                    await session.execute(text("SELECT current_setting('app.tenant_id')"))
+                ).scalar_one()
+                assert current == str(seed.tenant_a)
 
     async def test_tenant_uow_uses_the_configured_database(
         self, seed: Seed, pg_server, monkeypatch: pytest.MonkeyPatch

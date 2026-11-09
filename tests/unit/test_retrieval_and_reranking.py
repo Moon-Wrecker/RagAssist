@@ -115,6 +115,7 @@ class TestVectorRetrieverUnit:
     async def test_search_executes_pgvector_query_with_tenant_isolation(self) -> None:
         # Mock database session
         mock_session = AsyncMock()
+        mock_session.in_transaction = MagicMock(return_value=False)
         mock_result = MagicMock()
         mock_result.fetchall.return_value = [
             {
@@ -174,6 +175,7 @@ class TestKeywordRetrieverUnit:
     @pytest.mark.asyncio
     async def test_fts_search_uses_websearch_to_tsquery_and_ts_rank_cd(self) -> None:
         mock_session = AsyncMock()
+        mock_session.in_transaction = MagicMock(return_value=False)
         mock_result = MagicMock()
         mock_result.fetchall.return_value = [
             {
@@ -208,6 +210,7 @@ class TestKeywordRetrieverUnit:
     @pytest.mark.asyncio
     async def test_paradedb_fallback_to_fts_on_error(self) -> None:
         mock_session = AsyncMock()
+        mock_session.in_transaction = MagicMock(return_value=False)
         mock_result = MagicMock()
         mock_result.fetchall.return_value = [
             {

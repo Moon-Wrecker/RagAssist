@@ -21,10 +21,18 @@ class UnitOfWork:
         self._in_transaction = False
 
     async def __aenter__(self) -> "UnitOfWork":
-        """Begin transaction and set RLS session context."""
-        in_tx = getattr(self.session, "in_transaction", None)
-        if not (callable(in_tx) and in_tx()):
-            await self.session.begin()
+        """Begin transaction and set RLS session context.
+
+        The session must have no transaction open. Joining one would run this tenant's context on a transaction
+        that may belong to another tenant (or to code that ran statements before the tenant was set), and the
+        commit on exit would end work this unit does not own. Failing loudly is the isolation guarantee.
+        """
+        if self.session.in_transaction():
+            raise TenantIsolationError(
+                "UnitOfWork needs a session with no open transaction; a transaction cannot be shared "
+                "between tenant contexts."
+            )
+        await self.session.begin()
         self._in_transaction = True
 
         if self.tenant_id is not None:
