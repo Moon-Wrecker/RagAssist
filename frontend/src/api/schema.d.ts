@@ -679,6 +679,8 @@ export interface components {
             file_size_bytes: number;
             /** Status */
             status: string;
+            /** Error Message */
+            error_message?: string | null;
             /** Created At */
             created_at: string;
             /** Updated At */
