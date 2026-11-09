@@ -118,5 +118,5 @@ Thumbs.db
 Desktop.ini
 
 # --- Generated test reports (tests/support/pending_report.py, tests/gates) ---
-reports/
+/reports/
 coverage.json

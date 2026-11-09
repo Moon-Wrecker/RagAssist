@@ -101,8 +101,7 @@ class EvaluationRunner:
 
         if is_injection:
             # Simulate security guard decision (trips prompt injection filter)
-            await asyncio.sleep(0.015)
-            latency_ms = (time.perf_counter() - start_time) * 1000
+            latency_ms = 15.0 + (hash(case["id"]) % 50) / 10.0
             input_tokens = len(question.split()) * 2
             output_tokens = 32
             return CaseResult(
@@ -125,8 +124,7 @@ class EvaluationRunner:
 
         if is_escalation:
             # Simulate escalation node
-            await asyncio.sleep(0.025)
-            latency_ms = (time.perf_counter() - start_time) * 1000
+            latency_ms = 25.0 + (hash(case["id"]) % 60) / 10.0
             input_tokens = len(question.split()) * 2
             output_tokens = 45
             return CaseResult(
@@ -149,8 +147,7 @@ class EvaluationRunner:
 
         if category == "account_tools":
             # Simulate SaaS account tool invocation
-            await asyncio.sleep(0.035)
-            latency_ms = (time.perf_counter() - start_time) * 1000
+            latency_ms = 35.0 + (hash(case["id"]) % 80) / 10.0
             input_tokens = len(question.split()) * 2 + 120
             output_tokens = 60
             return CaseResult(
@@ -172,8 +169,7 @@ class EvaluationRunner:
             )
 
         # Documentation category: simulate hybrid retrieval + synthesis
-        await asyncio.sleep(0.045)
-        latency_ms = (time.perf_counter() - start_time) * 1000
+        latency_ms = 45.0 + (hash(case["id"]) % 90) / 10.0
         input_tokens = len(question.split()) * 2 + 350
         output_tokens = 85
 
