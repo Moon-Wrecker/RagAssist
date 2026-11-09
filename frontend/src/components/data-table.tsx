@@ -28,7 +28,7 @@ export function Tr({ className, ...props }: ComponentProps<"tr">) {
   return (
     <tr
       role="row"
-      className={cn("border-t first:border-t-0 max-sm:block max-sm:px-4 max-sm:py-3 sm:hover:bg-accent/50", className)}
+      className={cn("border-t first:border-t-0 max-sm:block max-sm:px-5 max-sm:py-4 sm:hover:bg-accent/50", className)}
       {...props}
     />
   );
@@ -39,7 +39,7 @@ export function Th({ className, ...props }: ComponentProps<"th">) {
     <th
       role="columnheader"
       scope="col"
-      className={cn("px-4 py-2.5 font-mono text-xs font-medium text-muted-foreground", className)}
+      className={cn("px-4 py-3 font-mono text-xs font-medium text-muted-foreground first:pl-6 last:pr-6", className)}
       {...props}
     />
   );
@@ -60,8 +60,8 @@ export function Td({
       role="cell"
       data-label={label}
       className={cn(
-        "px-4 py-3 align-middle",
-        "max-sm:flex max-sm:items-center max-sm:justify-between max-sm:gap-4 max-sm:px-0 max-sm:py-1",
+        "px-4 py-4 align-middle first:pl-6 last:pr-6",
+        "max-sm:flex max-sm:items-center max-sm:justify-between max-sm:gap-4 max-sm:px-0 max-sm:py-1 max-sm:first:pl-0 max-sm:last:pr-0",
         label && !primary && "max-sm:before:font-mono max-sm:before:text-xs max-sm:before:text-muted-foreground max-sm:before:content-[attr(data-label)]",
         primary && "max-sm:block max-sm:pb-1.5 max-sm:text-base max-sm:font-medium",
         className,

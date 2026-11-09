@@ -11,7 +11,7 @@ function Select({ className, children, ...props }: ComponentProps<"select">) {
     <div className="relative inline-flex w-full">
       <select
         className={cn(
-          "h-10 w-full min-w-0 appearance-none rounded-md border border-input bg-foreground/[0.04] py-0 pr-9 pl-3 text-base transition-colors focus-visible:border-foreground disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
+          "h-10 w-full min-w-0 appearance-none rounded-xl border border-input bg-foreground/[0.04] py-0 pr-10 pl-4 text-base transition-colors focus-visible:border-foreground disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
           className,
         )}
         {...props}

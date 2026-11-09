@@ -55,9 +55,11 @@ export function UploadZone({
           const files = Array.from(event.dataTransfer.files);
           if (files.length > 0) onFiles(files);
         }}
+        role="group"
+        aria-label="Add documents by dropping files"
         data-dragging={dragging || undefined}
         className={cn(
-          "flex flex-col items-start gap-3 rounded-md border border-dashed border-border-strong p-5 transition-colors sm:flex-row sm:items-center sm:justify-between",
+          "flex flex-col items-start gap-3 rounded-2xl border border-dashed border-border-strong p-5 transition-colors sm:flex-row sm:items-center sm:justify-between",
           dragging && "border-solid border-foreground bg-accent",
         )}
       >
@@ -88,7 +90,7 @@ export function UploadZone({
       </div>
 
       {entries.length > 0 ? (
-        <ul aria-label="Uploads in progress" className="flex flex-col divide-y rounded-md border">
+        <ul aria-label="Uploads in progress" className="flex flex-col divide-y rounded-2xl border">
           {entries.map((entry) => (
             <li key={entry.id} className="flex items-start justify-between gap-3 px-4 py-3">
               <div className="min-w-0">

@@ -51,10 +51,10 @@ export function InboxPage() {
         </p>
       </header>
 
-      <div className="grid gap-6 lg:h-[calc(100dvh-17rem)] lg:min-h-[28rem] lg:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)]">
+      <div className="grid gap-6 lg:h-[calc(100dvh-15rem)] lg:min-h-[36rem] lg:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)]">
         <section
           aria-label="Conversation list"
-          className={cn("glass-1 min-h-0 flex-col overflow-hidden rounded-lg", selectedId ? "hidden lg:flex" : "flex")}
+          className={cn("glass-1 min-h-0 flex-col overflow-hidden rounded-3xl", selectedId ? "hidden lg:flex" : "flex")}
         >
           <EscalationList
             items={visible}
@@ -72,7 +72,7 @@ export function InboxPage() {
 
         <section
           aria-label="Conversation"
-          className={cn("glass-1 min-h-0 flex-col overflow-hidden rounded-lg", selectedId ? "flex" : "hidden lg:flex")}
+          className={cn("glass-1 min-h-0 flex-col overflow-hidden rounded-3xl", selectedId ? "flex" : "hidden lg:flex")}
         >
           {selectedId ? (
             <ThreadView key={selectedId} conversationId={selectedId} role={user.role} />

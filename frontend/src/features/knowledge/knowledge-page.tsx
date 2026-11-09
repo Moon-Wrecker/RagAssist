@@ -130,8 +130,8 @@ export function KnowledgePage() {
         <UploadZone entries={uploads} onFiles={(files) => void handleFiles(files)} onDismiss={(id) => dispatch({ type: "dismiss", id })} />
       </Panel>
 
-      <section aria-label="Documents" className="glass-1 overflow-hidden rounded-lg">
-        <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+      <section aria-label="Documents" className="glass-1 overflow-hidden rounded-3xl">
+        <div className="flex items-center justify-between gap-3 border-b px-5 py-4 sm:px-6">
           <h2 className="text-sm font-medium">
             Documents <span className="font-mono text-xs text-muted-foreground">{documents.isSuccess ? total : ""}</span>
           </h2>
@@ -196,7 +196,7 @@ export function KnowledgePage() {
               indexed passages are removed. The assistant stops answering from it. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-end gap-2 p-5">
+          <div className="flex justify-end gap-2 px-6 pt-5 pb-6">
             <DialogClose asChild>
               <Button variant="outline">Keep it</Button>
             </DialogClose>

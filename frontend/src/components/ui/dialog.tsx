@@ -66,7 +66,7 @@ function DialogContent({ className, children, ...props }: ComponentProps<typeof 
 }
 
 function DialogHeader({ className, ...props }: ComponentProps<"div">) {
-  return <div className={cn("flex flex-col gap-1.5 p-5 pb-0", className)} {...props} />;
+  return <div className={cn("flex flex-col gap-1.5 p-6 pb-0", className)} {...props} />;
 }
 
 function DialogTitle({ className, ...props }: ComponentProps<typeof DialogPrimitive.Title>) {

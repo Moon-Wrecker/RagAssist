@@ -161,16 +161,16 @@ export function ThreadView({ conversationId, role }: { conversationId: string; r
   const open = status === "escalated";
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex flex-col gap-3 border-b p-4 sm:p-5">
+      <header className="flex flex-col gap-3 border-b p-5 sm:p-6">
         <Link
           to={{ search: "" }}
-          className="inline-flex w-fit items-center gap-1.5 rounded-md text-sm text-muted-foreground hover:text-foreground lg:hidden"
+          className="inline-flex w-fit items-center gap-1.5 rounded-full text-sm text-muted-foreground hover:text-foreground lg:hidden"
         >
           <ArrowLeft aria-hidden className="size-4" />
           All conversations
         </Link>
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1 basis-64">
             <h2 ref={headingRef} tabIndex={-1} className="font-heading text-3xl break-words outline-none sm:text-4xl">
               {detail.data.title || "Conversation"}
             </h2>
@@ -197,7 +197,7 @@ export function ThreadView({ conversationId, role }: { conversationId: string; r
         aria-live="polite"
         aria-label="Messages"
         tabIndex={0}
-        className="flex min-h-48 flex-1 flex-col gap-5 overflow-y-auto p-4 sm:p-5"
+        className="flex min-h-32 flex-1 flex-col gap-5 overflow-y-auto p-5 sm:p-6"
       >
         {messages.length === 0 ? (
           <li className="text-sm text-muted-foreground">There are no messages in this conversation yet.</li>
@@ -206,7 +206,7 @@ export function ThreadView({ conversationId, role }: { conversationId: string; r
         )}
       </ol>
 
-      <form onSubmit={onSubmit} className="flex flex-col gap-3 border-t p-4 sm:p-5">
+      <form onSubmit={onSubmit} className="flex flex-col gap-3 border-t p-5 sm:p-6">
         <FormMessage id={errorId} message={error} />
         {blocked ? (
           <p className="text-sm text-muted-foreground">{blocked}</p>

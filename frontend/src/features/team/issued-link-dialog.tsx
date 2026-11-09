@@ -59,7 +59,7 @@ export function IssuedLinkDialog({
             ) : null}
           </DialogDescription>
         </DialogHeader>
-        <div className="flex flex-col gap-2 p-5">
+        <div className="flex flex-col gap-2 px-6 py-5">
           <Label htmlFor="issued-link">One-time link</Label>
           <Input
             id="issued-link"
@@ -73,7 +73,7 @@ export function IssuedLinkDialog({
             {copy === "copied" ? "Copied to the clipboard." : copy === "failed" ? "Could not copy automatically. The link is selected: press Ctrl or Cmd + C." : ""}
           </p>
         </div>
-        <div className="flex justify-end gap-2 px-5 pb-5">
+        <div className="flex justify-end gap-2 px-6 pb-6">
           <Button variant="outline" onClick={() => void copyLink()}>
             Copy link
           </Button>

@@ -121,8 +121,8 @@ export function TeamPage() {
 
       <FormMessage id="team-action-error" message={message} />
 
-      <section aria-label="Members" className="glass-1 overflow-hidden rounded-lg">
-        <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+      <section aria-label="Members" className="glass-1 overflow-hidden rounded-3xl">
+        <div className="flex items-center justify-between gap-3 border-b px-5 py-4 sm:px-6">
           <h2 className="text-sm font-medium">
             Members <span className="font-mono text-xs text-muted-foreground">{members.isSuccess ? memberList.length : ""}</span>
           </h2>
@@ -154,29 +154,29 @@ export function TeamPage() {
         )}
       </section>
 
-      <section aria-label="Invitations" className="glass-1 overflow-hidden rounded-lg">
-        <div className="border-b px-4 py-3">
+      <section aria-label="Invitations" className="glass-1 overflow-hidden rounded-3xl">
+        <div className="border-b px-5 py-4 sm:px-6">
           <h2 className="text-sm font-medium">Invite someone</h2>
         </div>
         <InviteForm onCreate={create} pending={creating} error={inviteError} />
-        <div className="border-t px-4 py-3">
+        <div className="border-t px-5 py-4 sm:px-6">
           <h2 className="text-sm font-medium">
             Pending links <span className="font-mono text-xs text-muted-foreground">{invites.isSuccess ? inviteList.length : ""}</span>
           </h2>
         </div>
         {invites.isPending ? (
-          <p className="px-4 pb-5 text-sm text-muted-foreground" role="status">
+          <p className="px-5 pb-6 sm:px-6 text-sm text-muted-foreground" role="status">
             Loading pending links
           </p>
         ) : invites.isError ? (
-          <div className="flex flex-col items-start gap-3 px-4 pb-5" role="alert">
+          <div className="flex flex-col items-start gap-3 px-5 pb-6 sm:px-6" role="alert">
             <p className="text-sm">The pending links could not be loaded.</p>
             <Button variant="outline" size="sm" onClick={() => void invites.refetch()}>
               Try again
             </Button>
           </div>
         ) : inviteList.length === 0 ? (
-          <div className="px-4 pb-5">
+          <div className="px-5 pb-6 sm:px-6">
             <p className="text-sm font-medium">No links are waiting.</p>
             <p className="mt-1 max-w-prose text-sm text-muted-foreground">
               Create an invite above, or a reset link from a member's row. Links that are unused appear here until they
@@ -205,7 +205,7 @@ export function TeamPage() {
               a few minutes.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex justify-end gap-2 p-5">
+          <div className="flex justify-end gap-2 px-6 pt-5 pb-6">
             <DialogClose asChild>
               <Button variant="outline">Keep them active</Button>
             </DialogClose>

@@ -32,7 +32,7 @@ export function InviteForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4 p-4 sm:p-5">
+    <form onSubmit={onSubmit} className="flex flex-col gap-4 p-5 sm:p-6">
       <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_14rem_auto] sm:items-start">
         <FormField
           label="Email address"

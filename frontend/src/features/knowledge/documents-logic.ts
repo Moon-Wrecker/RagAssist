@@ -35,7 +35,7 @@ export const PHASE_LABELS: Record<DocumentPhase, string> = {
 };
 
 const STAGE_LABELS: Record<string, string> = {
-  queued: "Waiting in the queue",
+  queued: "Queued",
   parsing: "Reading the file",
   chunking: "Splitting into passages",
   embedding: "Computing embeddings",

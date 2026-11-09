@@ -45,7 +45,7 @@ export function EscalationList({
   const loadedCount = counts.all;
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-col gap-3 border-b p-4">
+      <div className="flex flex-col gap-3 border-b p-5">
         <div role="group" aria-label="Show conversations" className="flex flex-wrap gap-1.5">
           {FILTERS.map((value) => (
             <Button
@@ -89,7 +89,7 @@ export function EscalationList({
         ) : items.length === 0 ? (
           <EmptyList filter={filter} query={query} loadedCount={loadedCount} onClear={() => onQuery("")} onShowResolved={() => onFilter("resolved")} />
         ) : (
-          <ul aria-label="Conversations" className="divide-y">
+          <ul aria-label="Conversations" className="flex flex-col gap-1 p-2.5">
             {items.map((item) => {
               const selected = item.escalation_id === selectedId;
               return (
@@ -98,8 +98,8 @@ export function EscalationList({
                     to={{ search: `?thread=${encodeURIComponent(item.escalation_id)}` }}
                     aria-current={selected ? "true" : undefined}
                     className={cn(
-                      "block border-l-2 border-transparent px-4 py-3 transition-colors hover:bg-accent focus-visible:-outline-offset-2",
-                      selected && "border-foreground bg-accent",
+                      "block rounded-2xl px-4 py-3.5 ring-1 ring-transparent transition-colors hover:bg-accent focus-visible:-outline-offset-2",
+                      selected && "bg-accent ring-border-strong",
                     )}
                   >
                     <span className="flex items-center justify-between gap-3">
