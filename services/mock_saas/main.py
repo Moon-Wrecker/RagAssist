@@ -4,14 +4,13 @@ Validates the incoming caller JWT and provides tenant-isolated account data and 
 """
 
 from datetime import datetime, timezone
+import os
 import re
 from typing import Any
 from fastapi import Depends, FastAPI, HTTPException, Security, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, field_validator
 import jwt
-
-from ragassist.shared.config.settings import get_settings
 
 app = FastAPI(title="Mock SaaS Service", version="1.0.0")
 _security = HTTPBearer()
@@ -55,12 +54,13 @@ _TICKETS: list[dict[str, Any]] = []
 
 def _decode_jwt(credentials: HTTPAuthorizationCredentials = Security(_security)) -> dict[str, Any]:
     """Verify JWT signature, expiry, algorithm, and tenant claim."""
-    settings = get_settings()
+    # Standalone service: it reads only the two values it needs and does not import the application package.
+    secret_key, algorithm = os.environ["SECRET_KEY"], os.environ["JWT_ALGORITHM"]
     try:
         payload: dict[str, Any] = jwt.decode(
             credentials.credentials,
-            settings.SECRET_KEY,
-            algorithms=[settings.JWT_ALGORITHM],
+            secret_key,
+            algorithms=[algorithm],
             options={"require": ["exp", "tenant_id"]},
         )
         tenant_id = payload.get("tenant_id")
