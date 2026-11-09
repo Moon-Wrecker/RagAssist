@@ -24,6 +24,12 @@ from ragassist.modules.knowledge.domain import (
     JobStatus,
     UnsupportedMimeType,
 )
+from ragassist.platform.events import (
+    document_changed,
+    get_event_bus,
+    job_updated,
+    publish_safely,
+)
 from ragassist.platform.queue.sqs_adapter import InMemoryMessageQueue, SQSMessageQueue
 from ragassist.platform.storage.s3_adapter import InMemoryObjectStore, S3ObjectStore
 from ragassist.shared.config.settings import get_settings
@@ -254,6 +260,7 @@ async def upload_document(
     store: Any = Depends(get_object_store),
     queue: Any = Depends(get_message_queue),
     knowledge_store: InMemoryDocumentStore = Depends(get_knowledge_store),
+    events: Any = Depends(get_event_bus),
 ) -> DocumentUploadResponse:
     """Upload a multipart document, persist to S3, record state, and enqueue SQS job."""
     if principal.role != UserRole.ADMIN:
@@ -305,6 +312,11 @@ async def upload_document(
             "updated_at": now,
         })
 
+        await publish_safely(
+            events,
+            job_updated(principal.tenant_id, res.job_id, res.document_id),
+            document_changed(principal.tenant_id, res.document_id),
+        )
         return DocumentUploadResponse(
             document_id=res.document_id,
             job_id=res.job_id,
@@ -361,6 +373,7 @@ async def delete_document(
     principal: Principal = Depends(get_current_principal),
     store: Any = Depends(get_object_store),
     knowledge_store: InMemoryDocumentStore = Depends(get_knowledge_store),
+    events: Any = Depends(get_event_bus),
 ) -> dict[str, Any]:
     """Delete document by ID with tenant isolation verification (administrators only, like upload)."""
     _require_admin(principal, "delete documents")
@@ -375,6 +388,7 @@ async def delete_document(
             await store.delete_object(doc["object_key"])
 
     await knowledge_store.delete_document(str(principal.tenant_id), document_id)
+    await publish_safely(events, document_changed(principal.tenant_id, document_id))
     return {"deleted": True, "document_id": document_id}
 
 
@@ -387,6 +401,7 @@ async def reindex_document(
     principal: Principal = Depends(get_current_principal),
     queue: Any = Depends(get_message_queue),
     knowledge_store: InMemoryDocumentStore = Depends(get_knowledge_store),
+    events: Any = Depends(get_event_bus),
 ) -> dict[str, Any]:
     """Trigger re-indexing of an existing document (administrators only, like upload)."""
     _require_admin(principal, "re-index documents")
@@ -418,6 +433,11 @@ async def reindex_document(
         from ragassist.shared.config.settings import get_settings
         await queue.send_message(get_settings().SQS_QUEUE_INGEST, msg)
 
+    await publish_safely(
+        events,
+        job_updated(principal.tenant_id, job_id, document_id),
+        document_changed(principal.tenant_id, document_id),
+    )
     return {"document_id": document_id, "job_id": job_id, "status": "queued"}
 
 
