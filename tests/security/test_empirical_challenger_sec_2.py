@@ -537,6 +537,9 @@ class FakeAsyncSessionForSqlTest:
         self.executed_queries: list[tuple[str, dict[str, Any]]] = []
         self.is_active = True
 
+    def in_transaction(self) -> bool:
+        return False
+
     async def begin(self) -> None:
         pass
 

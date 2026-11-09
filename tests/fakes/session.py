@@ -20,6 +20,7 @@ class FakeAsyncSession:
         self.events: list[str] = []
         self._fail_on_begin = fail_on_begin
         self._fail_on_commit = fail_on_commit
+        self._open = False
 
     # -- recorded state -------------------------------------------------------------------------
     @property
@@ -48,19 +49,29 @@ class FakeAsyncSession:
         return self.tenant_setting
 
     # -- AsyncSession surface used by UnitOfWork ------------------------------------------------
+    def in_transaction(self) -> bool:
+        return self._open
+
+    def open_transaction(self) -> None:
+        """Simulate a transaction the caller already has open (an autobegun statement, an outer unit)."""
+        self._open = True
+
     async def begin(self) -> None:
         self.events.append("begin")
         if self._fail_on_begin is not None:
             raise self._fail_on_begin
+        self._open = True
 
     async def execute(self, statement: Any, params: dict[str, Any] | None = None) -> None:
         self.events.append("execute")
         self.statements.append((str(statement), dict(params or {})))
 
     async def commit(self) -> None:
+        self._open = False
         self.events.append("commit")
         if self._fail_on_commit is not None:
             raise self._fail_on_commit
 
     async def rollback(self) -> None:
+        self._open = False
         self.events.append("rollback")

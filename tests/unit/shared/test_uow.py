@@ -79,6 +79,38 @@ class TestTransactionBoundaries:
         assert session.rolled_back
 
 
+class TestAnOpenTransactionIsNeverJoined:
+    """A UnitOfWork on a session that already has a transaction would mix tenant contexts and commit work it
+    does not own, so it refuses."""
+
+    async def test_it_refuses_a_session_with_an_open_transaction(self) -> None:
+        session = FakeAsyncSession()
+        session.open_transaction()
+        with pytest.raises(TenantIsolationError):
+            async with UnitOfWork(session, new_tenant()):  # type: ignore[arg-type]
+                pytest.fail("body must not run")
+
+    async def test_a_refused_entry_changes_nothing_on_the_session(self) -> None:
+        session = FakeAsyncSession()
+        session.open_transaction()
+        with pytest.raises(TenantIsolationError):
+            async with UnitOfWork(session, new_tenant()):  # type: ignore[arg-type]
+                pass
+        assert session.events == [], (
+            "no begin, no tenant context, and above all no commit or rollback"
+        )
+        assert session.in_transaction(), "the caller's transaction is untouched"
+
+    async def test_a_second_tenant_cannot_take_over_a_running_unit(self) -> None:
+        session = FakeAsyncSession()
+        tenant_a, tenant_b = new_tenant(), new_tenant()
+        async with UnitOfWork(session, tenant_a):  # type: ignore[arg-type]
+            with pytest.raises(TenantIsolationError):
+                async with UnitOfWork(session, tenant_b):  # type: ignore[arg-type]
+                    pass
+            assert session.tenant_setting == str(tenant_a)
+
+
 class TestTenantContext:
     async def test_tenant_is_set_transaction_locally(self) -> None:
         """`set_config(..., true)` is the SET LOCAL form: it cannot outlive the transaction, so a
