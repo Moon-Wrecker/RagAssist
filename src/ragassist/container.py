@@ -112,6 +112,11 @@ class Container:
 
     def get_assistant_graph(self, checkpointer: Any = None) -> Any:
         """Resolve compiled Assistant StateGraph."""
+        from ragassist.runtime import active_runtime
+
+        runtime = active_runtime()
+        if runtime is not None and checkpointer is None:
+            return runtime.graph  # Postgres checkpointer, real retrieval and tools
         if self._assistant_graph is None or checkpointer is not None:
             from collections.abc import AsyncIterator
             from langgraph.checkpoint.memory import MemorySaver

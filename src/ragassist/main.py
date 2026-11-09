@@ -9,6 +9,9 @@ Consulted References:
   https://prometheus.io/docs/instrumenting/exposition_formats/
 """
 
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -49,6 +52,22 @@ TAGS_METADATA = [
 ]
 
 
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    """Start the PostgreSQL runtime (pools, checkpointer, graph) when PERSISTENCE_BACKEND=postgres."""
+    settings = get_settings()
+    if settings.PERSISTENCE_BACKEND != "postgres":
+        yield
+        return
+    from ragassist.runtime import start_runtime, stop_runtime
+
+    await start_runtime(settings)
+    try:
+        yield
+    finally:
+        await stop_runtime()
+
+
 def create_app() -> FastAPI:
     """Instantiate and configure the FastAPI application."""
     settings = get_settings()
@@ -64,6 +83,7 @@ def create_app() -> FastAPI:
         docs_url="/docs",
         redoc_url="/redoc",
         openapi_tags=TAGS_METADATA,
+        lifespan=lifespan,
     )
 
     # Middleware pipeline

@@ -11,6 +11,7 @@ Consulted References:
 from __future__ import annotations
 
 import asyncio
+import inspect
 from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 from typing import Any
@@ -87,6 +88,21 @@ class ActionDecisionResponse(BaseModel):
     status: str = "resumed"
 
 
+async def _create_conversation(
+    store: Any, principal: Principal, conversation_id: str, title: str
+) -> dict[str, Any]:
+    """Create through either store: the Postgres one is async and records the owning user."""
+    kwargs: dict[str, Any] = {
+        "tenant_id": principal.tenant_id,
+        "conversation_id": conversation_id,
+        "title": title,
+    }
+    if "user_id" in inspect.signature(store.create).parameters:
+        kwargs["user_id"] = principal.user_id
+    row = store.create(**kwargs)
+    return await row if inspect.isawaitable(row) else row
+
+
 def get_assistant_graph(request: Request) -> Any:
     """Resolve compiled Assistant StateGraph from app container or singleton."""
     container = getattr(request.app.state, "container", None)
@@ -111,7 +127,7 @@ async def create_conversation(
     """Create a new conversation scoped to the authenticated tenant."""
     cid = str(uuid4())
     title = req.title if req and req.title else "New Conversation"
-    row = store.create(tenant_id=principal.tenant_id, conversation_id=cid, title=title)
+    row = await _create_conversation(store, principal, cid, title)
     return ConversationResponse(
         conversation_id=row["conversation_id"],
         tenant_id=row["tenant_id"],
@@ -375,10 +391,8 @@ async def ask_message(
     conv = await store.get(principal.tenant_id, conversation_id)
     if conv is None:
         if is_sse:
-            conv = store.create(
-                tenant_id=principal.tenant_id,
-                conversation_id=conversation_id,
-                title=f"Chat {conversation_id[:8]}",
+            conv = await _create_conversation(
+                store, principal, conversation_id, f"Chat {conversation_id[:8]}"
             )
         else:
             raise HTTPException(

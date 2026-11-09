@@ -171,12 +171,20 @@ _object_store: Any = None
 _message_queue: Any = None
 
 
-def get_knowledge_store() -> InMemoryDocumentStore:
-    return _knowledge_store
+def get_knowledge_store() -> Any:
+    from ragassist.runtime import active_runtime
+
+    runtime = active_runtime()
+    return runtime.knowledge if runtime is not None else _knowledge_store
 
 
 def get_object_store() -> Any:
     global _object_store
+    from ragassist.runtime import active_runtime
+
+    runtime = active_runtime()
+    if runtime is not None:
+        return runtime.object_store
     if _object_store is None:
         settings = get_settings()
         if settings.APP_ENV == "test":
@@ -191,6 +199,11 @@ def get_object_store() -> Any:
 
 def get_message_queue() -> Any:
     global _message_queue
+    from ragassist.runtime import active_runtime
+
+    runtime = active_runtime()
+    if runtime is not None:
+        return runtime.queue
     if _message_queue is None:
         settings = get_settings()
         if settings.APP_ENV == "test":
