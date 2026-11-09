@@ -74,5 +74,9 @@ class InMemoryConversationStore:
 _conversation_store = InMemoryConversationStore()
 
 
-def get_conversation_store() -> InMemoryConversationStore:
-    return _conversation_store
+def get_conversation_store() -> Any:
+    """The Postgres store when the runtime is started (PERSISTENCE_BACKEND=postgres), else the in-memory one."""
+    from ragassist.runtime import active_runtime
+
+    runtime = active_runtime()
+    return runtime.conversations if runtime is not None else _conversation_store

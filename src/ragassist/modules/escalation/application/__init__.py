@@ -67,8 +67,13 @@ class EscalateConversation:
         }
         ticket = await self.helpdesk.create_ticket(principal, payload)
         ticket_id = str(ticket.get("id", ""))
-        conv["ticket_id"] = ticket_id
-        await self.conversations.set_status(principal.tenant_id, conversation_id, "escalated")
+        if hasattr(self.conversations, "set_ticket"):  # durable stores record the ticket with the status
+            await self.conversations.set_ticket(
+                principal.tenant_id, conversation_id, ticket_id=ticket_id, priority=priority, summary=summary
+            )
+        else:
+            conv["ticket_id"] = ticket_id
+            await self.conversations.set_status(principal.tenant_id, conversation_id, "escalated")
 
         result = EscalationResult(ticket_id=ticket_id, status="open")
         self._tickets[conversation_id] = result
