@@ -194,6 +194,10 @@ async def get_conversation(
     )
 
 
+#: Graph nodes whose chat-model tokens are the answer streamed to the client.
+ANSWER_NODES = frozenset({"generate", "account_agent"})
+
+
 async def _stream_graph_events(
     graph: Any,
     input_state: dict[str, Any],
@@ -204,7 +208,6 @@ async def _stream_graph_events(
 ) -> AsyncIterator[dict[str, Any]]:
     """Stream LangGraph StateGraph execution events mapped directly into WHATWG SSE events."""
     user_query = str(input_state.get("question", "")).strip()
-    preamble_emitted = False
     tokens_emitted = 0
     citations_seen: set[str] = set()
     final_answer = ""
@@ -221,15 +224,9 @@ async def _stream_graph_events(
                 if kind == "on_chat_model_stream":
                     chunk = data.get("chunk")
                     content = getattr(chunk, "content", "") if chunk else ""
-                    if content:
-                        if not preamble_emitted and user_query and user_query not in str(content):
-                            preamble_emitted = True
-                            p_part1 = "Regarding "
-                            p_part2 = f"'{user_query}': "
-                            tokens_emitted += 2
-                            final_answer += p_part1 + p_part2
-                            yield {"event": "token", "data": {"text": p_part1}}
-                            yield {"event": "token", "data": {"text": p_part2}}
+                    node = (event.get("metadata") or {}).get("langgraph_node")
+                    # Rewriter and decider models stream too; only the answer nodes belong in the answer.
+                    if content and (node is None or node in ANSWER_NODES):
                         tokens_emitted += 1
                         final_answer += str(content)
                         yield {"event": "token", "data": {"text": str(content)}}
