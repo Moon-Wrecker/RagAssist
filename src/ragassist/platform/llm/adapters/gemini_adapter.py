@@ -8,7 +8,7 @@ Consulted (decision in brackets):
   structured output and streaming are supported [reuse ``ChatOpenAI`` from ``langchain-openai`` instead of adding
   ``langchain-google-genai``].
 * https://ai.google.dev/gemini-api/docs/models and .../pricing: model codes, limits, prices [recorded in
-  ``config/models.yaml`` and ADR 0010].
+  ``config/models.yaml`` and ADR 0013].
 The endpoint and key come from ``GEMINI_BASE_URL`` / ``GEMINI_API_KEY``, never from code; Gemini keeps its own pair of
 settings so a local ``OPENAI_COMPATIBLE_*`` (Ollama) setup is untouched, and no other provider's key is ever sent here.
 """

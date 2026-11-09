@@ -1,4 +1,4 @@
-"""Gemini as a first-class chat provider (ADR 0010): adapter, catalog entries and the skip-when-unconfigured rule.
+"""Gemini as a first-class chat provider (ADR 0013): adapter, catalog entries and the skip-when-unconfigured rule.
 
 Uses throwaway keys and a loopback fake server; nothing here touches the real Gemini endpoint.
 """

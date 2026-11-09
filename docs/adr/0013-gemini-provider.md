@@ -1,4 +1,4 @@
-# ADR 0010: Google Gemini as a First-Class Chat Provider
+# ADR 0013: Google Gemini as a First-Class Chat Provider
 
 ## Context & Problem
 Gemini models were reachable only by pointing `OPENAI_COMPATIBLE_*` at Google's endpoint, and `OPENAI_COMPATIBLE_MODEL`

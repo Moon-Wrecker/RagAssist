@@ -15,7 +15,7 @@ A production-ready multi-tenant retrieval-augmented support assistant built as a
   - `escalation` — Human-in-the-loop (HITL) escalation tickets (`GET /v1/escalations`, `POST /v1/escalations/{id}/resolve`) resuming suspended LangGraph threads.
 - **Platform Layer (`src/ragassist/platform/*`)**:
   - Swappable **LLM** (`OpenAI`, `Anthropic`, `Gemini`, `OpenRouter`, any OpenAI-compatible server such as `Ollama`), **Embedding**, **Reranker**, and **System One Decision Layer** (`Jev`, `OpenAI Decisions`, `Strands Local`, `Semantic Router`, `LLM Structured`, `Rules`) adapters configured via [`config/models.yaml`](config/models.yaml) with automatic fallback chains.
-  - **LLM providers** (set the key in `.env`; see [ADR 0010](docs/adr/0010-gemini-provider.md)):
+  - **LLM providers** (set the key in `.env`; see [ADR 0013](docs/adr/0013-gemini-provider.md)):
 
     | Provider (`config/models.yaml`) | Settings | Example models |
     | --- | --- | --- |

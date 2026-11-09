@@ -27,7 +27,7 @@ providers:
     timeout_seconds: 45.0
 
   # Google Gemini via its OpenAI-compatible endpoint (GEMINI_BASE_URL). Optional: with GEMINI_API_KEY empty its models
-  # are skipped wherever they are listed as a fallback (see docs/adr/0010-gemini-provider.md).
+  # are skipped wherever they are listed as a fallback (see docs/adr/0013-gemini-provider.md).
   gemini:
     adapter: gemini
     api_key_env: GEMINI_API_KEY
