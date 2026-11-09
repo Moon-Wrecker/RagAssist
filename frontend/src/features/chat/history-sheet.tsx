@@ -55,7 +55,7 @@ export function HistorySheet({
       returnFocusTo={returnFocusTo}
     >
       <div className="space-y-4">
-        <Button variant="outline" size="sm" onClick={onNew} className="w-full">
+        <Button variant="outline" size="sm" onClick={onNew} className="w-full rounded-full">
           New conversation
         </Button>
         {loaded > 5 ? (
@@ -65,6 +65,7 @@ export function HistorySheet({
             placeholder="Filter by title"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
+            className="rounded-full"
           />
         ) : null}
         {history.isPending ? (
@@ -83,7 +84,7 @@ export function HistorySheet({
         ) : items.length === 0 ? (
           <p className="text-sm text-muted-foreground">No loaded conversation has that in its title.</p>
         ) : (
-          <ul className="-mx-2">
+          <ul className="-mx-3">
             {items.map((item) => {
               const label = statusLabel(item.status);
               const current = item.conversation_id === activeId;
@@ -94,14 +95,14 @@ export function HistorySheet({
                     aria-current={current ? "true" : undefined}
                     onClick={() => onSelect(item.conversation_id)}
                     className={cn(
-                      "block w-full rounded-md px-2 py-2 text-left hover:bg-accent",
+                      "block w-full rounded-2xl px-3 py-2 text-left hover:bg-accent",
                       current && "bg-accent",
                     )}
                   >
                     <span className={cn("block truncate text-sm", current && "font-medium")}>{item.title}</span>
                     <span className="mt-0.5 flex gap-2 font-mono text-xs text-muted-foreground">
                       <span>{when(item.updated_at)}</span>
-                      {label ? <span>{label}</span> : null}
+                      {label ? <span className="rounded-full border px-2 leading-5">{label}</span> : null}
                     </span>
                   </button>
                 </li>

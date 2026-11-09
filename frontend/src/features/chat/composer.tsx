@@ -64,18 +64,18 @@ export function Composer({
   const placeholder = state.audience === "agent" ? "Write to the support agent" : "Ask about your account or the documents";
 
   return (
-    <form onSubmit={submit} className="glass-2 sticky bottom-3 z-30 mt-4 rounded-lg p-3" aria-label="Send a message">
+    <form onSubmit={submit} className="glass-2 sticky bottom-3 z-30 mt-4 rounded-[1.75rem] py-2 pr-2 pl-5 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-ring" aria-label="Send a message">
       {hint ? (
-        <p id={hintId} className="mb-2 px-1 font-mono text-xs text-muted-foreground">
+        <p id={hintId} className="mt-1 mb-1 pr-3 font-mono text-xs text-muted-foreground">
           {hint}
         </p>
       ) : null}
       {error ? (
-        <p role="alert" className="mb-2 px-1 text-sm">
+        <p role="alert" className="mt-1 mb-1 pr-3 text-sm">
           {error}
         </p>
       ) : null}
-      <div className="flex items-end gap-2">
+      <div className="flex items-end gap-3">
         <textarea
           ref={ref}
           value={draft}
@@ -89,17 +89,15 @@ export function Composer({
           aria-disabled={locked || undefined}
           placeholder={locked ? "" : placeholder}
           enterKeyHint="send"
-          className="max-h-[200px] min-h-10 flex-1 resize-none rounded-md border border-input bg-transparent px-3 py-2 text-base leading-relaxed md:text-[0.9375rem] placeholder:text-muted-foreground aria-disabled:opacity-60"
+          className="max-h-[200px] min-h-10 flex-1 resize-none bg-transparent py-2 text-base focus:outline-none leading-relaxed md:text-[0.9375rem] placeholder:text-muted-foreground aria-disabled:opacity-60"
         />
         {state.canStop ? (
-          <Button type="button" variant="outline" onClick={onStop} aria-label="Stop the answer">
-            <Square aria-hidden className="fill-current" />
-            Stop
+          <Button type="button" variant="default" size="icon" className="rounded-full" onClick={onStop} aria-label="Stop the answer" title="Stop">
+            <Square aria-hidden className="size-3.5 fill-current" />
           </Button>
         ) : (
-          <Button type="submit" disabled={locked || draft.trim() === ""} aria-label="Send message">
+          <Button type="submit" size="icon" className="rounded-full" disabled={locked || draft.trim() === ""} aria-label="Send message" title="Send">
             <ArrowUp aria-hidden />
-            Send
           </Button>
         )}
       </div>

@@ -78,17 +78,21 @@ export function ChatPage() {
           <header className="mb-6 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 border-b pb-5">
             <div className="min-w-0">
               <h1 className="font-heading text-4xl break-words sm:text-5xl">{title}</h1>
-              <p className="mt-2 flex min-h-5 items-center gap-2 font-mono text-xs text-muted-foreground" aria-live="polite">
-                {handoff ? <Headset className="size-3.5" aria-hidden /> : null}
-                {statusLine(chat.status, messageCount)}
+              <p className="mt-3 flex min-h-6 items-center" aria-live="polite">
+                {statusLine(chat.status, messageCount) !== "" ? (
+                  <span className="inline-flex items-center gap-2 rounded-full border px-3 py-0.5 font-mono text-xs text-muted-foreground">
+                    {handoff ? <Headset className="size-3.5" aria-hidden /> : null}
+                    {statusLine(chat.status, messageCount)}
+                  </span>
+                ) : null}
               </p>
             </div>
-            <div className="flex gap-1">
-              <Button ref={historyTrigger} variant="ghost" size="sm" onClick={() => setHistoryOpen(true)}>
+            <div className="flex gap-1 sm:-mr-2">
+              <Button ref={historyTrigger} variant="ghost" size="sm" className="rounded-full" onClick={() => setHistoryOpen(true)}>
                 <History aria-hidden />
                 History
               </Button>
-              <Button variant="ghost" size="sm" onClick={() => chat.open(null)} disabled={chat.activeId === null && chat.items.length === 0}>
+              <Button variant="ghost" size="sm" className="rounded-full" onClick={() => chat.open(null)} disabled={chat.activeId === null && chat.items.length === 0}>
                 <Plus aria-hidden />
                 New
               </Button>
@@ -96,7 +100,7 @@ export function ChatPage() {
           </header>
 
           {handoff ? (
-            <p className="mb-5 border-l-2 border-border-strong pl-4 text-sm">
+            <p className="mb-5 rounded-2xl border border-border-strong px-4 py-3 text-sm">
               <span className="font-medium">With a support agent.</span>{" "}
               <span className="text-muted-foreground">The assistant stays silent while they handle this. Your messages go to the agent.</span>
             </p>

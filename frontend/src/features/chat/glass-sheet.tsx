@@ -8,14 +8,14 @@ import { cn } from "@/lib/utils";
 export type SheetPlacement = "left" | "right" | "bottom";
 
 const placementClass: Record<SheetPlacement, string> = {
-  left: "inset-y-0 left-0 w-[min(22rem,100vw)] rounded-r-lg border-l-0",
-  right: "inset-y-0 right-0 w-[min(26rem,100vw)] rounded-l-lg border-r-0",
-  bottom: "inset-x-0 bottom-0 max-h-[78dvh] rounded-t-lg border-b-0",
+  left: "inset-y-3 left-3 w-[min(22rem,calc(100vw-1.5rem))] rounded-3xl",
+  right: "inset-y-3 right-3 w-[min(26rem,calc(100vw-1.5rem))] rounded-3xl",
+  bottom: "inset-x-0 bottom-0 max-h-[78dvh] rounded-t-3xl border-b-0",
 };
 
 const placementMotion: Record<SheetPlacement, { x?: string; y?: string }> = {
-  left: { x: "-100%" },
-  right: { x: "100%" },
+  left: { x: "-110%" },
+  right: { x: "110%" },
   bottom: { y: "100%" },
 };
 
@@ -92,7 +92,7 @@ export function GlassSheet({
                     <DialogPrimitive.Description className="sr-only">{description}</DialogPrimitive.Description>
                   </div>
                   <DialogPrimitive.Close asChild>
-                    <Button variant="ghost" size="icon" aria-label="Close" className="-mt-2 -mr-2 shrink-0">
+                    <Button variant="ghost" size="icon" aria-label="Close" className="-mt-2 -mr-2 shrink-0 rounded-full">
                       <X aria-hidden />
                     </Button>
                   </DialogPrimitive.Close>

@@ -53,7 +53,7 @@ function CitationMarker({
       aria-label={label}
       title={label}
       onClick={(event) => onOpen(citation, number, event.currentTarget)}
-      className="mx-0.5 inline-flex min-h-6 min-w-6 items-center justify-center rounded-sm border border-border-strong px-1 align-baseline font-mono text-[0.6875rem] leading-none text-foreground transition-colors hover:bg-accent"
+      className="mx-0.5 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full border border-border-strong px-1.5 align-baseline font-mono text-[0.6875rem] leading-none text-foreground transition-colors hover:bg-accent"
     >
       {number}
     </button>

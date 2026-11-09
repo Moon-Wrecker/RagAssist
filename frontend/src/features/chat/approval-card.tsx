@@ -38,7 +38,11 @@ export function ApprovalCard({
   const ref = useRef<HTMLDivElement>(null);
   // The composer is locked until this is decided, so move attention here when it appears.
   useEffect(() => {
-    ref.current?.focus({ preventScroll: false });
+    const card = ref.current;
+    if (!card) return;
+    card.focus({ preventScroll: true });
+    // Centre it so the floating composer cannot cover the Approve and Deny buttons.
+    card.scrollIntoView({ block: "center" });
   }, [interrupt.interruptId]);
 
   return (
@@ -47,7 +51,7 @@ export function ApprovalCard({
       tabIndex={-1}
       role="group"
       aria-labelledby="approval-title"
-      className="my-5 rounded-md border border-border-strong p-4 outline-offset-4"
+      className="my-5 rounded-3xl border border-border-strong p-5 focus:outline-none"
     >
       <p id="approval-title" className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
         Needs your approval
@@ -64,11 +68,11 @@ export function ApprovalCard({
         </p>
       ) : null}
       <div className="mt-4 flex flex-wrap gap-2">
-        <Button size="sm" onClick={() => onDecide(true)} disabled={deciding} aria-label={`Approve ${interrupt.tool}`}>
+        <Button size="sm" className="rounded-full" onClick={() => onDecide(true)} disabled={deciding} aria-label={`Approve ${interrupt.tool}`}>
           <Check aria-hidden />
           Approve
         </Button>
-        <Button variant="outline" size="sm" onClick={() => onDecide(false)} disabled={deciding} aria-label={`Deny ${interrupt.tool}`}>
+        <Button variant="outline" size="sm" className="rounded-full" onClick={() => onDecide(false)} disabled={deciding} aria-label={`Deny ${interrupt.tool}`}>
           <X aria-hidden />
           Deny
         </Button>
@@ -86,7 +90,7 @@ export function ApprovalCard({
 export function DecisionLine({ outcome }: { outcome: DecisionOutcome }) {
   const rows = argumentRows(outcome.arguments);
   return (
-    <div className="my-4 border-l-2 border-border-strong pl-4 text-sm">
+    <div className="my-4 rounded-2xl border border-border-strong px-4 py-3 text-sm">
       <p className="flex items-center gap-2 font-mono text-xs uppercase tracking-wide text-muted-foreground">
         {outcome.approved ? <Check className="size-3.5" aria-hidden /> : <X className="size-3.5" aria-hidden />}
         {outcome.approved ? "You approved" : "You denied"}

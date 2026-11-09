@@ -1,6 +1,7 @@
 import { Headset, RotateCcw } from "lucide-react";
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { ApprovalCard, DecisionLine } from "./approval-card";
 import { Markdown, type OpenCitation } from "./markdown";
 import { sourceLocation } from "./source-location";
@@ -25,14 +26,16 @@ function Speaker({ name, at }: { name: string; at?: string | null }) {
   );
 }
 
-const turnClass = "border-t py-5 first:border-t-0 first:pt-0";
+const turnClass = "py-3 first:pt-0";
 
 /** The customer's words as a plain typographic block, not a bubble. */
 function UserTurn({ text, at }: { text: string; at?: string | null }) {
   return (
-    <article className={turnClass}>
+    <article className={cn(turnClass, "flex flex-col items-end")}>
       <Speaker name="You" at={at} />
-      <p className="text-[1.0625rem] leading-relaxed font-medium whitespace-pre-wrap break-words">{text}</p>
+      <p className="max-w-[88%] rounded-3xl rounded-tr-lg bg-foreground/[0.07] px-5 py-3 text-[1rem] leading-relaxed font-medium whitespace-pre-wrap break-words">
+        {text}
+      </p>
     </article>
   );
 }
@@ -41,9 +44,9 @@ function UserTurn({ text, at }: { text: string; at?: string | null }) {
 function Sources({ citations, onOpen }: { citations: readonly Citation[]; onOpen: OpenCitation }) {
   if (citations.length === 0) return null;
   return (
-    <section aria-label="Sources" className="mt-4 border-t pt-3">
+    <section aria-label="Sources" className="mt-4 pt-1">
       <h3 className="mb-1.5 font-mono text-xs uppercase tracking-wide text-muted-foreground">Sources</h3>
-      <ol className="space-y-1">
+      <ol className="-mx-2 space-y-0.5">
         {citations.map((citation, index) => {
           const where = sourceLocation({ headingPath: citation.headingPath, page: citation.page });
           return (
@@ -51,9 +54,9 @@ function Sources({ citations, onOpen }: { citations: readonly Citation[]; onOpen
               <button
                 type="button"
                 onClick={(event) => onOpen(citation, index + 1, event.currentTarget)}
-                className="group flex w-full items-baseline gap-3 rounded-sm py-1 text-left font-mono text-xs hover:bg-accent"
+                className="group flex w-full items-baseline gap-3 rounded-2xl px-2 py-1.5 text-left font-mono text-xs hover:bg-accent"
               >
-                <span className="shrink-0 rounded-sm border border-border-strong px-1.5 py-0.5">{index + 1}</span>
+                <span className="shrink-0 rounded-full border border-border-strong px-2 py-0.5">{index + 1}</span>
                 <span className="min-w-0 break-words">
                   <span className="underline-offset-4 group-hover:underline">{citation.title || "Untitled document"}</span>
                   {where ? <span className="text-muted-foreground">{`  ·  ${where}`}</span> : null}
@@ -121,7 +124,7 @@ function MessageTurn({ message, onOpenCitation }: { message: ChatMessage; onOpen
 
 export function HandoffLine({ ticketId }: { ticketId: string | null }) {
   return (
-    <div className="my-4 flex items-start gap-3 border-l-2 border-border-strong pl-4 text-sm">
+    <div className="my-4 flex items-start gap-3 rounded-2xl border border-border-strong px-4 py-3 text-sm">
       <Headset className="mt-0.5 size-4 shrink-0" aria-hidden />
       <div>
         <p className="font-medium">A support agent has taken over</p>
@@ -186,9 +189,6 @@ function LiveTurnView({
       ) : null}
       {turn.outcome && !needsDecision ? <DecisionLine outcome={turn.outcome} /> : null}
       {turn.escalation && !turn.wasEscalated ? <HandoffLine ticketId={turn.escalation.ticketId} /> : null}
-      {turn.wasEscalated && turn.phase === "settled" && !turn.error ? (
-        <p className="mt-3 font-mono text-xs text-muted-foreground">Sent to the support agent. Their reply will appear here.</p>
-      ) : null}
       {turn.stopped ? (
         <div className="mt-3 flex flex-wrap items-center gap-3 font-mono text-xs text-muted-foreground">
           <span>Stopped. The assistant may still finish and save this answer.</span>
@@ -199,7 +199,7 @@ function LiveTurnView({
         </div>
       ) : null}
       {turn.error && turn.error.kind !== "decision" ? (
-        <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 border-l-2 border-border-strong pl-4 text-sm">
+        <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl border border-border-strong px-4 py-3 text-sm">
           <span>{turn.error.message}</span>
           <Button variant="outline" size="sm" onClick={onRetry}>
             <RotateCcw aria-hidden />
