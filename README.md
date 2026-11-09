@@ -1,40 +1,124 @@
 # RagAssist
 
-A multi-tenant retrieval-augmented support assistant, built as a **modular monolith** (hexagonal architecture)
-on FastAPI, LangGraph and PostgreSQL + pgvector.
+A production-ready multi-tenant retrieval-augmented support assistant built as a **Hexagonal Modular Monolith** on **FastAPI**, **LangGraph**, and **PostgreSQL 16 + pgvector**.
 
-* **Bounded contexts** live in `src/ragassist/modules/*` (knowledge, retrieval, assistant, actions, escalation),
-  on top of a swappable AI/infra **platform** layer and a small **shared kernel**.
-* **Tenant isolation is defence in depth**: identity comes only from the verified JWT principal, every tenant-scoped
-  query runs inside a `UnitOfWork` that sets `app.tenant_id` for PostgreSQL row-level security, and LangGraph threads
-  are namespaced per tenant.
-* **Providers are configuration**: LLM, embedding, decision and reranker choices go through the provider registry and
-  fallback chains defined in `config/models.yaml`.
+---
 
-The rules every contributor (human or AI) follows are in [AGENTS.md](AGENTS.md); architecture notes are in `docs/`
-(ADRs in `docs/adr/`, the testing strategy in `docs/testing.md`, the streaming contract in `docs/api/sse-contract.md`).
+## Architecture Highlights
 
-## Quick start
+- **Bounded Contexts (`src/ragassist/modules/*`)**:
+  - `identity` — JWT authentication, tenant principal validation, and dev/local token generation (`POST /v1/auth/token`).
+  - `knowledge` — Document ingestion pipeline (`POST /v1/documents`), S3 storage, SQS async dispatch, structure-aware parsing (`PyMuPDF4LLM`, Markdown, HTML, CSV, JSON), recursive token chunking (`Chonkie`), contextual headers, and batch embeddings (`text-embedding-3-small`, `768` dimensions via Matryoshka).
+  - `retrieval` — Hybrid retrieval combining `pgvector` HNSW cosine similarity and PostgreSQL Full-Text Search (`tsvector`/`GIN`), fused via Reciprocal Rank Fusion ($k = 60$) and refined by a toggleable reranker chain (`cross_encoder` -> `flashrank` -> `none`).
+  - `assistant` — 11-node cyclic **LangGraph** workflow (`security_guard_node`, `intent_router_node`, `query_rewriter_node`, `hybrid_retrieve_node`, `rerank_node`, `grade_documents_node`, `tool_executor_node`, `generate_answer_node`, `hallucination_check_node`, `escalate_node`, `audit_and_respond_node`) with PostgreSQL checkpointing (`AsyncPostgresSaver`) and real-time Server-Sent Events (SSE) streaming.
+  - `actions` — Sandboxed SaaS account tools (`get_account_status`, `list_recent_invoices`, `update_billing_email`, `create_support_ticket`) backed by circuit breakers, exponential backoff, and strict RBAC enforcement.
+  - `escalation` — Human-in-the-loop (HITL) escalation tickets (`GET /v1/escalations`, `POST /v1/escalations/{id}/resolve`) resuming suspended LangGraph threads.
+- **Platform Layer (`src/ragassist/platform/*`)**:
+  - Swappable **LLM** (`OpenAI`, `Anthropic`, `Google GenAI`, `Bedrock`, `Ollama`), **Embedding**, **Reranker**, and **System One Decision Layer** (`Jev`, `OpenAI Decisions`, `Strands Local`, `Semantic Router`, `LLM Structured`, `Rules`) adapters configured via [`config/models.yaml`](config/models.yaml) with automatic fallback chains.
+- **Defense-in-Depth Multi-Tenancy**:
+  - `tenant_id`, `user_id`, and `role` are extracted exclusively from verified JWT principals (`src/ragassist/shared/security/jwt.py`).
+  - Every tenant-scoped database operation executes inside [`UnitOfWork`](src/ragassist/shared/db/uow.py), which opens a transaction and runs `SET LOCAL app.tenant_id = :tenant_id` enforced by PostgreSQL `ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY`.
+  - LangGraph `thread_id` checkpoints are strictly namespaced as `{tenant_id}:{conversation_id}`.
+- **Zero Hardcoded Credentials Policy**:
+  - [`src/ragassist/shared/config/settings.py`](src/ragassist/shared/config/settings.py) contains zero default secrets, passwords, or connection strings. All runtime configuration is loaded from `.env` (generated via `ragassist init-env` from `.env.example`).
+
+---
+
+## Quick Start & Deployment Guide
+
+### 1. Environment Setup
 
 ```bash
+# Create virtual environment and install dependencies
 uv venv && uv pip install -e ".[dev]"
-cp .env.example .env            # fill in the secrets you need; every key is documented
-docker compose up -d postgres localstack   # PostgreSQL + pgvector, LocalStack (S3/SQS)
-uvicorn ragassist.main:create_app --factory --reload
+
+# Generate a local .env with cryptographically random secrets from .env.example
+ragassist init-env
 ```
 
-## Tests
+### 2. Start Local Infrastructure (Docker Compose)
 
 ```bash
-pytest tests/unit tests/graph tests/security tests/hygiene   # fast tiers, no Docker
-pytest tests/integration                                     # real PostgreSQL (testcontainers or TEST_DATABASE_ADMIN_URL)
+# Starts PostgreSQL 16 (pgvector), LocalStack (S3 + SQS), and Mock SaaS API
+docker compose up -d postgres localstack mock-saas
 ```
 
-Tests are contract-first and scenario-by-scenario. Suites for modules that are not built yet **skip with a
-`PENDING:` reason** until the code lands, and known implementation defects are tracked as strict expected
-failures (`reports/defects.md`). See [docs/testing.md](docs/testing.md) for the tiers, markers and quality gates.
+### 3. Run Database Migrations & Seed Demo Data
 
-## CI/CD
+```bash
+# Apply Alembic migrations (creates schema, HNSW/GIN indexes, and RLS policies)
+ragassist db upgrade
 
-GitHub Actions (`.github/workflows`) runs lint, the unit/graph/security/hygiene tiers, the PostgreSQL integration
-tier, the coverage gate, and a nightly random-order flake check. Merges to `main` publish a container image to GHCR.
+# Seed demo tenants, users, and sample knowledge documents
+ragassist seed
+```
+
+### 4. Run the API Server & Ingestion Worker
+
+```bash
+# Terminal 1: Start FastAPI server (or uvicorn ragassist.main:create_app --factory --reload)
+ragassist serve --reload
+
+# Terminal 2: Start async SQS document ingestion worker
+ragassist worker
+```
+
+---
+
+## Core API Endpoints
+
+| Method & Path | Description | Auth |
+|---|---|---|
+| `GET /healthz`, `GET /readyz` | Liveness and readiness probes | Public |
+| `GET /metrics` | Prometheus metrics endpoint | Bearer JWT |
+| `POST /v1/auth/token` | Issue development JWT (`development`/`test`/`local` only) | Public (Dev) |
+| `POST /v1/documents` | Upload document (`PDF`, `MD`, `HTML`, `CSV`, `JSON`, `TXT`) for async ingestion | Bearer JWT |
+| `GET /v1/documents` | List tenant documents and ingestion status | Bearer JWT |
+| `GET /v1/documents/{id}` | Retrieve specific tenant document metadata | Bearer JWT |
+| `DELETE /v1/documents/{id}` | Delete tenant document and vectors | Bearer JWT |
+| `POST /v1/conversations` | Create a new conversation thread | Bearer JWT |
+| `GET /v1/conversations` | List tenant conversations | Bearer JWT |
+| `POST /v1/conversations/{id}/messages` | Send a user message and stream SSE events (`status`, `token`, `tool_call`, `citation`, `escalation`, `done`) | Bearer JWT |
+| `GET /v1/escalations` | List pending human-in-the-loop escalations for tenant | Bearer JWT |
+| `POST /v1/escalations/{id}/resolve` | Submit human agent resolution and resume LangGraph thread | Bearer JWT |
+
+See [`docs/api/sse-contract.md`](docs/api/sse-contract.md) for the complete Server-Sent Events streaming specification.
+
+---
+
+## Testing & Evaluation Suite
+
+### Automated Test Tiers
+
+```bash
+# Fast hermetic suites (unit, LangGraph state machine, security, hygiene, E2E)
+pytest tests/unit tests/graph tests/security tests/hygiene tests/e2e
+
+# Real PostgreSQL 16 + pgvector + RLS integration suite
+pytest tests/integration
+
+# Architectural boundary enforcement (Hexagonal inward dependency contracts)
+lint-imports
+```
+
+See [`docs/testing.md`](docs/testing.md) for full details on test tiers, markers, and coverage gates.
+
+### Golden Dataset Evaluation Harness
+
+Run the automated RAG & Agent evaluation benchmark (`Hit@5`, `MRR@5`, `nDCG@5`, `Faithfulness`, `Answer Relevance`, `Citation Precision/Recall`, `Prompt Injection Defense`, and `Escalation Accuracy`):
+
+```bash
+python -m evals.runner --offline
+```
+
+Reports are written to [`evals/reports/eval_summary.md`](evals/reports/eval_summary.md) and [`evals/reports/eval_summary.json`](evals/reports/eval_summary.json).
+
+---
+
+## Documentation & Architecture Decision Records
+
+- **Repository Rules & Hygiene**: [`AGENTS.md`](AGENTS.md)
+- **Architecture Decision Records**: [`docs/adr/`](docs/adr/) (`ADR-0001` through `ADR-0008`)
+- **SSE Streaming Contract**: [`docs/api/sse-contract.md`](docs/api/sse-contract.md)
+- **Testing Strategy**: [`docs/testing.md`](docs/testing.md)
+- **CI/CD Pipeline**: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (enforces `ruff`, `mypy`, `lint-imports`, unit/graph/security/hygiene tests, PostgreSQL integration tests, and coverage gates on every pull request).

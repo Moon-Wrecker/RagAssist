@@ -60,5 +60,5 @@ frontend/
 !README.md
 
 # Generated test reports
-reports/
+/reports/
 coverage.json
