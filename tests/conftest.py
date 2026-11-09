@@ -215,3 +215,23 @@ def _reset_mock_saas() -> Iterator[None]:
         saas._ACCOUNTS.update(accounts)
     if tickets is not None:
         saas._TICKETS[:] = tickets
+
+
+@pytest.fixture(autouse=True)
+def _reset_account_agent_pending_calls() -> Iterator[None]:
+    """Empty the account agent's module-level pending-call cache around every test.
+
+    The node keeps an unanswered write approval in a process-wide dict keyed by thread (DEFECT-41), so a test
+    that ends at the approval step would otherwise replay its write into a later test that shares the thread.
+    """
+    try:
+        from ragassist.modules.assistant.graph.nodes import account_agent_node as node
+    except ImportError:  # pragma: no cover - the module is not importable in this environment
+        yield
+        return
+    cache = getattr(node, "_PENDING_TOOL_CALLS", None)
+    if isinstance(cache, dict):
+        cache.clear()
+    yield
+    if isinstance(cache, dict):
+        cache.clear()
