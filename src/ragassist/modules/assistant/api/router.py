@@ -25,10 +25,12 @@ from pydantic import BaseModel, Field
 import structlog
 
 from ragassist.modules.assistant.api.sse import SSE_HEADERS, sse_stream
-from ragassist.modules.assistant.application.conversation_store import (
-    InMemoryConversationStore,
-    get_conversation_store,
+from ragassist.modules.assistant.application.access import (
+    can_access_conversation,
+    can_decide_action,
+    owner_filter,
 )
+from ragassist.modules.assistant.application.conversation_store import get_conversation_store
 from ragassist.shared.security.deps import get_current_principal
 from ragassist.shared.security.jwt import Principal
 
@@ -73,6 +75,7 @@ class MessageResponse(BaseModel):
     citations: list[dict[str, Any]] = Field(default_factory=list)
     route: str = "rag_search"
     status: str = "completed"
+    interrupt: dict[str, Any] | None = None
 
 
 class ActionDecisionRequest(BaseModel):
@@ -86,6 +89,8 @@ class ActionDecisionResponse(BaseModel):
     interrupt_id: str
     approved: bool
     status: str = "resumed"
+    answer: str | None = None
+    interrupt: dict[str, Any] | None = None
 
 
 async def _create_conversation(
@@ -101,6 +106,24 @@ async def _create_conversation(
         kwargs["user_id"] = principal.user_id
     row = store.create(**kwargs)
     return await row if inspect.isawaitable(row) else row
+
+
+def _pending_interrupt(snapshot: Any) -> dict[str, Any] | None:
+    """The first interrupt the checkpoint is paused on, with its id, or ``None``."""
+    for task in getattr(snapshot, "tasks", ()) or ():
+        for item in getattr(task, "interrupts", ()) or ():
+            value = getattr(item, "value", None)
+            payload = dict(value) if isinstance(value, dict) else {"value": value}
+            return {**payload, "interrupt_id": str(getattr(item, "id", ""))}
+    return None
+
+
+async def _visible_conversation(store: Any, principal: Principal, conversation_id: str) -> dict[str, Any] | None:
+    """The conversation if it exists in the tenant and this principal may see it, else ``None`` (a 404)."""
+    conv = await store.get(principal.tenant_id, conversation_id)
+    if conv is None or not can_access_conversation(principal, conv):
+        return None
+    return conv
 
 
 def get_assistant_graph(request: Request) -> Any:
@@ -122,7 +145,7 @@ def get_assistant_graph(request: Request) -> Any:
 async def create_conversation(
     req: CreateConversationRequest | None = None,
     principal: Principal = Depends(get_current_principal),
-    store: InMemoryConversationStore = Depends(get_conversation_store),
+    store: Any = Depends(get_conversation_store),
 ) -> ConversationResponse:
     """Create a new conversation scoped to the authenticated tenant."""
     cid = str(uuid4())
@@ -147,10 +170,12 @@ async def list_conversations(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     principal: Principal = Depends(get_current_principal),
-    store: InMemoryConversationStore = Depends(get_conversation_store),
+    store: Any = Depends(get_conversation_store),
 ) -> dict[str, Any]:
-    """List conversations belonging exclusively to the authenticated tenant."""
-    items, total = await store.list(principal.tenant_id, limit=limit, offset=offset)
+    """List the caller's conversations (staff see every conversation of the tenant)."""
+    items, total = await store.list(
+        principal.tenant_id, limit=limit, offset=offset, owner_id=owner_filter(principal)
+    )
     return {
         "items": [
             ConversationResponse(
@@ -176,10 +201,10 @@ async def list_conversations(
 async def get_conversation(
     conversation_id: str,
     principal: Principal = Depends(get_current_principal),
-    store: InMemoryConversationStore = Depends(get_conversation_store),
+    store: Any = Depends(get_conversation_store),
 ) -> ConversationDetailResponse:
-    """Retrieve conversation details and messages with tenant verification."""
-    conv = await store.get(principal.tenant_id, conversation_id)
+    """Retrieve conversation details and messages with tenant and owner verification."""
+    conv = await _visible_conversation(store, principal, conversation_id)
     if conv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
 
@@ -225,7 +250,7 @@ async def _stream_graph_events(
     config: dict[str, Any],
     conversation_id: str,
     principal: Principal,
-    store: InMemoryConversationStore,
+    store: Any,
 ) -> AsyncIterator[dict[str, Any]]:
     """Stream LangGraph StateGraph execution events mapped directly into WHATWG SSE events."""
     user_query = str(input_state.get("question", "")).strip()
@@ -234,6 +259,7 @@ async def _stream_graph_events(
     final_answer = ""
     final_status = "completed"
     final_citations: list[dict[str, Any]] = []
+    paused = False
 
     try:
         if hasattr(graph, "astream_events"):
@@ -328,10 +354,8 @@ async def _stream_graph_events(
                     )
                     final_citations.append(c_dict)
 
-    except GraphInterrupt as gi:
-        interrupt_val = gi.args[0] if gi.args else {}
-        yield {"event": "interrupt", "data": interrupt_val}
-        final_status = "interrupted"
+    except GraphInterrupt:
+        paused = True
     except Exception as exc:
         if isinstance(exc, (asyncio.CancelledError, GeneratorExit)):
             raise
@@ -348,6 +372,12 @@ async def _stream_graph_events(
     # Check state from checkpointer for any updates/citations/answer not captured during stream
     try:
         state_tuple = await graph.aget_state(config)
+        pending = _pending_interrupt(state_tuple)
+        if pending is not None:
+            # The checkpoint is paused on a write action: tell the client which one (its id binds the decision).
+            yield {"event": "interrupt", "data": pending}
+            final_status = "interrupted"
+            paused = True
         state_vals = getattr(state_tuple, "values", {}) or {}
         if not final_answer and state_vals.get("answer"):
             final_answer = str(state_vals["answer"])
@@ -363,8 +393,10 @@ async def _stream_graph_events(
                     citations_seen.add(cid)
                     final_citations.append(c_dict)
                     yield {"event": "citation", "data": c_dict}
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001 - the stream already carried the answer; state is a best-effort extra
+        logger.warning("assistant.state_read_failed", error=str(exc))
+    if paused:
+        final_status = "interrupted"
 
     # If no tokens were streamed (e.g. non-streaming mock model or direct node return),
     # emit token chunks from final_answer so the client receives sequential token frames
@@ -410,13 +442,16 @@ async def ask_message(
     req: SendMessageRequest,
     accept: str | None = Header(None),
     principal: Principal = Depends(get_current_principal),
-    store: InMemoryConversationStore = Depends(get_conversation_store),
+    store: Any = Depends(get_conversation_store),
     graph: Any = Depends(get_assistant_graph),
 ) -> Any:
     """Send message to assistant with Server-Sent Events streaming or JSON response."""
     is_sse = bool(accept and "text/event-stream" in accept) or (req.stream is True)
 
     conv = await store.get(principal.tenant_id, conversation_id)
+    if conv is not None and not can_access_conversation(principal, conv):
+        # Another user's conversation is indistinguishable from one that does not exist.
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
     if conv is None:
         if is_sse:
             conv = await _create_conversation(
@@ -433,7 +468,7 @@ async def ask_message(
     await store.append_message(
         principal.tenant_id,
         conversation_id,
-        {"role": "user", "text": req.content, "created_at": now},
+        {"role": "user", "text": req.content, "user_id": str(principal.user_id), "created_at": now},
     )
 
     thread_id = f"{principal.tenant_id}:{conversation_id}"
@@ -460,16 +495,24 @@ async def ask_message(
         )
 
     # Non-streaming JSON response: execute graph to completion
+    pending: dict[str, Any] | None = None
+    final_state: Any = {}
     try:
         final_state = await graph.ainvoke(input_state, config)
-    except GraphInterrupt as gi:
-        interrupt_val = gi.args[0] if gi.args else {}
+    except GraphInterrupt:
+        pass
+    try:
+        pending = _pending_interrupt(await graph.aget_state(config))
+    except Exception as exc:  # noqa: BLE001 - without a readable checkpoint the turn is treated as finished
+        logger.warning("assistant.state_read_failed", error=str(exc))
+    if pending is not None:
         return MessageResponse(
             conversation_id=conversation_id,
             answer="This action requires approval.",
             citations=[],
             route="saas_action",
             status="interrupted",
+            interrupt=pending,
         )
 
     state_dict = final_state if isinstance(final_state, dict) else {}
@@ -505,45 +548,101 @@ async def decide_action(
     interrupt_id: str,
     decision: ActionDecisionRequest,
     principal: Principal = Depends(get_current_principal),
-    store: InMemoryConversationStore = Depends(get_conversation_store),
+    store: Any = Depends(get_conversation_store),
     graph: Any = Depends(get_assistant_graph),
 ) -> ActionDecisionResponse:
-    """Approve or deny an action interrupted by human-in-the-loop policy."""
-    conv = await store.get(principal.tenant_id, conversation_id)
+    """Approve or deny the write action the conversation is paused on.
+
+    The decision is bound to the pending interrupt: ``interrupt_id`` must be the one the checkpoint is paused
+    on, and the tool and arguments that run are the ones stored with it, never anything sent by the client.
+    Only the conversation's owner or an admin may decide.
+    """
+    conv = await _visible_conversation(store, principal, conversation_id)
     if conv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    if not can_decide_action(principal, conv):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the conversation's owner or an admin can decide this action",
+        )
+
+    thread_id = f"{principal.tenant_id}:{conversation_id}"
+    config = {"configurable": {"thread_id": thread_id}}
+    try:
+        pending = _pending_interrupt(await graph.aget_state(config))
+    except Exception as exc:  # noqa: BLE001
+        logger.error("assistant.action_state_unavailable", error=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="The pending action could not be verified",
+        ) from exc
+    if pending is None or pending["interrupt_id"] != interrupt_id:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="There is no pending action with this id",
+        )
 
     feedback = getattr(decision, "feedback", None) or decision.reason
-
     await store.record_action(
         tenant_id=principal.tenant_id,
         conversation_id=conversation_id,
         interrupt_id=interrupt_id,
         approved=decision.approved,
         reason=feedback,
+        approver_id=principal.user_id,
     )
 
-    thread_id = f"{principal.tenant_id}:{conversation_id}"
-    config = {"configurable": {"thread_id": thread_id}}
     resume_payload = {
         "decision": "approve" if decision.approved else "deny",
         "interrupt_id": interrupt_id,
         "feedback": feedback,
+        # What the human was shown, read back from the checkpoint: this is what runs on approval.
+        "tool": pending.get("tool"),
+        "arguments": pending.get("arguments"),
+        "call_id": pending.get("call_id"),
     }
 
     try:
-        # Resume the interrupted execution on the checkpointer
-        if hasattr(graph, "ainvoke"):
-            await graph.ainvoke(Command(resume=resume_payload), config)
-        elif hasattr(graph, "astream"):
-            async for _ in graph.astream(Command(resume=resume_payload), config):
-                pass
-    except Exception as exc:
-        logger.warning("assistant.action_resume_warning", error=str(exc))
+        result = await graph.ainvoke(Command(resume=resume_payload), config)
+    except GraphInterrupt:
+        result = {}
+    except Exception as exc:  # noqa: BLE001
+        logger.error("assistant.action_resume_failed", error=str(exc))
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail="The action could not be completed",
+        ) from exc
+
+    state = result if isinstance(result, dict) else {}
+    still_pending = _pending_interrupt(await graph.aget_state(config))
+    if still_pending is not None:
+        return ActionDecisionResponse(
+            conversation_id=conversation_id,
+            interrupt_id=interrupt_id,
+            approved=decision.approved,
+            status="interrupted",
+            interrupt=still_pending,
+        )
+
+    answer = str(state.get("answer", ""))
+    if answer:
+        await store.append_message(
+            principal.tenant_id,
+            conversation_id,
+            {
+                "role": "assistant",
+                "text": answer,
+                "citations": state.get("citations", []),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
+    if str(state.get("status", "")) == "escalated":
+        await _open_ticket(store, principal, conversation_id, str(state.get("question", "")))
 
     return ActionDecisionResponse(
         conversation_id=conversation_id,
         interrupt_id=interrupt_id,
         approved=decision.approved,
         status="resumed",
+        answer=answer or None,
     )

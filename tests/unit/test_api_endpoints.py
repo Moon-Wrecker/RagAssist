@@ -342,15 +342,15 @@ class TestAssistantApi:
             cid = create_resp.json()["conversation_id"]
             interrupt_id = "intr_update_email_99"
 
-            # Approve
+            # Nothing is paused on this conversation, so a decision for any id is refused.
+            # (The approve/deny flow against a real pending interrupt is covered in
+            # tests/unit/modules/assistant/test_conversation_access.py.)
             approve_resp = await client.post(
                 f"/v1/conversations/{cid}/actions/{interrupt_id}",
                 json={"approved": True, "reason": "User verified MFA"},
                 headers=tenant_1_user_headers,
             )
-            assert approve_resp.status_code == 200
-            assert approve_resp.json()["approved"] is True
-            assert approve_resp.json()["status"] == "resumed"
+            assert approve_resp.status_code == 409
 
 
 class TestEscalationApi:
@@ -371,7 +371,10 @@ class TestEscalationApi:
             )
 
             # List escalations
-            esc_list = await client.get("/v1/escalations", headers=tenant_1_user_headers)
+            assert (
+                await client.get("/v1/escalations", headers=tenant_1_user_headers)
+            ).status_code == 403, "the escalation queue is for staff"
+            esc_list = await client.get("/v1/escalations", headers=tenant_1_agent_headers)
             assert esc_list.status_code == 200
             assert any(e["escalation_id"] == cid for e in esc_list.json()["items"])
 

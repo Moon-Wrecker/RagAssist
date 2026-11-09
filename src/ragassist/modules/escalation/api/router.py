@@ -66,9 +66,15 @@ async def list_escalations(
     principal: Principal = Depends(get_current_principal),
     store: Any = Depends(get_conversation_store),
 ) -> EscalationListResponse:
-    """List all escalated conversations for the tenant."""
-    rows, _ = await store.list(principal.tenant_id, limit=limit, offset=offset)
-    escalated = [r for r in rows if r.get("status") in ("escalated", "resolved")]
+    """List the tenant's escalated conversations (agents and admins only)."""
+    if principal.role not in (UserRole.AGENT, UserRole.ADMIN):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only agents or admins can list escalations",
+        )
+    escalated, total = await store.list(
+        principal.tenant_id, limit=limit, offset=offset, statuses=("escalated", "resolved")
+    )
     items = [
         EscalationSummary(
             escalation_id=r["conversation_id"],
@@ -81,7 +87,7 @@ async def list_escalations(
         )
         for r in escalated
     ]
-    return EscalationListResponse(items=items, total=len(items))
+    return EscalationListResponse(items=items, total=total)
 
 
 async def _handle_reply(

@@ -13,6 +13,7 @@ messages written in one transaction would tie), SQLAlchemy 2.0 asyncio ``text()`
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
@@ -53,6 +54,7 @@ def _conversation_dict(row: Any, messages: list[dict[str, Any]] | None = None) -
     result: dict[str, Any] = {
         "conversation_id": row.id,
         "tenant_id": str(row.tenant_id),
+        "user_id": str(row.user_id) if getattr(row, "user_id", None) else None,
         "title": row.title,
         "status": row.status,
         "ticket_id": row.ticket_id,
@@ -137,21 +139,34 @@ class PostgresConversationStore:
         return _conversation_dict(row, messages=messages)
 
     async def list(
-        self, tenant_id: object, limit: int = 50, offset: int = 0
+        self,
+        tenant_id: object,
+        limit: int = 50,
+        offset: int = 0,
+        *,
+        owner_id: object | None = None,
+        statuses: Sequence[str] | None = None,
     ) -> tuple[list[dict[str, Any]], int]:
-        params = {"tenant_id": _uuid_or_none(tenant_id), "limit": limit, "offset": offset}
+        """Tenant conversations, optionally only one owner's and/or only some statuses (filtered before paging)."""
+        clauses = ["c.tenant_id = :tenant_id"]
+        params: dict[str, Any] = {"tenant_id": _uuid_or_none(tenant_id), "limit": limit, "offset": offset}
+        if owner_id is not None:
+            clauses.append("c.user_id = :owner_id")
+            params["owner_id"] = _uuid_or_none(owner_id)
+        if statuses is not None:
+            clauses.append("c.status = ANY(:statuses)")
+            params["statuses"] = list(statuses)
+        where = " AND ".join(clauses)  # fixed fragments only; every value is bound
         async with self._db.scope(tenant_id) as session:
             total = (
-                await session.execute(
-                    text("SELECT count(*) FROM conversations WHERE tenant_id = :tenant_id"), params
-                )
+                await session.execute(text(f"SELECT count(*) FROM conversations c WHERE {where}"), params)
             ).scalar_one()
             rows = (
                 await session.execute(
                     text(
                         "SELECT c.*, (SELECT count(*) FROM messages m WHERE m.tenant_id = c.tenant_id "
-                        "AND m.conversation_id = c.id) AS messages_count FROM conversations c "
-                        "WHERE c.tenant_id = :tenant_id ORDER BY c.updated_at DESC LIMIT :limit OFFSET :offset"
+                        f"AND m.conversation_id = c.id) AS messages_count FROM conversations c WHERE {where} "
+                        "ORDER BY c.updated_at DESC LIMIT :limit OFFSET :offset"
                     ),
                     params,
                 )

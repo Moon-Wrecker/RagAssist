@@ -1,6 +1,8 @@
 """High-level LLM Service orchestrating model instantiation and fallback chains."""
 
 from typing import Any
+
+import structlog
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from ragassist.platform.llm.adapters.anthropic_adapter import AnthropicAdapter
@@ -14,6 +16,8 @@ from ragassist.platform.llm.ports import ChatModelProvider, ModelCapabilities, M
 from ragassist.shared.config.settings import Settings, get_settings
 from ragassist.shared.registry import ProviderRegistry
 from ragassist.shared.resilience import FallbackChain
+
+logger = structlog.get_logger(__name__)
 
 
 def create_default_llm_registry(settings: Settings | None = None) -> ProviderRegistry[ChatModelProvider]:
@@ -122,8 +126,8 @@ class LLMService:
             # Annotate model with identifier for structured logging
             try:
                 setattr(model_instance, "name", mid)
-            except Exception:
-                pass
+            except (AttributeError, TypeError, ValueError) as exc:
+                logger.debug("llm.model_name_not_set", model=mid, error=str(exc))
             models.append(model_instance)
 
         return FallbackChain[BaseChatModel](name=f"role_chain_{role}", members=models)

@@ -215,6 +215,7 @@ def make_kit(**decider_overrides: Any) -> Kit:
     )
     tools = RecordingToolRegistry()
     tools.add("get_invoices", result={"total": 2400}, schema={"type": "object"})
+    tools.add("get_account_overview", result={"status": "active", "plan": "pro"}, schema={"type": "object"})
     tools.add(
         "update_billing_email",
         write=True,

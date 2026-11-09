@@ -114,7 +114,7 @@ class Settings(BaseSettings):
     SENTENCE_TRANSFORMERS_MODEL: str
     SENTENCE_TRANSFORMERS_DEVICE: str
     VECTOR_SEARCH_TOP_K: int
-    VECTOR_SEARCH_ITERATIVE_SCAN: str
+    VECTOR_SEARCH_ITERATIVE_SCAN: Literal["off", "relaxed_order", "strict_order"]
 
     # --- Keyword Search ---
     KEYWORD_SEARCH_BACKEND: str

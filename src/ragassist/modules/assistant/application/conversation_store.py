@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from typing import Any
 
@@ -20,11 +21,13 @@ class InMemoryConversationStore:
         conversation_id: str,
         title: str = "New Conversation",
         status: str = "open",
+        user_id: object | None = None,
     ) -> dict[str, Any]:
         now = datetime.now(timezone.utc).isoformat()
         row = {
             "conversation_id": conversation_id,
             "tenant_id": str(tenant_id),
+            "user_id": str(user_id) if user_id is not None else None,
             "title": title,
             "status": status,
             "messages": [],
@@ -40,9 +43,22 @@ class InMemoryConversationStore:
             return None
         return row
 
-    async def list(self, tenant_id: object, limit: int = 50, offset: int = 0) -> tuple[list[dict[str, Any]], int]:
-        tenant_rows = [c for c in self._conversations.values() if c["tenant_id"] == str(tenant_id)]
-        return tenant_rows[offset : offset + limit], len(tenant_rows)
+    async def list(
+        self,
+        tenant_id: object,
+        limit: int = 50,
+        offset: int = 0,
+        *,
+        owner_id: object | None = None,
+        statuses: Sequence[str] | None = None,
+    ) -> tuple[list[dict[str, Any]], int]:
+        """Tenant conversations, optionally only one owner's and/or only some statuses (filtered before paging)."""
+        rows = [c for c in self._conversations.values() if c["tenant_id"] == str(tenant_id)]
+        if owner_id is not None:
+            rows = [c for c in rows if c.get("user_id") == str(owner_id)]
+        if statuses is not None:
+            rows = [c for c in rows if c["status"] in statuses]
+        return rows[offset : offset + limit], len(rows)
 
     async def set_status(self, tenant_id: object, conversation_id: str, status: str) -> None:
         row = await self.get(tenant_id, conversation_id)
@@ -59,13 +75,20 @@ class InMemoryConversationStore:
         row["updated_at"] = datetime.now(timezone.utc).isoformat()
 
     async def record_action(
-        self, tenant_id: object, conversation_id: str, interrupt_id: str, approved: bool, reason: str | None
+        self,
+        tenant_id: object,
+        conversation_id: str,
+        interrupt_id: str,
+        approved: bool,
+        reason: str | None,
+        approver_id: object | None = None,
     ) -> None:
         self._actions[f"{conversation_id}:{interrupt_id}"] = {
             "tenant_id": str(tenant_id),
             "conversation_id": conversation_id,
             "interrupt_id": interrupt_id,
             "approved": approved,
+            "approver_id": str(approver_id) if approver_id is not None else None,
             "reason": reason,
             "resolved_at": datetime.now(timezone.utc).isoformat(),
         }

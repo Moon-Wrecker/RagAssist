@@ -5,20 +5,37 @@ Design and proven patterns consulted:
   https://langchain-ai.github.io/langgraph/how-tos/human-in-the-loop/
 - Replay Safety:
   When LangGraph resumes a node containing interrupt(), it re-executes the node from the top.
-  To prevent re-invoking the model and desynchronizing scripted/mock chat models or LLM cursors,
-  we preserve the pending model message across the interrupt boundary.
+  To avoid re-invoking the model (and desynchronising scripted chat models) the pending model message is
+  kept in a small bounded in-process cache. The cache is only an optimisation: what runs after an approval
+  is the call the human approved, which the router reads from the checkpointed interrupt and passes back in
+  the resume payload (``tool``, ``arguments``, ``call_id``). A cache miss (restart, another worker) can
+  therefore never change what executes.
 """
 
 from __future__ import annotations
 
+from collections import OrderedDict
 from typing import Any
-from langchain_core.messages import HumanMessage, ToolMessage
+
+import structlog
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 from langgraph.errors import GraphInterrupt
 from langgraph.types import interrupt
 
 from ragassist.modules.assistant.graph.state import AssistantState
 
-_PENDING_TOOL_CALLS: dict[str, tuple[str, Any]] = {}
+logger = structlog.get_logger(__name__)
+
+#: Upper bound on remembered proposals; the oldest is dropped first (an unresumed interrupt cannot leak).
+MAX_PENDING_TOOL_CALLS = 512
+_PENDING_TOOL_CALLS: OrderedDict[str, tuple[str, Any]] = OrderedDict()
+
+
+def _remember(thread_key: str, question: str, message: Any) -> None:
+    _PENDING_TOOL_CALLS[thread_key] = (question, message)
+    _PENDING_TOOL_CALLS.move_to_end(thread_key)
+    while len(_PENDING_TOOL_CALLS) > MAX_PENDING_TOOL_CALLS:
+        _PENDING_TOOL_CALLS.popitem(last=False)
 
 
 def clear_pending_tool_call(tenant_id: Any, conversation_id: str) -> None:
@@ -57,7 +74,7 @@ def make_account_agent_node(generator_tiers: dict[str, Any], tools: Any):  # typ
             if ai_msg is None:
                 ai_msg = await model.ainvoke(messages)
                 if getattr(ai_msg, "tool_calls", None):
-                    _PENDING_TOOL_CALLS[thread_key] = (question, ai_msg)
+                    _remember(thread_key, question, ai_msg)
 
             tool_calls_req = getattr(ai_msg, "tool_calls", [])
 
@@ -66,11 +83,6 @@ def make_account_agent_node(generator_tiers: dict[str, Any], tools: Any):  # typ
                 tool_name = req["name"]
                 tool_args = req["args"]
                 call_id = req.get("id", "call_1")
-
-                # Check if tool is recognized by the registry
-                if hasattr(tools, "add") and hasattr(tools, "get") and tools.get(tool_name) is None:
-                    if tool_name in {"get_account_overview", "get_subscription", "list_invoices", "get_invoices", "query_dataset"}:
-                        tools.add(tool_name, write=False, result={"status": "active", "plan": "pro"}, schema={"type": "object"})
 
                 is_recognized = False
                 if hasattr(tools, "get"):
@@ -96,32 +108,65 @@ def make_account_agent_node(generator_tiers: dict[str, Any], tools: Any):  # typ
                     }
 
                 try:
-                    is_write = tools.is_write(tool_name)
-                except Exception:
-                    is_write = False
+                    is_write = bool(tools.is_write(tool_name))
+                except Exception as exc:  # noqa: BLE001 - fail closed: an unknown policy means "ask a human"
+                    logger.warning("assistant.tool_policy_unavailable", tool=tool_name, error=str(exc))
+                    is_write = True
 
                 if is_write:
+                    # Refuse before asking anyone: approving an action the caller may not run only wastes the prompt.
+                    authorize = getattr(tools, "authorize", None)
+                    if callable(authorize):
+                        try:
+                            authorize(tool_name, principal)
+                        except PermissionError as exc:
+                            _PENDING_TOOL_CALLS.pop(thread_key, None)
+                            tool_records.append({"name": tool_name, "arguments": tool_args, "approved": False})
+                            tool_msg = ToolMessage(tool_call_id=call_id, content=f"Permission denied: {exc}")
+                            ai_final = await model.ainvoke([*messages, ai_msg, tool_msg])
+                            return {
+                                "answer": str(ai_final.content),
+                                "tool_calls": tool_records,
+                            }
+
                     # Pause and interrupt for human approval
                     resume_payload = interrupt({
                         "action": "approval_required",
                         "tool": tool_name,
                         "arguments": tool_args,
+                        "call_id": call_id,
                     })
 
                     # Clear pending cache since interrupt resumed
                     _PENDING_TOOL_CALLS.pop(thread_key, None)
 
-                    decision = (
-                        resume_payload.get("decision")
-                        if isinstance(resume_payload, dict)
-                        else resume_payload
-                    )
+                    payload = resume_payload if isinstance(resume_payload, dict) else {"decision": resume_payload}
+                    decision = payload.get("decision")
+
+                    # Execute exactly what was approved: the router passes back the call stored with the
+                    # checkpointed interrupt, so a regenerated proposal can never swap in other arguments.
+                    approved_tool = payload.get("tool") or tool_name
+                    approved_args = payload.get("arguments")
+                    if approved_args is None:
+                        approved_args = tool_args
+                    approved_call_id = payload.get("call_id") or call_id
+                    if (approved_tool, approved_args) != (tool_name, tool_args):
+                        logger.warning(
+                            "assistant.regenerated_call_differs",
+                            approved_tool=approved_tool,
+                            proposed_tool=tool_name,
+                        )
+                        ai_msg = AIMessage(
+                            content="",
+                            tool_calls=[{"name": approved_tool, "args": approved_args, "id": approved_call_id}],
+                        )
+                        call_id = approved_call_id
 
                     if decision == "approve":
-                        res = await tools.invoke(tool_name, tool_args, principal)
+                        res = await tools.invoke(approved_tool, approved_args, principal)
                         tool_records.append({
-                            "name": tool_name,
-                            "arguments": tool_args,
+                            "name": approved_tool,
+                            "arguments": approved_args,
                             "result": res,
                             "approved": True,
                         })
@@ -130,8 +175,8 @@ def make_account_agent_node(generator_tiers: dict[str, Any], tools: Any):  # typ
                         ans_text = str(ai_final.content)
                     else:
                         tool_records.append({
-                            "name": tool_name,
-                            "arguments": tool_args,
+                            "name": approved_tool,
+                            "arguments": approved_args,
                             "approved": False,
                         })
                         tool_msg = ToolMessage(
