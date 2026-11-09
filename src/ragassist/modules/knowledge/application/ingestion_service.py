@@ -14,9 +14,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass, replace
 from enum import Enum
-from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, Mapping
 from uuid import UUID, uuid4
@@ -89,8 +89,11 @@ class UploadDocument:
             )
 
         # Sanitize filename against directory traversal
-        safe_filename = Path(command.filename).name
-        if not safe_filename or safe_filename in (".", ".."):
+        # Split on both separators: a Windows-style path must not survive on a POSIX host.
+        safe_filename = re.split(r"[\\/]", command.filename)[-1].replace("\x00", "")
+        while ".." in safe_filename:
+            safe_filename = safe_filename.replace("..", "")
+        if not safe_filename or set(safe_filename) <= {".", "_"}:
             safe_filename = "document"
 
         document_id = str(uuid4())
