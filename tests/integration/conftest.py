@@ -87,7 +87,7 @@ class PgServer:
     admin_password: str
     database: str = DB_NAME
     app_user: str = "app_user"  # a role name, not a secret
-    <redacted>: str = field(default_factory=lambda: secrets.token_urlsafe(24))
+    app_role_secret: str = field(default_factory=lambda: secrets.token_urlsafe(24))
 
     def url(self, user: str, password: str) -> str:
         return (
@@ -101,7 +101,7 @@ class PgServer:
 
     @property
     def app_url(self) -> str:
-        return self.url(self.app_user, self.<redacted>)
+        return self.url(self.app_user, self.app_role_secret)
 
 
 def _register_models() -> None:
@@ -122,8 +122,8 @@ async def _bootstrap(server: PgServer) -> None:
         # The same bootstrap as infra/postgres/create-app-role.sh: a restricted role with a generated password.
         role_sql = (
             f"DO $$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = '{server.app_user}') THEN "
-            f"CREATE ROLE {server.app_user} LOGIN PASSWORD '{server.<redacted>}' NOSUPERUSER NOBYPASSRLS; "
-            f"ELSE ALTER ROLE {server.app_user} PASSWORD '{server.<redacted>}'; END IF; END $$;"
+            f"CREATE ROLE {server.app_user} LOGIN PASSWORD '{server.app_role_secret}' NOSUPERUSER NOBYPASSRLS; "
+            f"ELSE ALTER ROLE {server.app_user} PASSWORD '{server.app_role_secret}'; END IF; END $$;"
             f' GRANT ALL PRIVILEGES ON DATABASE "{server.database}" TO {server.app_user};'
             f" GRANT ALL ON SCHEMA public TO {server.app_user};"
             f" ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO {server.app_user};"
