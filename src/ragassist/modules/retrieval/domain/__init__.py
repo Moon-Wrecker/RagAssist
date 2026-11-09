@@ -43,6 +43,20 @@ class Citation:
 
 
 @dataclass(frozen=True)
+class ChunkDetail:
+    """One stored passage with its provenance, as shown when a citation is opened."""
+
+    chunk_id: str
+    document_id: str
+    text: str
+    document_title: str = ""
+    title: str = ""
+    page: int | None = None
+    heading_path: tuple[str, ...] = ()
+    is_global: bool = False
+
+
+@dataclass(frozen=True)
 class Passage:
     """A clean text passage formatted for prompt context injection."""
 
@@ -106,6 +120,7 @@ def reciprocal_rank_fusion(
 
 
 __all__ = [
+    "ChunkDetail",
     "Citation",
     "ContextPack",
     "Hit",

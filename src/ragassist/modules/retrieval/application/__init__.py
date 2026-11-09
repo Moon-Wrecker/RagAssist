@@ -2,7 +2,14 @@
 
 from typing import Any, Protocol
 from ragassist.shared.domain import TenantId
-from ragassist.modules.retrieval.domain import Citation, ContextPack, Hit, Passage, RetrievedChunk
+from ragassist.modules.retrieval.domain import (
+    ChunkDetail,
+    Citation,
+    ContextPack,
+    Hit,
+    Passage,
+    RetrievedChunk,
+)
 from ragassist.modules.retrieval.fusion import HybridRetriever, fuse_hit_rankings
 
 
@@ -12,6 +19,28 @@ class RetrievalService(Protocol):
     async def retrieve(
         self, tenant_id: TenantId, query: str, top_k: int = 6
     ) -> list[RetrievedChunk]: ...
+
+
+class ChunkReader(Protocol):
+    """Port: load one stored chunk visible to a tenant (its own rows and the global ones)."""
+
+    async def get(self, tenant_id: object, chunk_id: str) -> ChunkDetail | None: ...
+
+
+class GetChunk:
+    """Use case behind ``GET /v1/chunks/{chunk_id}``: the public retrieval facade for reading one passage.
+
+    Other modules and the API go through this instead of reading the ``chunks`` table themselves. ``tenant_id``
+    comes from the verified principal; a chunk of another tenant is simply not found.
+    """
+
+    def __init__(self, chunks: ChunkReader) -> None:
+        self._chunks = chunks
+
+    async def execute(self, tenant_id: object, chunk_id: str) -> ChunkDetail | None:
+        if not chunk_id or len(chunk_id) > 64:
+            return None
+        return await self._chunks.get(tenant_id, chunk_id)
 
 
 class DefaultRetrievalService:
@@ -129,8 +158,10 @@ class ContextBuilder:
 
 
 __all__ = [
+    "ChunkReader",
     "ContextBuilder",
     "DefaultRetrievalService",
+    "GetChunk",
     "HybridRetriever",
     "RetrievalService",
     "fuse_hit_rankings",

@@ -4,6 +4,7 @@ from ragassist.modules.escalation.adapters.helpdesk import HelpdeskClient
 from ragassist.modules.escalation.application import (
     EscalateConversation,
     ReplyToEscalation,
+    ResolveEscalation,
 )
 from ragassist.modules.escalation.domain import (
     EscalationNotFound,
@@ -17,5 +18,6 @@ __all__ = [
     "EscalationResult",
     "HelpdeskClient",
     "ReplyToEscalation",
+    "ResolveEscalation",
     "RoleNotAllowed",
 ]

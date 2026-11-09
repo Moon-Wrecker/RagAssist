@@ -20,6 +20,8 @@ from ragassist.modules.escalation.api.router import router as escalation_router
 from ragassist.modules.identity.api.router import router as auth_router
 from ragassist.modules.identity.api.team_router import router as team_router
 from ragassist.modules.knowledge.api.router import router as knowledge_router
+from ragassist.modules.retrieval.api.router import router as retrieval_router
+from ragassist.platform.events.router import router as events_router
 from ragassist.shared.config.settings import get_settings
 from ragassist.shared.observability.logging import configure_logging
 from ragassist.shared.observability.metrics import setup_observability
@@ -51,6 +53,14 @@ TAGS_METADATA = [
         "description": "Conversations, SSE streaming generation, and human-in-the-loop action decisions.",
     },
     {
+        "name": "Retrieval",
+        "description": "Passages behind citations.",
+    },
+    {
+        "name": "Events",
+        "description": "Live change notifications (SSE): ids only, filtered by tenant, owner and role.",
+    },
+    {
         "name": "Escalation",
         "description": "Customer conversation escalations, human agent replies, and ticket resolution.",
     },
@@ -59,10 +69,15 @@ TAGS_METADATA = [
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    """Start the PostgreSQL runtime (pools, checkpointer, graph) when PERSISTENCE_BACKEND=postgres."""
+    """Start the PostgreSQL runtime (pools, checkpointer, graph, events listener) when PERSISTENCE_BACKEND=postgres."""
+    from ragassist.modules.assistant.application.turns import drain
+
     settings = get_settings()
     if settings.PERSISTENCE_BACKEND != "postgres":
-        yield
+        try:
+            yield
+        finally:
+            await drain()
         return
     from ragassist.runtime import start_runtime, stop_runtime
 
@@ -70,6 +85,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        await drain()  # finish in-flight assistant turns before the pools they use close
         await stop_runtime()
 
 
@@ -115,6 +131,8 @@ def create_app() -> FastAPI:
     app.include_router(knowledge_router, prefix=settings.API_V1_PREFIX)
     app.include_router(assistant_router, prefix=settings.API_V1_PREFIX)
     app.include_router(escalation_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(retrieval_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(events_router, prefix=settings.API_V1_PREFIX)
 
     return app
 

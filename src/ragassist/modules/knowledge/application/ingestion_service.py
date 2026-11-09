@@ -31,7 +31,8 @@ from ragassist.modules.knowledge.domain import (
     Parser,
     UnsupportedMimeType,
 )
-
+from ragassist.platform.events.model import document_changed, job_updated
+from ragassist.platform.events.ports import EventPublisher, publish_safely
 
 logger = structlog.get_logger(__name__)
 
@@ -197,7 +198,9 @@ class ProcessIngestionJob:
         chunker: Any,
         embedder: Any,
         max_retries: int = 3,
+        events: EventPublisher | None = None,
     ) -> None:
+        self.events = events
         self.documents = documents
         self.store = store
         self.parsers = parsers
@@ -249,6 +252,16 @@ class ProcessIngestionJob:
         if not claimed:
             return IngestOutcome.DUPLICATE_SKIPPED
 
+        async def _announce() -> None:
+            """Tell the tenant's admins the job (and so its document) changed; failures never touch the job."""
+            await publish_safely(
+                self.events,
+                job_updated(tenant_id, job_id, job.document_id),
+                document_changed(tenant_id, job.document_id),
+            )
+
+        await _announce()
+
         def _with_status(j: Any, status: str, error: str | None = None) -> Any:
             try:
                 return replace(j, status=status, error_message=error)
@@ -281,10 +294,12 @@ class ProcessIngestionJob:
             if current_attempts >= self.max_retries:
                 updated = _with_status(job, "failed", reason)
                 await self.documents.save_job(updated, tenant_id=tenant_id)
+                await _announce()
                 return IngestOutcome.DEAD_LETTERED
             else:
                 updated = _with_status(job, "queued", reason)
                 await self.documents.save_job(updated, tenant_id=tenant_id)
+                await _announce()
                 return IngestOutcome.RETRY
 
         # Retrieve document record and object bytes
@@ -373,4 +388,5 @@ class ProcessIngestionJob:
         # Mark job completed
         updated = _with_status(job, "completed")
         await self.documents.save_job(updated, tenant_id=tenant_id)
+        await _announce()
         return IngestOutcome.COMPLETED

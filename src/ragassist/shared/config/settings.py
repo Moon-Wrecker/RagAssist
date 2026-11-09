@@ -176,6 +176,10 @@ class Settings(BaseSettings):
     WORKER_VISIBILITY_TIMEOUT_SECONDS: int
     WORKER_POLL_WAIT_SECONDS: int
 
+    # --- Live events stream (GET /v1/events) ---
+    EVENTS_MAX_STREAMS_PER_USER: int = Field(ge=1)
+    EVENTS_QUEUE_SIZE: int = Field(ge=1)
+
     @model_validator(mode="after")
     def _build_database_urls(self) -> Settings:
         """Compose the connection URLs from the parts so a password is configured in exactly one place."""

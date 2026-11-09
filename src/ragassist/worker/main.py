@@ -195,6 +195,14 @@ async def main() -> None:
         scoped_db = ScopedDatabase(session_factory)
         documents = PostgresIngestionRepository(scoped_db)
 
+    # The worker publishes job and document changes through the database it already uses (NOTIFY); the API
+    # process listens and fans them out. With the memory backend there is no shared channel, so no events.
+    events = None
+    if backend != "memory":
+        from ragassist.platform.events.adapters.postgres import PostgresEventPublisher
+
+        events = PostgresEventPublisher(scoped_db)
+
     handler_service = ProcessIngestionJob(
         documents=documents,
         store=store,
@@ -202,6 +210,7 @@ async def main() -> None:
         chunker=chunker,
         embedder=embedder,
         max_retries=settings.WORKER_MAX_RETRIES,
+        events=events,
     )
 
     async def handle_for_tenant(body: str) -> Any:

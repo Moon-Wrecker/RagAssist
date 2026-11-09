@@ -32,6 +32,13 @@ from ragassist.modules.assistant.application.access import (
     owner_filter,
 )
 from ragassist.modules.assistant.application.conversation_store import get_conversation_store
+from ragassist.modules.assistant.application.turns import spawn
+from ragassist.platform.events import (
+    escalation_changed,
+    get_event_bus,
+    message_created,
+    publish_safely,
+)
 from ragassist.shared.security.deps import get_current_principal
 from ragassist.shared.security.jwt import Principal
 
@@ -233,7 +240,7 @@ async def get_conversation(
 
 
 async def _open_ticket(
-    store: Any, principal: Principal, conversation_id: str, question: str
+    store: Any, principal: Principal, conversation_id: str, question: str, events: Any = None
 ) -> dict[str, Any] | None:
     """Create the helpdesk ticket for an escalated turn (idempotent). ``None`` without a helpdesk (memory mode)."""
     from ragassist.runtime import active_runtime
@@ -244,7 +251,7 @@ async def _open_ticket(
     from ragassist.modules.escalation.application import EscalateConversation
 
     try:
-        result = await EscalateConversation(store, runtime.helpdesk).execute(
+        result = await EscalateConversation(store, runtime.helpdesk, events).execute(
             principal, conversation_id, summary=question[:500] or "Customer needs a human agent", priority="high"
         )
     except Exception as exc:  # noqa: BLE001 - the answer was already produced; do not fail the turn over the ticket
@@ -264,8 +271,14 @@ async def _stream_graph_events(
     conversation_id: str,
     principal: Principal,
     store: Any,
+    events: Any = None,
+    owner_id: object | None = None,
 ) -> AsyncIterator[dict[str, Any]]:
-    """Stream LangGraph StateGraph execution events mapped directly into WHATWG SSE events."""
+    """Run the turn and yield its WHATWG SSE events.
+
+    This generator is driven by a detached task (``_detached_stream``), never by the HTTP response, so it always
+    runs to its end: the answer is saved and the ticket opened even when the client has gone.
+    """
     user_query = str(input_state.get("question", "")).strip()
     tokens_emitted = 0
     citations_seen: set[str] = set()
@@ -431,8 +444,9 @@ async def _stream_graph_events(
                 "created_at": datetime.now(timezone.utc).isoformat(),
             },
         )
+        await publish_safely(events, message_created(principal.tenant_id, conversation_id, owner_id))
     if final_status == "escalated":
-        ticket = await _open_ticket(store, principal, conversation_id, user_query)
+        ticket = await _open_ticket(store, principal, conversation_id, user_query, events)
         if ticket is not None:
             yield {"event": "escalated", "data": ticket}
 
@@ -446,68 +460,60 @@ async def _stream_graph_events(
     }
 
 
-@router.post(
-    "/conversations/{conversation_id}/messages",
-    summary="Send a message in a conversation",
-)
-async def ask_message(
+_STREAM_END = object()
+
+
+async def _pump(source: AsyncIterator[dict[str, Any]], queue: asyncio.Queue[Any]) -> None:
+    """Drive the turn to its end and hand each event to whoever is still listening."""
+    try:
+        async for event in source:
+            queue.put_nowait(event)
+    except Exception as exc:  # noqa: BLE001 - reported to the client (if any) as a sanitised error frame
+        logger.error("assistant.turn_failed", error=str(exc))
+        queue.put_nowait(
+            {
+                "event": "error",
+                "data": {"code": "internal_error", "message": "An error occurred while processing the request."},
+            }
+        )
+    finally:
+        queue.put_nowait(_STREAM_END)
+
+
+async def _detached_stream(source: AsyncIterator[dict[str, Any]]) -> AsyncIterator[dict[str, Any]]:
+    """Events of a turn that runs in its own task: closing this iterator (client disconnect) does not stop the turn."""
+    queue: asyncio.Queue[Any] = asyncio.Queue()
+    spawn(_pump(source, queue), name="assistant-stream-turn")
+    while True:
+        item = await queue.get()
+        if item is _STREAM_END:
+            return
+        yield item
+
+
+async def _handoff_events(conversation_id: str, conv: dict[str, Any]) -> AsyncIterator[dict[str, Any]]:
+    """Result of a message sent while a human agent owns the conversation: the open ticket (if known), then ``done``."""
+    ticket_id = conv.get("ticket_id")
+    if ticket_id:
+        yield {
+            "event": "escalated",
+            "data": {"ticket_id": str(ticket_id), "status": "open", "priority": conv.get("priority") or "high"},
+        }
+    yield {"event": "done", "data": {"conversation_id": conversation_id, "status": "escalated"}}
+
+
+async def _complete_turn(
+    graph: Any,
+    input_state: dict[str, Any],
+    config: dict[str, Any],
     conversation_id: str,
-    req: SendMessageRequest,
-    accept: str | None = Header(None),
-    principal: Principal = Depends(get_current_principal),
-    store: Any = Depends(get_conversation_store),
-    graph: Any = Depends(get_assistant_graph),
-) -> Any:
-    """Send message to assistant with Server-Sent Events streaming or JSON response."""
-    is_sse = bool(accept and "text/event-stream" in accept) or (req.stream is True)
-
-    conv = await store.get(principal.tenant_id, conversation_id)
-    if conv is not None and not can_access_conversation(principal, conv):
-        # Another user's conversation is indistinguishable from one that does not exist.
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
-    if conv is None:
-        if is_sse:
-            conv = await _create_conversation(
-                store, principal, conversation_id, f"Chat {conversation_id[:8]}"
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Conversation not found",
-            )
-
-    # Append user message
-    now = datetime.now(timezone.utc).isoformat()
-    await store.append_message(
-        principal.tenant_id,
-        conversation_id,
-        {"role": "user", "text": req.content, "user_id": str(principal.user_id), "created_at": now},
-    )
-
-    thread_id = f"{principal.tenant_id}:{conversation_id}"
-    config = {"configurable": {"thread_id": thread_id}}
-    input_state = {
-        "question": req.content,
-        "principal": _checkpointable(principal),
-        "conversation_id": conversation_id,
-    }
-
-    if is_sse:
-        generator = _stream_graph_events(
-            graph=graph,
-            input_state=input_state,
-            config=config,
-            conversation_id=conversation_id,
-            principal=principal,
-            store=store,
-        )
-        return StreamingResponse(
-            sse_stream(generator, heartbeat_seconds=15.0),
-            headers=SSE_HEADERS,
-            media_type="text/event-stream",
-        )
-
-    # Non-streaming JSON response: execute graph to completion
+    principal: Principal,
+    store: Any,
+    content: str,
+    events: Any,
+    owner_id: object | None,
+) -> MessageResponse:
+    """Non-streaming turn: run the graph, save the answer, open the ticket, announce. Runs detached (see ask_message)."""
     pending: dict[str, Any] | None = None
     final_state: Any = {}
     try:
@@ -537,10 +543,16 @@ async def ask_message(
     await store.append_message(
         principal.tenant_id,
         conversation_id,
-        {"role": "assistant", "text": answer_text, "citations": citations, "created_at": now},
+        {
+            "role": "assistant",
+            "text": answer_text,
+            "citations": citations,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+        },
     )
+    await publish_safely(events, message_created(principal.tenant_id, conversation_id, owner_id))
     if status_val == "escalated":
-        await _open_ticket(store, principal, conversation_id, req.content)
+        await _open_ticket(store, principal, conversation_id, content, events)
 
     return MessageResponse(
         conversation_id=conversation_id,
@@ -549,6 +561,104 @@ async def ask_message(
         route=route,
         status=status_val,
     )
+
+
+@router.post(
+    "/conversations/{conversation_id}/messages",
+    summary="Send a message in a conversation",
+)
+async def ask_message(
+    conversation_id: str,
+    req: SendMessageRequest,
+    accept: str | None = Header(None),
+    principal: Principal = Depends(get_current_principal),
+    store: Any = Depends(get_conversation_store),
+    graph: Any = Depends(get_assistant_graph),
+    events: Any = Depends(get_event_bus),
+) -> Any:
+    """Send message to assistant with Server-Sent Events streaming or JSON response.
+
+    The turn runs in a task detached from the request: if the client disconnects (Stop), the answer is still saved,
+    the ticket still opened, and ``message.created`` still published. While the conversation is ``escalated`` the
+    graph is skipped: the message is saved and the result is the handoff (see docs/api/sse-contract.md).
+    """
+    is_sse = bool(accept and "text/event-stream" in accept) or (req.stream is True)
+
+    conv = await store.get(principal.tenant_id, conversation_id)
+    if conv is not None and not can_access_conversation(principal, conv):
+        # Another user's conversation is indistinguishable from one that does not exist.
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
+    if conv is None:
+        if is_sse:
+            conv = await _create_conversation(
+                store, principal, conversation_id, f"Chat {conversation_id[:8]}"
+            )
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Conversation not found",
+            )
+
+    # Append user message
+    now = datetime.now(timezone.utc).isoformat()
+    await store.append_message(
+        principal.tenant_id,
+        conversation_id,
+        {"role": "user", "text": req.content, "user_id": str(principal.user_id), "created_at": now},
+    )
+
+    owner_id = conv.get("user_id")
+
+    if conv.get("status") == "escalated":
+        # A human agent owns the conversation: keep the customer's message for them and stay silent.
+        await publish_safely(
+            events,
+            message_created(principal.tenant_id, conversation_id, owner_id),
+            escalation_changed(principal.tenant_id, conversation_id),
+        )
+        if is_sse:
+            return StreamingResponse(
+                sse_stream(_handoff_events(conversation_id, conv), heartbeat_seconds=15.0),
+                headers=SSE_HEADERS,
+                media_type="text/event-stream",
+            )
+        return MessageResponse(
+            conversation_id=conversation_id, answer="", citations=[], route="human_handoff", status="escalated"
+        )
+
+    thread_id = f"{principal.tenant_id}:{conversation_id}"
+    config = {"configurable": {"thread_id": thread_id}}
+    input_state = {
+        "question": req.content,
+        "principal": _checkpointable(principal),
+        "conversation_id": conversation_id,
+    }
+
+    if is_sse:
+        generator = _stream_graph_events(
+            graph=graph,
+            input_state=input_state,
+            config=config,
+            conversation_id=conversation_id,
+            principal=principal,
+            store=store,
+            events=events,
+            owner_id=owner_id,
+        )
+        return StreamingResponse(
+            sse_stream(_detached_stream(generator), heartbeat_seconds=15.0),
+            headers=SSE_HEADERS,
+            media_type="text/event-stream",
+        )
+
+    # Non-streaming JSON response: the turn runs detached; shield() lets a cancelled request leave it running.
+    turn = spawn(
+        _complete_turn(
+            graph, input_state, config, conversation_id, principal, store, req.content, events, owner_id
+        ),
+        name="assistant-json-turn",
+    )
+    return await asyncio.shield(turn)
 
 
 @router.post(
@@ -563,6 +673,7 @@ async def decide_action(
     principal: Principal = Depends(get_current_principal),
     store: Any = Depends(get_conversation_store),
     graph: Any = Depends(get_assistant_graph),
+    events: Any = Depends(get_event_bus),
 ) -> ActionDecisionResponse:
     """Approve or deny the write action the conversation is paused on.
 
@@ -595,67 +706,74 @@ async def decide_action(
             detail="There is no pending action with this id",
         )
 
-    feedback = getattr(decision, "feedback", None) or decision.reason
-    await store.record_action(
-        tenant_id=principal.tenant_id,
-        conversation_id=conversation_id,
-        interrupt_id=interrupt_id,
-        approved=decision.approved,
-        reason=feedback,
-        approver_id=principal.user_id,
-    )
+    async def _decide() -> ActionDecisionResponse:
+        """Record the decision and resume the graph; detached so a disconnect cannot leave it half done."""
+        feedback = getattr(decision, "feedback", None) or decision.reason
+        await store.record_action(
+            tenant_id=principal.tenant_id,
+            conversation_id=conversation_id,
+            interrupt_id=interrupt_id,
+            approved=decision.approved,
+            reason=feedback,
+            approver_id=principal.user_id,
+        )
 
-    resume_payload = {
-        "decision": "approve" if decision.approved else "deny",
-        "interrupt_id": interrupt_id,
-        "feedback": feedback,
-        # What the human was shown, read back from the checkpoint: this is what runs on approval.
-        "tool": pending.get("tool"),
-        "arguments": pending.get("arguments"),
-        "call_id": pending.get("call_id"),
-    }
+        resume_payload = {
+            "decision": "approve" if decision.approved else "deny",
+            "interrupt_id": interrupt_id,
+            "feedback": feedback,
+            # What the human was shown, read back from the checkpoint: this is what runs on approval.
+            "tool": pending.get("tool"),
+            "arguments": pending.get("arguments"),
+            "call_id": pending.get("call_id"),
+        }
 
-    try:
-        result = await graph.ainvoke(Command(resume=resume_payload), config)
-    except GraphInterrupt:
-        result = {}
-    except Exception as exc:  # noqa: BLE001
-        logger.error("assistant.action_resume_failed", error=str(exc))
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="The action could not be completed",
-        ) from exc
+        try:
+            result = await graph.ainvoke(Command(resume=resume_payload), config)
+        except GraphInterrupt:
+            result = {}
+        except Exception as exc:  # noqa: BLE001
+            logger.error("assistant.action_resume_failed", error=str(exc))
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="The action could not be completed",
+            ) from exc
 
-    state = result if isinstance(result, dict) else {}
-    still_pending = _pending_interrupt(await graph.aget_state(config))
-    if still_pending is not None:
+        state = result if isinstance(result, dict) else {}
+        still_pending = _pending_interrupt(await graph.aget_state(config))
+        if still_pending is not None:
+            return ActionDecisionResponse(
+                conversation_id=conversation_id,
+                interrupt_id=interrupt_id,
+                approved=decision.approved,
+                status="interrupted",
+                interrupt=still_pending,
+            )
+
+        answer = str(state.get("answer", ""))
+        if answer:
+            await store.append_message(
+                principal.tenant_id,
+                conversation_id,
+                {
+                    "role": "assistant",
+                    "text": answer,
+                    "citations": state.get("citations", []),
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                },
+            )
+            await publish_safely(
+                events, message_created(principal.tenant_id, conversation_id, conv.get("user_id"))
+            )
+        if str(state.get("status", "")) == "escalated":
+            await _open_ticket(store, principal, conversation_id, str(state.get("question", "")), events)
+
         return ActionDecisionResponse(
             conversation_id=conversation_id,
             interrupt_id=interrupt_id,
             approved=decision.approved,
-            status="interrupted",
-            interrupt=still_pending,
+            status="resumed",
+            answer=answer or None,
         )
 
-    answer = str(state.get("answer", ""))
-    if answer:
-        await store.append_message(
-            principal.tenant_id,
-            conversation_id,
-            {
-                "role": "assistant",
-                "text": answer,
-                "citations": state.get("citations", []),
-                "created_at": datetime.now(timezone.utc).isoformat(),
-            },
-        )
-    if str(state.get("status", "")) == "escalated":
-        await _open_ticket(store, principal, conversation_id, str(state.get("question", "")))
-
-    return ActionDecisionResponse(
-        conversation_id=conversation_id,
-        interrupt_id=interrupt_id,
-        approved=decision.approved,
-        status="resumed",
-        answer=answer or None,
-    )
+    return await asyncio.shield(spawn(_decide(), name="assistant-action-turn"))

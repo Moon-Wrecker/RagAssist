@@ -46,8 +46,10 @@ from ragassist.modules.knowledge.adapters.persistence.repositories import (
 from ragassist.modules.retrieval.fusion import HybridRetriever
 from ragassist.modules.retrieval.keyword_retriever import KeywordRetriever
 from ragassist.modules.retrieval.vector_retriever import VectorRetriever
+from ragassist.modules.retrieval.adapters.chunk_repository import PostgresChunkRepository
 from ragassist.platform.decisions.service import build_decision_service
 from ragassist.platform.embeddings.service import EmbeddingService, build_embedding_service
+from ragassist.platform.events.adapters.postgres import PostgresEventBus
 from ragassist.platform.llm.catalog import ModelCatalog
 from ragassist.platform.llm.catalog_models import ModelDefinitionConfig
 from ragassist.platform.llm.service import LLMService, create_default_llm_registry
@@ -113,6 +115,8 @@ class Runtime:
     tools: ToolRegistry
     helpdesk: HelpdeskClient
     graph: Any
+    events: PostgresEventBus
+    chunks: PostgresChunkRepository
     _closers: list[Callable[[], Awaitable[None]]] = field(default_factory=list)
 
     async def aclose(self) -> None:
@@ -326,6 +330,15 @@ async def build_runtime(settings: Settings) -> Runtime:
         checkpointer=checkpointer,
     )
 
+    events = PostgresEventBus(
+        database,
+        psycopg_conninfo(settings.DATABASE_URL),
+        queue_size=settings.EVENTS_QUEUE_SIZE,
+        max_streams_per_user=settings.EVENTS_MAX_STREAMS_PER_USER,
+    )
+    await events.start()
+    closers.append(events.stop)
+
     logger.info("runtime.started", persistence=settings.PERSISTENCE_BACKEND)
     return Runtime(
         settings=settings,
@@ -345,6 +358,8 @@ async def build_runtime(settings: Settings) -> Runtime:
         tools=tools,
         helpdesk=HelpdeskClient(http),
         graph=graph,
+        events=events,
+        chunks=PostgresChunkRepository(database),
         _closers=closers,
     )
 

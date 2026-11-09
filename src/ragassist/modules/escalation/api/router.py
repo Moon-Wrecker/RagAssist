@@ -15,8 +15,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
 
 from ragassist.modules.assistant.application.conversation_store import get_conversation_store
-from ragassist.modules.escalation.application import ReplyToEscalation
+from ragassist.modules.escalation.application import ReplyToEscalation, ResolveEscalation
 from ragassist.modules.escalation.domain import EscalationNotFound, NotEscalated, RoleNotAllowed
+from ragassist.platform.events import get_event_bus
 from ragassist.shared.security.deps import get_current_principal
 from ragassist.shared.security.jwt import Principal, UserRole
 
@@ -95,6 +96,7 @@ async def _handle_reply(
     req: EscalationReplyRequest,
     principal: Principal,
     store: Any,
+    events: Any,
 ) -> EscalationReplyResponse:
     if not req.text or not req.text.strip():
         raise HTTPException(
@@ -102,7 +104,7 @@ async def _handle_reply(
             detail="Reply text cannot be empty or whitespace only",
         )
 
-    service = ReplyToEscalation(conversations=store)
+    service = ReplyToEscalation(conversations=store, events=events)
     try:
         reply = await service.execute(principal, escalation_id, text=req.text)
         return EscalationReplyResponse(
@@ -135,8 +137,9 @@ async def reply_escalation(
     req: EscalationReplyRequest,
     principal: Principal = Depends(get_current_principal),
     store: Any = Depends(get_conversation_store),
+    events: Any = Depends(get_event_bus),
 ) -> EscalationReplyResponse:
-    return await _handle_reply(escalation_id, req, principal, store)
+    return await _handle_reply(escalation_id, req, principal, store, events)
 
 
 @router.post(
@@ -149,8 +152,9 @@ async def reply_escalation_plural(
     req: EscalationReplyRequest,
     principal: Principal = Depends(get_current_principal),
     store: Any = Depends(get_conversation_store),
+    events: Any = Depends(get_event_bus),
 ) -> EscalationReplyResponse:
-    return await _handle_reply(escalation_id, req, principal, store)
+    return await _handle_reply(escalation_id, req, principal, store, events)
 
 
 @router.post(
@@ -162,25 +166,17 @@ async def resolve_escalation(
     escalation_id: str,
     principal: Principal = Depends(get_current_principal),
     store: Any = Depends(get_conversation_store),
+    events: Any = Depends(get_event_bus),
 ) -> EscalationResolveResponse:
-    """Mark an escalated conversation as resolved."""
-    if principal.role != UserRole.AGENT and not getattr(principal, "is_agent", False) and not getattr(principal, "is_admin", False):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only agents or admins can resolve an escalation",
-        )
-
-    conv = await store.get(principal.tenant_id, escalation_id)
-    if conv is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Escalation not found",
-        )
-
-    if conv.get("status") != "escalated":
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This conversation is not escalated.")
-
-    await store.set_status(principal.tenant_id, escalation_id, "resolved")
+    """Mark an escalated conversation as resolved; the next customer message goes to the assistant again."""
+    try:
+        await ResolveEscalation(store, events).execute(principal, escalation_id)
+    except RoleNotAllowed as exc:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=str(exc)) from exc
+    except EscalationNotFound as exc:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except NotEscalated as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
     return EscalationResolveResponse(
         escalation_id=escalation_id,
         status="resolved",

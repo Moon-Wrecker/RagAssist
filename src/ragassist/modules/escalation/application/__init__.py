@@ -17,10 +17,13 @@ from ragassist.modules.escalation.domain import (
     NotEscalated,
     RoleNotAllowed,
 )
+from ragassist.platform.events.model import (
+    conversation_updated,
+    escalation_changed,
+    message_created,
+)
+from ragassist.platform.events.ports import EventPublisher, publish_safely
 from ragassist.shared.security.jwt import Principal, UserRole
-
-
-
 
 class HelpdeskPort(Protocol):
     """Port for helpdesk ticketing integrations."""
@@ -34,9 +37,12 @@ class HelpdeskPort(Protocol):
 class EscalateConversation:
     """Application use case to escalate a customer conversation to a human support ticket."""
 
-    def __init__(self, conversations: Any, helpdesk: HelpdeskPort | Any) -> None:
+    def __init__(
+        self, conversations: Any, helpdesk: HelpdeskPort | Any, events: EventPublisher | None = None
+    ) -> None:
         self.conversations = conversations
         self.helpdesk = helpdesk
+        self.events = events
         self._tickets: dict[str, EscalationResult] = {}
 
     async def execute(
@@ -52,10 +58,11 @@ class EscalateConversation:
         if conv is None:
             raise EscalationNotFound(f"Conversation '{conversation_id}' not found")
 
-        # Idempotency: Return existing ticket if already escalated
+        # Idempotency: Return the open ticket if the conversation is already escalated. A resolved conversation that
+        # escalates again gets a new ticket (the previous one was closed with the resolution).
         if conversation_id in self._tickets:
             return self._tickets[conversation_id]
-        if conv.get("ticket_id"):
+        if conv.get("ticket_id") and conv.get("status") == "escalated":
             res = EscalationResult(ticket_id=conv["ticket_id"], status="open")
             self._tickets[conversation_id] = res
             return res
@@ -78,14 +85,20 @@ class EscalateConversation:
 
         result = EscalationResult(ticket_id=ticket_id, status="open")
         self._tickets[conversation_id] = result
+        await publish_safely(
+            self.events,
+            conversation_updated(principal.tenant_id, conversation_id, conv.get("user_id")),
+            escalation_changed(principal.tenant_id, conversation_id, ticket_id),
+        )
         return result
 
 
 class ReplyToEscalation:
     """Application use case for human agent replies to escalated conversations."""
 
-    def __init__(self, conversations: Any) -> None:
+    def __init__(self, conversations: Any, events: EventPublisher | None = None) -> None:
         self.conversations = conversations
+        self.events = events
 
     async def execute(
         self,
@@ -116,4 +129,32 @@ class ReplyToEscalation:
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         await self.conversations.append_message(principal.tenant_id, escalation_id, reply_message)
+        await publish_safely(
+            self.events,
+            message_created(principal.tenant_id, escalation_id, conv.get("user_id")),
+            escalation_changed(principal.tenant_id, escalation_id),
+        )
         return reply_message
+
+
+class ResolveEscalation:
+    """Application use case: an agent or admin closes an escalation, handing the conversation back to the assistant."""
+
+    def __init__(self, conversations: Any, events: EventPublisher | None = None) -> None:
+        self.conversations = conversations
+        self.events = events
+
+    async def execute(self, principal: Principal, escalation_id: str) -> None:
+        if principal.role not in (UserRole.AGENT, UserRole.ADMIN):
+            raise RoleNotAllowed("Only agents or admins can resolve an escalation")
+        conv = await self.conversations.get(principal.tenant_id, escalation_id)
+        if conv is None:
+            raise EscalationNotFound("Escalation not found")
+        if conv.get("status") != "escalated":
+            raise NotEscalated("This conversation is not escalated.")
+        await self.conversations.set_status(principal.tenant_id, escalation_id, "resolved")
+        await publish_safely(
+            self.events,
+            conversation_updated(principal.tenant_id, escalation_id, conv.get("user_id")),
+            escalation_changed(principal.tenant_id, escalation_id),
+        )
