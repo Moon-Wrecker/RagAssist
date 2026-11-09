@@ -12,3 +12,4 @@ This directory contains lightweight Architecture Decision Records documenting ke
 - [0006: Per-User Conversation Access and Approval Bound to the Pending Action](file:///d:/Coding/RagAssist-1/docs/adr/0006-conversation-access-and-approval-binding.md)
 - [0007: Accounts, Passwords, Refresh Sessions and Invite Links](0007-accounts-and-sessions.md)
 - [0008: Live Events over LISTEN/NOTIFY, Human Handoff and Turns That Outlive the Request](0008-live-events-handoff-and-detached-turns.md)
+- [0009: Web App: Same-Origin SPA, In-Memory Access Token and a Glass Design System](0009-web-app.md)

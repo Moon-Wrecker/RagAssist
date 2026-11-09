@@ -24,7 +24,7 @@ export function TopBar({ liveStatus }: { liveStatus: EventsStatus }) {
   const routes = routesFor(state.user.role);
 
   return (
-    <header className="glass-2 sticky top-0 z-40 border-x-0 border-t-0">
+    <header className="glass-2 sticky top-0 z-40 border-x-0! border-t-0!">
       <div className="mx-auto flex w-full max-w-[90rem] flex-wrap items-center gap-x-6 px-4 sm:px-6 md:flex-nowrap">
         <NavLink to="/" className="flex h-14 items-center rounded-md" aria-label="RagAssist home">
           <Wordmark />
@@ -74,7 +74,10 @@ export function TopBar({ liveStatus }: { liveStatus: EventsStatus }) {
 function LiveIndicator({ status }: { status: EventsStatus }) {
   const connected = status === "connected";
   return (
-    <span className="mr-2 flex items-center gap-1.5 font-mono text-xs text-muted-foreground" role="status">
+    <span className="mr-2 flex items-center gap-1.5 font-mono text-xs text-muted-foreground"
+      role="status"
+      title={connected ? "Live updates on" : "Live updates off or reconnecting"}
+    >
       <span aria-hidden>{connected ? "●" : "○"}</span>
       <span className={connected ? "sr-only" : "hidden sm:inline"}>
         {connected ? "Live updates on" : status === "idle" ? "Live updates off" : "Reconnecting"}

@@ -16,7 +16,7 @@ export function AuthLayout({ title, intro, children }: { title: string; intro: s
       >
         Skip to content
       </a>
-      <header className="glass-2 sticky top-0 z-40 border-x-0 border-t-0">
+      <header className="glass-2 sticky top-0 z-40 border-x-0! border-t-0!">
         <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-4 sm:px-6">
           <Wordmark />
           <ThemeToggle />
