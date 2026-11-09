@@ -15,22 +15,23 @@ from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
+
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
+from langgraph.errors import GraphInterrupt
+from langgraph.types import Command
 from pydantic import BaseModel, Field
+import structlog
 
 from ragassist.modules.assistant.api.sse import SSE_HEADERS, sse_stream
 from ragassist.modules.assistant.application.conversation_store import (
     InMemoryConversationStore,
     get_conversation_store,
 )
-from ragassist.modules.assistant.application.thread_guard import (
-    ThreadAccessDenied,
-    ensure_thread_access,
-    namespaced_thread_id,
-)
 from ragassist.shared.security.deps import get_current_principal
 from ragassist.shared.security.jwt import Principal
+
+logger = structlog.get_logger(__name__)
 
 router = APIRouter(tags=["Assistant"])
 
@@ -76,6 +77,7 @@ class MessageResponse(BaseModel):
 class ActionDecisionRequest(BaseModel):
     approved: bool
     reason: str | None = None
+    feedback: str | None = None
 
 
 class ActionDecisionResponse(BaseModel):
@@ -85,7 +87,14 @@ class ActionDecisionResponse(BaseModel):
     status: str = "resumed"
 
 
+def get_assistant_graph(request: Request) -> Any:
+    """Resolve compiled Assistant StateGraph from app container or singleton."""
+    container = getattr(request.app.state, "container", None)
+    if container is not None and hasattr(container, "get_assistant_graph"):
+        return container.get_assistant_graph()
+    from ragassist.container import get_container
 
+    return get_container().get_assistant_graph()
 
 
 @router.post(
@@ -101,7 +110,7 @@ async def create_conversation(
 ) -> ConversationResponse:
     """Create a new conversation scoped to the authenticated tenant."""
     cid = str(uuid4())
-    title = (req.title if req and req.title else "New Conversation")
+    title = req.title if req and req.title else "New Conversation"
     row = store.create(tenant_id=principal.tenant_id, conversation_id=cid, title=title)
     return ConversationResponse(
         conversation_id=row["conversation_id"],
@@ -169,49 +178,173 @@ async def get_conversation(
     )
 
 
-async def _generate_sse_events(
-    user_query: str,
+async def _stream_graph_events(
+    graph: Any,
+    input_state: dict[str, Any],
+    config: dict[str, Any],
     conversation_id: str,
     principal: Principal,
+    store: InMemoryConversationStore,
 ) -> AsyncIterator[dict[str, Any]]:
-    """Synthesize streaming response events (tokens, citation, done)."""
-    # Yield initial tokens
-    words = [
-        "I ",
-        "have ",
-        "processed ",
-        "your ",
-        "request ",
-        "regarding ",
-        f"'{user_query}'. ",
-        "Here ",
-        "is ",
-        "the ",
-        "answer.",
-    ]
-    for word in words:
-        yield {"event": "token", "data": {"text": word}}
-        await asyncio.sleep(0.01)
+    """Stream LangGraph StateGraph execution events mapped directly into WHATWG SSE events."""
+    tokens_emitted = 0
+    citations_seen: set[str] = set()
+    final_answer = ""
+    final_status = "completed"
+    final_citations: list[dict[str, Any]] = []
 
-    # Yield citation if applicable
-    yield {
-        "event": "citation",
-        "data": {
-            "chunk_id": f"chunk-{conversation_id[:8]}",
-            "title": "System Knowledge Base",
-            "page": 1,
-            "heading_path": ["Overview", "Policy"],
-        },
-    }
+    try:
+        if hasattr(graph, "astream_events"):
+            async for event in graph.astream_events(input_state, config, version="v2"):
+                kind = event.get("event")
+                data = event.get("data", {})
 
-    # Yield final done event
+                # 1. Tokens from LLM generation node
+                if kind == "on_chat_model_stream":
+                    chunk = data.get("chunk")
+                    content = getattr(chunk, "content", "") if chunk else ""
+                    if content:
+                        tokens_emitted += 1
+                        final_answer += str(content)
+                        yield {"event": "token", "data": {"text": str(content)}}
+
+                # 2. Custom events dispatched by StateGraph nodes (e.g. finalize_node)
+                elif kind == "on_custom_event":
+                    custom_name = event.get("name")
+                    if custom_name in ("citation", "source"):
+                        for c in data.get("citations", []):
+                            c_dict = (
+                                c.model_dump()
+                                if hasattr(c, "model_dump")
+                                else (dict(c) if isinstance(c, dict) else {"chunk_id": str(c)})
+                            )
+                            cid = c_dict.get("chunk_id", str(len(citations_seen)))
+                            if cid not in citations_seen:
+                                citations_seen.add(cid)
+                                final_citations.append(c_dict)
+                                yield {"event": "citation", "data": c_dict}
+                    elif custom_name == "done":
+                        final_status = data.get("status", "completed")
+
+                # 3. Tool call notifications
+                elif kind == "on_tool_start":
+                    yield {
+                        "event": "tool_call",
+                        "data": {
+                            "tool": event.get("name"),
+                            "status": "started",
+                            "arguments": data.get("input"),
+                        },
+                    }
+                elif kind == "on_tool_end":
+                    yield {
+                        "event": "tool_call",
+                        "data": {
+                            "tool": event.get("name"),
+                            "status": "completed",
+                            "result": data.get("output"),
+                        },
+                    }
+
+                # 4. Finalize node state extraction
+                elif kind == "on_chain_end" and event.get("name") == "finalize":
+                    output = data.get("output", {})
+                    if isinstance(output, dict):
+                        if output.get("answer") and not final_answer:
+                            final_answer = str(output["answer"])
+                        if output.get("status"):
+                            final_status = str(output["status"])
+                        for c in output.get("citations", []):
+                            c_dict = (
+                                c.model_dump()
+                                if hasattr(c, "model_dump")
+                                else (dict(c) if isinstance(c, dict) else {"chunk_id": str(c)})
+                            )
+                            cid = c_dict.get("chunk_id", str(len(citations_seen)))
+                            if cid not in citations_seen:
+                                citations_seen.add(cid)
+                                final_citations.append(c_dict)
+                                yield {"event": "citation", "data": c_dict}
+        else:
+            res = await graph.ainvoke(input_state, config)
+            if isinstance(res, dict):
+                final_answer = str(res.get("answer", ""))
+                final_status = str(res.get("status", "completed"))
+                for c in res.get("citations", []):
+                    c_dict = (
+                        c.model_dump()
+                        if hasattr(c, "model_dump")
+                        else (dict(c) if isinstance(c, dict) else {"chunk_id": str(c)})
+                    )
+                    final_citations.append(c_dict)
+
+    except GraphInterrupt as gi:
+        interrupt_val = gi.args[0] if gi.args else {}
+        yield {"event": "interrupt", "data": interrupt_val}
+        final_status = "interrupted"
+    except Exception as exc:
+        if isinstance(exc, (asyncio.CancelledError, GeneratorExit)):
+            raise
+        logger.error("assistant.stream_error", error=str(exc))
+        yield {
+            "event": "error",
+            "data": {
+                "code": "internal_error",
+                "message": "An error occurred while processing the request.",
+            },
+        }
+        return
+
+    # Check state from checkpointer for any updates/citations/answer not captured during stream
+    try:
+        state_tuple = await graph.aget_state(config)
+        state_vals = getattr(state_tuple, "values", {}) or {}
+        if not final_answer and state_vals.get("answer"):
+            final_answer = str(state_vals["answer"])
+        if state_vals.get("citations"):
+            for c in state_vals["citations"]:
+                c_dict = (
+                    c.model_dump()
+                    if hasattr(c, "model_dump")
+                    else (dict(c) if isinstance(c, dict) else {"chunk_id": str(c)})
+                )
+                cid = c_dict.get("chunk_id", str(len(citations_seen)))
+                if cid not in citations_seen:
+                    citations_seen.add(cid)
+                    final_citations.append(c_dict)
+                    yield {"event": "citation", "data": c_dict}
+    except Exception:
+        pass
+
+    # If no tokens were streamed (e.g. non-streaming mock model or direct node return),
+    # emit token chunks from final_answer so the client receives sequential token frames
+    if tokens_emitted == 0 and final_answer:
+        words = final_answer.split(" ")
+        for i, word in enumerate(words):
+            chunk = word if i == len(words) - 1 else word + " "
+            yield {"event": "token", "data": {"text": chunk}}
+
+    # Terminal done event
     yield {
         "event": "done",
         "data": {
             "conversation_id": conversation_id,
-            "status": "completed",
+            "status": final_status,
         },
     }
+
+    # Record message in conversation store
+    if final_answer:
+        await store.append_message(
+            principal.tenant_id,
+            conversation_id,
+            {
+                "role": "assistant",
+                "text": final_answer,
+                "citations": final_citations,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            },
+        )
 
 
 @router.post(
@@ -224,6 +357,7 @@ async def ask_message(
     accept: str | None = Header(None),
     principal: Principal = Depends(get_current_principal),
     store: InMemoryConversationStore = Depends(get_conversation_store),
+    graph: Any = Depends(get_assistant_graph),
 ) -> Any:
     """Send message to assistant with Server-Sent Events streaming or JSON response."""
     is_sse = bool(accept and "text/event-stream" in accept) or (req.stream is True)
@@ -231,7 +365,6 @@ async def ask_message(
     conv = await store.get(principal.tenant_id, conversation_id)
     if conv is None:
         if is_sse:
-            # Auto-bind session for streaming requests
             conv = store.create(
                 tenant_id=principal.tenant_id,
                 conversation_id=conversation_id,
@@ -251,24 +384,48 @@ async def ask_message(
         {"role": "user", "text": req.content, "created_at": now},
     )
 
+    thread_id = f"{principal.tenant_id}:{conversation_id}"
+    config = {"configurable": {"thread_id": thread_id}}
+    input_state = {
+        "question": req.content,
+        "principal": principal,
+        "conversation_id": conversation_id,
+    }
+
     if is_sse:
-        generator = _generate_sse_events(req.content, conversation_id, principal)
+        generator = _stream_graph_events(
+            graph=graph,
+            input_state=input_state,
+            config=config,
+            conversation_id=conversation_id,
+            principal=principal,
+            store=store,
+        )
         return StreamingResponse(
             sse_stream(generator, heartbeat_seconds=15.0),
             headers=SSE_HEADERS,
             media_type="text/event-stream",
         )
 
-    # JSON response
-    answer_text = f"Processed request for: {req.content}"
-    citations = [
-        {
-            "chunk_id": f"chunk-{conversation_id[:8]}",
-            "title": "Knowledge Documentation",
-            "page": 1,
-            "heading_path": ["Guide"],
-        }
-    ]
+    # Non-streaming JSON response: execute graph to completion
+    try:
+        final_state = await graph.ainvoke(input_state, config)
+    except GraphInterrupt as gi:
+        interrupt_val = gi.args[0] if gi.args else {}
+        return MessageResponse(
+            conversation_id=conversation_id,
+            answer="This action requires approval.",
+            citations=[],
+            route="saas_action",
+            status="interrupted",
+        )
+
+    state_dict = final_state if isinstance(final_state, dict) else {}
+    answer_text = str(state_dict.get("answer", ""))
+    citations = state_dict.get("citations", [])
+    route = str(state_dict.get("route", "rag_search"))
+    status_val = str(state_dict.get("status", "completed"))
+
     await store.append_message(
         principal.tenant_id,
         conversation_id,
@@ -279,8 +436,8 @@ async def ask_message(
         conversation_id=conversation_id,
         answer=answer_text,
         citations=citations,
-        route="rag_search",
-        status="completed",
+        route=route,
+        status=status_val,
     )
 
 
@@ -295,19 +452,40 @@ async def decide_action(
     decision: ActionDecisionRequest,
     principal: Principal = Depends(get_current_principal),
     store: InMemoryConversationStore = Depends(get_conversation_store),
+    graph: Any = Depends(get_assistant_graph),
 ) -> ActionDecisionResponse:
     """Approve or deny an action interrupted by human-in-the-loop policy."""
     conv = await store.get(principal.tenant_id, conversation_id)
     if conv is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Conversation not found")
 
+    feedback = getattr(decision, "feedback", None) or decision.reason
+
     await store.record_action(
         tenant_id=principal.tenant_id,
         conversation_id=conversation_id,
         interrupt_id=interrupt_id,
         approved=decision.approved,
-        reason=decision.reason,
+        reason=feedback,
     )
+
+    thread_id = f"{principal.tenant_id}:{conversation_id}"
+    config = {"configurable": {"thread_id": thread_id}}
+    resume_payload = {
+        "decision": "approve" if decision.approved else "deny",
+        "interrupt_id": interrupt_id,
+        "feedback": feedback,
+    }
+
+    try:
+        # Resume the interrupted execution on the checkpointer
+        if hasattr(graph, "ainvoke"):
+            await graph.ainvoke(Command(resume=resume_payload), config)
+        elif hasattr(graph, "astream"):
+            async for _ in graph.astream(Command(resume=resume_payload), config):
+                pass
+    except Exception as exc:
+        logger.warning("assistant.action_resume_warning", error=str(exc))
 
     return ActionDecisionResponse(
         conversation_id=conversation_id,
