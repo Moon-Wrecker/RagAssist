@@ -142,8 +142,12 @@ class TestRateLimitExemption:
         async def other() -> dict[str, str]:
             return {"ok": "yes"}
 
-        tiny.add_middleware(RateLimitMiddleware, limiter=SlidingWindowRateLimiter(limit=1, window_seconds=60))
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=tiny), base_url="http://api.test") as client:
+        tiny.add_middleware(
+            RateLimitMiddleware, limiter=SlidingWindowRateLimiter(limit=1, window_seconds=60)
+        )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=tiny), base_url="http://api.test"
+        ) as client:
             assert [(await client.get("/v1/events")).status_code for _ in range(4)] == [200] * 4
             assert [(await client.get("/v1/other")).status_code for _ in range(2)] == [200, 429]
 
@@ -158,7 +162,10 @@ class TestPublishersViaTheApi:
             for call in (owner, stranger, agent):
                 await call.frames(1)
             await get_event_bus().publish(message_created(TENANT, "conv-1", owner_id))
-            assert frame_parts((await owner.frames(1, timeout=2))[0]) == ("message.created", {"conversation_id": "conv-1"})
+            assert frame_parts((await owner.frames(1, timeout=2))[0]) == (
+                "message.created",
+                {"conversation_id": "conv-1"},
+            )
             assert frame_parts((await agent.frames(1, timeout=2))[0])[0] == "message.created"
             with pytest.raises(asyncio.TimeoutError):
                 await stranger.chunk(timeout=0.3)

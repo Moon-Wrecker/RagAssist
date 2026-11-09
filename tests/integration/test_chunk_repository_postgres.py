@@ -20,10 +20,14 @@ from .conftest import Seed
 
 @pytest.fixture
 def repo(app_engines: Callable[..., AsyncEngine]) -> PostgresChunkRepository:
-    return PostgresChunkRepository(ScopedDatabase(async_sessionmaker(app_engines(), expire_on_commit=False)))
+    return PostgresChunkRepository(
+        ScopedDatabase(async_sessionmaker(app_engines(), expire_on_commit=False))
+    )
 
 
-async def add_chunk(admin_engine: AsyncEngine, tenant_id, body: str, *, title: str = "Refunds") -> str:  # type: ignore[no-untyped-def]
+async def add_chunk(
+    admin_engine: AsyncEngine, tenant_id, body: str, *, title: str = "Refunds"
+) -> str:  # type: ignore[no-untyped-def]
     document_id, chunk_id = uuid4(), str(uuid4())
     async with admin_engine.begin() as conn:
         await conn.execute(

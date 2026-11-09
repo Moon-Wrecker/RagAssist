@@ -56,7 +56,7 @@ class World:
         while True:
             try:
                 chunk = await call.chunk(timeout=quiet)
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 return out
             if chunk is None:
                 return out
@@ -109,7 +109,9 @@ class TestNoCrossTenantEvents:
 
 
 class TestNoCrossUserEvents:
-    async def test_a_conversation_event_reaches_its_owner_and_staff_but_not_other_users(self, world) -> None:  # type: ignore[no-untyped-def]
+    async def test_a_conversation_event_reaches_its_owner_and_staff_but_not_other_users(
+        self, world
+    ) -> None:  # type: ignore[no-untyped-def]
         ids = await open_everyone(world)
         await get_event_bus().publish(message_created(TENANT_A, "conv-9", ids["a_user"]))
         assert await world.received("a_user2") == []
@@ -125,7 +127,9 @@ class TestNoCrossUserEvents:
         await bus.publish(document_changed(TENANT_A, "d"))
         assert await world.received("a_user") == []
         assert await world.received("a_user2") == []
-        assert [e for e, _ in await world.received("a_agent")] == ["escalation.changed"]  # agents: no document events
+        assert [e for e, _ in await world.received("a_agent")] == [
+            "escalation.changed"
+        ]  # agents: no document events
         assert sorted(e for e, _ in await world.received("a_admin")) == [
             "document.changed",
             "escalation.changed",
@@ -151,16 +155,24 @@ class TestEventsFromRealPublishers:
         ids = await open_everyone(world)
         store = get_conversation_store()
         cid = str(uuid4())
-        store.create(tenant_id=TENANT_A, conversation_id=cid, user_id=ids["a_user"], status="escalated")  # type: ignore[attr-defined]
+        store.create(
+            tenant_id=TENANT_A, conversation_id=cid, user_id=ids["a_user"], status="escalated"
+        )  # type: ignore[attr-defined]
         secret_text = f"private reply {uuid4()}"
         agent = auth_header(make_token(role=UserRole.AGENT, tenant_id=TENANT_A))
 
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=world.app), base_url="http://api.test") as c:
-            response = await c.post(f"/v1/escalations/{cid}/reply", json={"text": secret_text}, headers=agent)
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=world.app), base_url="http://api.test"
+        ) as c:
+            response = await c.post(
+                f"/v1/escalations/{cid}/reply", json={"text": secret_text}, headers=agent
+            )
         assert response.status_code == 200
 
         owner = await world.received("a_user")
-        assert [e for e, _ in owner] == ["message.created"] and owner[0][1] == {"conversation_id": cid}
+        assert [e for e, _ in owner] == ["message.created"] and owner[0][1] == {
+            "conversation_id": cid
+        }
         assert await world.received("a_user2") == []
         for name in ("b_user", "b_agent", "b_admin"):
             assert await world.received(name) == []
@@ -170,9 +182,13 @@ class TestEventsFromRealPublishers:
     async def test_a_document_upload_notifies_admins_of_that_tenant_only(self, world) -> None:  # type: ignore[no-untyped-def]
         await open_everyone(world)
         admin = auth_header(make_token(role=UserRole.ADMIN, tenant_id=TENANT_A))
-        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=world.app), base_url="http://api.test") as c:
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=world.app), base_url="http://api.test"
+        ) as c:
             response = await c.post(
-                "/v1/documents", files={"file": ("guide.md", b"# Guide\n\nHello", "text/markdown")}, headers=admin
+                "/v1/documents",
+                files={"file": ("guide.md", b"# Guide\n\nHello", "text/markdown")},
+                headers=admin,
             )
         assert response.status_code == 202
         types = sorted(e for e, _ in await world.received("a_admin"))

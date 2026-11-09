@@ -46,10 +46,23 @@ class GatedGraph:
 
     async def astream_events(self, input_state, config, version):  # type: ignore[no-untyped-def]
         node = {"langgraph_node": "generate"}
-        yield {"event": "on_chat_model_stream", "data": {"chunk": AIMessageChunk(content="Hello ")}, "metadata": node}
+        yield {
+            "event": "on_chat_model_stream",
+            "data": {"chunk": AIMessageChunk(content="Hello ")},
+            "metadata": node,
+        }
         await self.gate.wait()
-        yield {"event": "on_chat_model_stream", "data": {"chunk": AIMessageChunk(content="world")}, "metadata": node}
-        yield {"event": "on_custom_event", "name": "done", "data": {"status": self.status}, "metadata": node}
+        yield {
+            "event": "on_chat_model_stream",
+            "data": {"chunk": AIMessageChunk(content="world")},
+            "metadata": node,
+        }
+        yield {
+            "event": "on_custom_event",
+            "name": "done",
+            "data": {"status": self.status},
+            "metadata": node,
+        }
         self.finished.set()
 
     async def aget_state(self, config):  # type: ignore[no-untyped-def]
@@ -58,7 +71,12 @@ class GatedGraph:
     async def ainvoke(self, input_state, config):  # type: ignore[no-untyped-def]
         await self.gate.wait()
         self.finished.set()
-        return {"answer": "Hello world", "citations": [], "route": "rag_search", "status": self.status}
+        return {
+            "answer": "Hello world",
+            "citations": [],
+            "route": "rag_search",
+            "status": self.status,
+        }
 
 
 def use_graph(monkeypatch: pytest.MonkeyPatch, graph: object) -> None:
@@ -76,11 +94,15 @@ def who(tenant: str, role: UserRole = UserRole.USER, user: str | None = None) ->
 
 @pytest.fixture
 async def client():  # type: ignore[no-untyped-def]
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=create_app()), base_url="http://api.test") as c:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=create_app()), base_url="http://api.test"
+    ) as c:
         yield c
 
 
-async def escalated_conversation(client: httpx.AsyncClient, owner: dict[str, str], tenant: str) -> str:
+async def escalated_conversation(
+    client: httpx.AsyncClient, owner: dict[str, str], tenant: str
+) -> str:
     cid = (await client.post("/v1/conversations", json={}, headers=owner)).json()["conversation_id"]
     store = get_conversation_store()
     await store.set_status(tenant, cid, "escalated")
@@ -100,7 +122,9 @@ class TestHandoff:
         owner = who(tenant)
         cid = await escalated_conversation(client, owner, tenant)
 
-        response = await client.post(f"/v1/conversations/{cid}/messages", json={"content": "Any news?"}, headers=owner)
+        response = await client.post(
+            f"/v1/conversations/{cid}/messages", json={"content": "Any news?"}, headers=owner
+        )
 
         assert response.status_code == 200
         assert response.json() == {
@@ -129,8 +153,15 @@ class TestHandoff:
 
         stream = parse_sse(response.text)
         assert stream.names() == ["escalated", "done"]
-        assert stream.of("escalated")[0].json() == {"ticket_id": "TICK-0042", "status": "open", "priority": "high"}
-        assert json.loads(stream.of("done")[0].data) == {"conversation_id": cid, "status": "escalated"}
+        assert stream.of("escalated")[0].json() == {
+            "ticket_id": "TICK-0042",
+            "status": "open",
+            "priority": "high",
+        }
+        assert json.loads(stream.of("done")[0].data) == {
+            "conversation_id": cid,
+            "status": "escalated",
+        }
         assert [m["role"] for m in await saved(tenant, cid)] == ["user"]
 
     async def test_the_handoff_announces_the_message_to_the_owner_and_the_inbox(
@@ -139,7 +170,9 @@ class TestHandoff:
         use_graph(monkeypatch, GraphThatMustNotRun())
         owner = who(tenant)
         cid = await escalated_conversation(client, owner, tenant)
-        await client.post(f"/v1/conversations/{cid}/messages", json={"content": "Hi"}, headers=owner)
+        await client.post(
+            f"/v1/conversations/{cid}/messages", json={"content": "Hi"}, headers=owner
+        )
 
         published = [(e.type, dict(e.data)) for e in get_event_bus().published]  # type: ignore[attr-defined]
         assert ("message.created", {"conversation_id": cid}) in published
@@ -154,31 +187,51 @@ class TestHandoff:
         owner = who(tenant)
         cid = await escalated_conversation(client, owner, tenant)
 
-        resolved = await client.post(f"/v1/escalations/{cid}/resolve", headers=who(tenant, UserRole.AGENT))
+        resolved = await client.post(
+            f"/v1/escalations/{cid}/resolve", headers=who(tenant, UserRole.AGENT)
+        )
         assert resolved.status_code == 200
 
-        answer = await client.post(f"/v1/conversations/{cid}/messages", json={"content": "Thanks, one more"}, headers=owner)
+        answer = await client.post(
+            f"/v1/conversations/{cid}/messages", json={"content": "Thanks, one more"}, headers=owner
+        )
         assert answer.status_code == 200
         body = answer.json()
-        assert body["answer"] == "Hello world" and body["route"] == "rag_search" and body["status"] == "completed"
+        assert (
+            body["answer"] == "Hello world"
+            and body["route"] == "rag_search"
+            and body["status"] == "completed"
+        )
         assert [m["role"] for m in await saved(tenant, cid)] == ["user", "assistant"]
 
-    async def test_resolving_and_replying_publish_conversation_events(self, client, tenant, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    async def test_resolving_and_replying_publish_conversation_events(
+        self, client, tenant, monkeypatch
+    ) -> None:  # type: ignore[no-untyped-def]
         use_graph(monkeypatch, GraphThatMustNotRun())
         owner_id = str(uuid4())
         owner = who(tenant, user=owner_id)
         cid = await escalated_conversation(client, owner, tenant)
         agent = who(tenant, UserRole.AGENT)
 
-        assert (await client.post(f"/v1/escalations/{cid}/reply", json={"text": "On it"}, headers=agent)).status_code == 200
-        assert (await client.post(f"/v1/escalations/{cid}/resolve", headers=agent)).status_code == 200
+        assert (
+            await client.post(f"/v1/escalations/{cid}/reply", json={"text": "On it"}, headers=agent)
+        ).status_code == 200
+        assert (
+            await client.post(f"/v1/escalations/{cid}/resolve", headers=agent)
+        ).status_code == 200
 
         published = get_event_bus().published  # type: ignore[attr-defined]
         types = [e.type for e in published]
-        assert "message.created" in types and "conversation.updated" in types and "escalation.changed" in types
+        assert (
+            "message.created" in types
+            and "conversation.updated" in types
+            and "escalation.changed" in types
+        )
         updated = next(e for e in published if e.type == "conversation.updated")
         assert updated.owner_id == owner_id and dict(updated.data) == {"conversation_id": cid}
-        assert "On it" not in json.dumps([e.to_json() for e in published]), "no content travels in events"
+        assert "On it" not in json.dumps([e.to_json() for e in published]), (
+            "no content travels in events"
+        )
 
 
 class TestDisconnectSafePersistence:
@@ -192,7 +245,9 @@ class TestDisconnectSafePersistence:
         )
         return await call.start()
 
-    async def test_the_answer_is_saved_after_the_client_disconnects(self, tenant, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    async def test_the_answer_is_saved_after_the_client_disconnects(
+        self, tenant, monkeypatch
+    ) -> None:  # type: ignore[no-untyped-def]
         graph = GatedGraph()
         use_graph(monkeypatch, graph)
         app = create_app()
@@ -211,9 +266,13 @@ class TestDisconnectSafePersistence:
         await drain(timeout=3)
 
         messages = await saved(tenant, cid)
-        assert [(m["role"], m["text"]) for m in messages] == [("user", "please help"), ("assistant", "Hello world")]
+        assert [(m["role"], m["text"]) for m in messages] == [
+            ("user", "please help"),
+            ("assistant", "Hello world"),
+        ]
         assert ("message.created", {"conversation_id": cid}) in [
-            (e.type, dict(e.data)) for e in get_event_bus().published  # type: ignore[attr-defined]
+            (e.type, dict(e.data))
+            for e in get_event_bus().published  # type: ignore[attr-defined]
         ]
 
     async def test_the_ticket_is_opened_even_if_the_client_left(self, tenant, monkeypatch) -> None:  # type: ignore[no-untyped-def]
@@ -239,7 +298,9 @@ class TestDisconnectSafePersistence:
         assert tickets == [(cid, "please help")]
         assert [m["role"] for m in await saved(tenant, cid)] == ["user", "assistant"]
 
-    async def test_a_connected_client_still_receives_the_whole_stream(self, tenant, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    async def test_a_connected_client_still_receives_the_whole_stream(
+        self, tenant, monkeypatch
+    ) -> None:  # type: ignore[no-untyped-def]
         graph = GatedGraph()
         graph.gate.set()
         use_graph(monkeypatch, graph)
@@ -253,14 +314,20 @@ class TestDisconnectSafePersistence:
         assert names[0] == "token" and names[-1] == "done"
         await drain(timeout=3)
 
-    async def test_the_json_path_survives_a_cancelled_request(self, client, tenant, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    async def test_the_json_path_survives_a_cancelled_request(
+        self, client, tenant, monkeypatch
+    ) -> None:  # type: ignore[no-untyped-def]
         graph = GatedGraph()
         use_graph(monkeypatch, graph)
         owner = who(tenant)
-        cid = (await client.post("/v1/conversations", json={}, headers=owner)).json()["conversation_id"]
+        cid = (await client.post("/v1/conversations", json={}, headers=owner)).json()[
+            "conversation_id"
+        ]
 
         request = asyncio.create_task(
-            client.post(f"/v1/conversations/{cid}/messages", json={"content": "slow one"}, headers=owner)
+            client.post(
+                f"/v1/conversations/{cid}/messages", json={"content": "slow one"}, headers=owner
+            )
         )
         await asyncio.sleep(0.1)
         request.cancel()  # the caller gives up

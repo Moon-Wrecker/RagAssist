@@ -12,9 +12,9 @@ import pytest
 from factories.principals import auth_header, make_token
 
 from ragassist.main import create_app
+from ragassist.modules.retrieval.adapters.chunk_repository import InMemoryChunkRepository
 from ragassist.modules.retrieval.api import router as chunk_router
 from ragassist.modules.retrieval.application import GetChunk
-from ragassist.modules.retrieval.adapters.chunk_repository import InMemoryChunkRepository
 from ragassist.modules.retrieval.domain import ChunkDetail
 from ragassist.shared.security.jwt import UserRole
 
@@ -39,16 +39,23 @@ def chunks(monkeypatch: pytest.MonkeyPatch) -> InMemoryChunkRepository:
         tenant_id=TENANT_A,
     )
     repo.add(
-        ChunkDetail(chunk_id="global-1", document_id="doc-g", text="Shared guide text.", is_global=True),
+        ChunkDetail(
+            chunk_id="global-1", document_id="doc-g", text="Shared guide text.", is_global=True
+        ),
         tenant_id=None,
     )
-    repo.add(ChunkDetail(chunk_id="foreign-1", document_id="doc-b", text="Tenant B secret."), tenant_id=TENANT_B)
+    repo.add(
+        ChunkDetail(chunk_id="foreign-1", document_id="doc-b", text="Tenant B secret."),
+        tenant_id=TENANT_B,
+    )
     return repo
 
 
 @pytest.fixture
 async def client():  # type: ignore[no-untyped-def]
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=create_app()), base_url="http://api.test") as c:
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=create_app()), base_url="http://api.test"
+    ) as c:
         yield c
 
 
@@ -71,7 +78,9 @@ class TestGetChunk:
             "is_global": False,
         }
 
-    async def test_a_global_chunk_is_readable_by_every_tenant_and_marked_global(self, client, chunks) -> None:  # type: ignore[no-untyped-def]
+    async def test_a_global_chunk_is_readable_by_every_tenant_and_marked_global(
+        self, client, chunks
+    ) -> None:  # type: ignore[no-untyped-def]
         for tenant in (TENANT_A, TENANT_B):
             response = await client.get("/v1/chunks/global-1", headers=headers(tenant))
             assert response.status_code == 200 and response.json()["is_global"] is True

@@ -46,7 +46,9 @@ async def db(app_engines: Callable[..., AsyncEngine]) -> ScopedDatabase:
 
 
 @pytest.fixture
-async def buses(pg_server: PgServer, db: ScopedDatabase) -> AsyncIterator[tuple[PostgresEventBus, PostgresEventBus]]:
+async def buses(
+    pg_server: PgServer, db: ScopedDatabase
+) -> AsyncIterator[tuple[PostgresEventBus, PostgresEventBus]]:
     first = PostgresEventBus(db, conninfo(pg_server), probe_seconds=1.0)
     second = PostgresEventBus(db, conninfo(pg_server), probe_seconds=1.0)
     await first.start()
@@ -83,7 +85,9 @@ class TestTwoListeners:
             for sub in (admin_on_first, admin_on_second):
                 event = await next_event(sub)
                 assert isinstance(event, Event) and event.data == {"document_id": "doc-1"}
-            assert await user_on_second.get(timeout=0.3) is None, "users do not receive document events"
+            assert await user_on_second.get(timeout=0.3) is None, (
+                "users do not receive document events"
+            )
             assert await foreign_admin.get(timeout=0.3) is None, "another tenant never receives it"
 
     async def test_conversation_events_reach_the_owner_but_not_another_user(
@@ -111,7 +115,9 @@ class TestTransactionalDelivery:
             event = await next_event(sub)
             assert isinstance(event, Event) and event.data == {"document_id": "doc-tx"}
 
-    async def test_a_rolled_back_transaction_publishes_nothing(self, buses, db: ScopedDatabase) -> None:
+    async def test_a_rolled_back_transaction_publishes_nothing(
+        self, buses, db: ScopedDatabase
+    ) -> None:
         tenant = uuid4()
         with buses[0].subscription(viewer(tenant, "admin")) as sub:
             with pytest.raises(RuntimeError):
@@ -129,7 +135,9 @@ class TestReconnect:
         with buses[0].subscription(viewer(tenant, "admin")) as sub:
             async with admin_engine.connect() as conn:
                 await conn.execute(
-                    text("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name = :name"),
+                    text(
+                        "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE application_name = :name"
+                    ),
                     {"name": APPLICATION_NAME},
                 )
             assert await next_event(sub, timeout=15) is RESYNC_MARKER

@@ -45,7 +45,12 @@ class TestEventModel:
             conversation_updated(TENANT, "c1", "u1"),
             escalation_changed(TENANT, "c1", "TICK-1"),
         ]
-        assert {k for e in events for k in e.payload()} <= {"job_id", "document_id", "conversation_id", "ticket_id"}
+        assert {k for e in events for k in e.payload()} <= {
+            "job_id",
+            "document_id",
+            "conversation_id",
+            "ticket_id",
+        }
 
     @pytest.mark.parametrize("key", ["text", "content", "answer", "summary", "email"])
     def test_a_payload_key_that_is_not_an_id_is_refused(self, key: str) -> None:
@@ -70,7 +75,12 @@ class TestEventModel:
             "{}",
             json.dumps({"type": "message.created", "tenant_id": TENANT, "audience": "everyone"}),
             json.dumps(
-                {"type": "message.created", "tenant_id": TENANT, "audience": "staff", "data": {"text": "leak"}}
+                {
+                    "type": "message.created",
+                    "tenant_id": TENANT,
+                    "audience": "staff",
+                    "data": {"text": "leak"},
+                }
             ),
         ],
     )
@@ -146,7 +156,9 @@ class TestHub:
             for n in range(10):
                 hub.dispatch(document_changed(TENANT, f"d{n}"))
             assert await sub.get(timeout=0.1) is RESYNC_MARKER
-            assert await sub.get(timeout=0.05) is None  # the backlog was dropped, not delivered late
+            assert (
+                await sub.get(timeout=0.05) is None
+            )  # the backlog was dropped, not delivered late
             hub.dispatch(document_changed(TENANT, "after"))
             event = await sub.get(timeout=0.1)
             assert isinstance(event, Event) and event.data == {"document_id": "after"}
@@ -191,7 +203,12 @@ class TestBus:
             bus.deliver("{broken")
             bus.deliver(
                 json.dumps(
-                    {"type": "document.changed", "tenant_id": TENANT, "audience": "admins", "data": {"title": "x"}}
+                    {
+                        "type": "document.changed",
+                        "tenant_id": TENANT,
+                        "audience": "admins",
+                        "data": {"title": "x"},
+                    }
                 )
             )
             assert await sub.get(timeout=0.05) is None
@@ -219,7 +236,9 @@ async def collect(frames, count: int):  # type: ignore[no-untyped-def]
 class TestFrames:
     async def test_the_stream_starts_with_ready_then_carries_events(self) -> None:
         sub = Subscription(viewer("admin"), 10)
-        frames = event_frames(sub, expires_at=asyncio.get_running_loop().time() + 10_000, clock=lambda: 0.0)
+        frames = event_frames(
+            sub, expires_at=asyncio.get_running_loop().time() + 10_000, clock=lambda: 0.0
+        )
         sub.offer(document_changed(TENANT, "d1"))
         got = await collect(frames, 2)
         assert got == [("ready", {}), ("document.changed", {"document_id": "d1"})]
