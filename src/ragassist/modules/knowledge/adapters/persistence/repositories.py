@@ -327,9 +327,9 @@ class PostgresIngestionRepository:
             ).one()
             await session.execute(
                 text(
-                    "UPDATE ingestion_jobs SET status = :status, error_message = :error, "
+                    "UPDATE ingestion_jobs SET status = CAST(:status AS varchar), error_message = :error, "
                     "chunks_created = :chunks, tokens_indexed = :tokens, updated_at = now(), "
-                    "completed_at = CASE WHEN :status = 'completed' THEN now() ELSE completed_at END "
+                    "completed_at = CASE WHEN CAST(:status AS varchar) = 'completed' THEN now() ELSE completed_at END "
                     "WHERE id = :id AND tenant_id = :tenant_id"
                 ),
                 {
