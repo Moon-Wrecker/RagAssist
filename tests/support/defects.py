@@ -59,6 +59,12 @@ DEFECTS: dict[str, str] = {
     "DEFECT-38": (
         "GET /metrics answers without credentials and is not restricted to the internal network."
     ),
+    "DEFECT-41": (
+        "The account agent keeps the pending tool call in a module-level dict keyed by thread (_PENDING_TOOL_CALLS). "
+        "A turn abandoned at the approval step leaves a stale entry, so the next turn on that conversation replays "
+        "the old write instead of starting clean; the state is lost on restart and is not shared across workers. "
+        "It also makes the graph suite order-dependent."
+    ),
     "DEFECT-39": (
         "POST /v1/documents accepts uploads from a plain user; the plan makes upload admin-only (section 5.8)."
     ),
