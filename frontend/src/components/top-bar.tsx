@@ -3,6 +3,7 @@ import { NavLink } from "react-router";
 import { routesFor } from "@/app/access";
 import { useAuth } from "@/auth/auth-context";
 import { Button } from "@/components/ui/button";
+import type { EventsStatus } from "@/events/use-events";
 import { cn } from "@/lib/utils";
 import { shortcutLabel, usePalette } from "./palette-context";
 import { ThemeToggle } from "./theme-toggle";
@@ -16,7 +17,7 @@ function navClass({ isActive }: { isActive: boolean }) {
 }
 
 /** Glass top bar: wordmark, role-aware navigation, search, theme, sign out. Navigation wraps below on phones. */
-export function TopBar() {
+export function TopBar({ liveStatus }: { liveStatus: EventsStatus }) {
   const { state, actions } = useAuth();
   const { setOpen } = usePalette();
   if (state.status !== "authenticated") return null;
@@ -40,6 +41,7 @@ export function TopBar() {
         </nav>
         <div className="ml-auto flex h-14 items-center gap-1">
           <span className="mr-2 hidden font-mono text-xs text-muted-foreground lg:inline">{state.workspace.slug}</span>
+          <LiveIndicator status={liveStatus} />
           <Button
             variant="ghost"
             size="sm"
@@ -65,5 +67,18 @@ export function TopBar() {
         </div>
       </div>
     </header>
+  );
+}
+
+/** Filled dot when the live stream is connected, hollow dot with a word when it is not. Shape, not colour. */
+function LiveIndicator({ status }: { status: EventsStatus }) {
+  const connected = status === "connected";
+  return (
+    <span className="mr-2 flex items-center gap-1.5 font-mono text-xs text-muted-foreground" role="status">
+      <span aria-hidden>{connected ? "●" : "○"}</span>
+      <span className={connected ? "sr-only" : "hidden sm:inline"}>
+        {connected ? "Live updates on" : status === "idle" ? "Live updates off" : "Reconnecting"}
+      </span>
+    </span>
   );
 }

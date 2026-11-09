@@ -25,7 +25,8 @@ export function onSessionLost(listener: () => void): () => void {
   };
 }
 
-function notifySessionLost(): void {
+/** Tell the app the session is over (refresh refused). Used by callers that manage their own requests. */
+export function notifySessionLost(): void {
   for (const listener of sessionLostListeners) listener();
 }
 
