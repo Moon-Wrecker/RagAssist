@@ -219,7 +219,9 @@ class TestKnowledgeApi:
             from ragassist.modules.knowledge.api.router import get_knowledge_store
 
             store = get_knowledge_store()
-            store.documents[doc_id].update({"status": "failed", "error_message": "Could not read the file."})
+            store.documents[doc_id].update(
+                {"status": "failed", "error_message": "Could not read the file."}
+            )
 
             failed = await client.get("/v1/documents", headers=tenant_1_admin_headers)
             item = next(d for d in failed.json()["items"] if d["document_id"] == doc_id)
