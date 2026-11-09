@@ -198,6 +198,16 @@ def _fresh_rate_limiter() -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
+def _fresh_event_bus() -> Iterator[None]:
+    """The in-memory event bus is process-wide; every test starts with a new one (no streams, nothing published)."""
+    from ragassist.platform.events import reset_memory_event_bus
+
+    reset_memory_event_bus()
+    yield
+    reset_memory_event_bus()
+
+
+@pytest.fixture(autouse=True)
 def _offline_assistant_graph(
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
 ) -> None:
