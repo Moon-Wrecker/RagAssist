@@ -195,7 +195,9 @@ class Container:
             reranker = build_reranker_chain(self.settings)
             saas = SaaSClient(http=httpx.AsyncClient(base_url=self.settings.MOCK_SAAS_BASE_URL))
             tools = ToolRegistry(default_tools(saas))
-            cp = checkpointer or self._checkpointer or MemorySaver()
+            from ragassist.modules.assistant.graph.serde import checkpoint_serde
+
+            cp = checkpointer or self._checkpointer or MemorySaver(serde=checkpoint_serde())
             self._checkpointer = cp
 
             compiled = build_graph(
