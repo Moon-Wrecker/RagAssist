@@ -199,9 +199,24 @@ async def main() -> None:
         max_retries=settings.WORKER_MAX_RETRIES,
     )
 
+    async def handle_for_tenant(body: str) -> Any:
+        """Row-level security needs the tenant of the message the repository is acting for."""
+        binder = getattr(documents, "bind_tenant", None)
+        if binder is None:
+            return await handler_service.handle(body)
+        try:
+            tenant_id = json.loads(body).get("tenant_id")
+        except (ValueError, AttributeError):
+            tenant_id = None
+        token = binder(tenant_id)
+        try:
+            return await handler_service.handle(body)
+        finally:
+            documents.unbind_tenant(token)
+
     worker = IngestionWorker(
         queue=queue,
-        handler=handler_service.handle,
+        handler=handle_for_tenant,
         concurrency=settings.WORKER_CONCURRENCY,
         poll_wait_seconds=settings.WORKER_POLL_WAIT_SECONDS,
     )
