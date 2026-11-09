@@ -26,7 +26,7 @@ def test_models_yaml_syntax_and_schema_validation():
     assert config.version == "1.0"
 
     # Check required providers
-    expected_providers = {"openai", "anthropic", "openrouter", "openai_compatible"}
+    expected_providers = {"openai", "anthropic", "openrouter", "openai_compatible", "gemini"}
     assert expected_providers.issubset(set(config.providers.keys()))
 
     # Check key models
@@ -113,6 +113,7 @@ def test_provider_registry_and_service_instantiation():
     assert "anthropic" in available
     assert "openrouter" in available
     assert "openai_compatible" in available
+    assert "gemini" in available
 
     openai_adapter = registry.create("openai")
     assert openai_adapter.name == "openai"

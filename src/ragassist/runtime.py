@@ -194,7 +194,7 @@ def _role_models(llm: LLMService, role: str, settings: Settings) -> list[Any]:
     if not models:
         raise RuntimeError(
             f"No chat model could be built for role '{role}'. Set a provider key (OPENAI_API_KEY, "
-            "ANTHROPIC_API_KEY, OPENROUTER_API_KEY) or OPENAI_COMPATIBLE_MODEL for a local server."
+            "ANTHROPIC_API_KEY, OPENROUTER_API_KEY, GEMINI_API_KEY) or OPENAI_COMPATIBLE_MODEL for a local server."
         )
     return models
 

@@ -76,6 +76,9 @@ class ProviderConfig(BaseModel):
     base_url_env: str | None = None
     default_headers: dict[str, str] = Field(default_factory=dict)
     timeout_seconds: float = Field(default=30.0, gt=0.0)
+    # When true and the key named by ``api_key_env`` is empty, this provider's models are left out of a role's
+    # FALLBACKS (never its primary), so an unconfigured optional provider costs no failed call per request.
+    skip_when_unconfigured: bool = False
 
 
 class RoleMappingConfig(BaseModel):

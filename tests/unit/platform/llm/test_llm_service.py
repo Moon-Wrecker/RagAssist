@@ -148,9 +148,10 @@ class TestRoles:
 
 
 class TestShippedRegistry:
-    def test_registers_the_four_documented_providers(self) -> None:
+    def test_registers_the_five_documented_providers(self) -> None:
         assert create_default_llm_registry(make_settings()).available_providers() == [
             "anthropic",
+            "gemini",
             "openai",
             "openai_compatible",
             "openrouter",

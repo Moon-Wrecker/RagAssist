@@ -14,7 +14,19 @@ A production-ready multi-tenant retrieval-augmented support assistant built as a
   - `actions` — Sandboxed SaaS account tools (`get_account_status`, `list_recent_invoices`, `update_billing_email`, `create_support_ticket`) backed by circuit breakers, exponential backoff, and strict RBAC enforcement.
   - `escalation` — Human-in-the-loop (HITL) escalation tickets (`GET /v1/escalations`, `POST /v1/escalations/{id}/resolve`) resuming suspended LangGraph threads.
 - **Platform Layer (`src/ragassist/platform/*`)**:
-  - Swappable **LLM** (`OpenAI`, `Anthropic`, `Google GenAI`, `Bedrock`, `Ollama`), **Embedding**, **Reranker**, and **System One Decision Layer** (`Jev`, `OpenAI Decisions`, `Strands Local`, `Semantic Router`, `LLM Structured`, `Rules`) adapters configured via [`config/models.yaml`](config/models.yaml) with automatic fallback chains.
+  - Swappable **LLM** (`OpenAI`, `Anthropic`, `Gemini`, `OpenRouter`, any OpenAI-compatible server such as `Ollama`), **Embedding**, **Reranker**, and **System One Decision Layer** (`Jev`, `OpenAI Decisions`, `Strands Local`, `Semantic Router`, `LLM Structured`, `Rules`) adapters configured via [`config/models.yaml`](config/models.yaml) with automatic fallback chains.
+  - **LLM providers** (set the key in `.env`; see [ADR 0013](docs/adr/0013-gemini-provider.md)):
+
+    | Provider (`config/models.yaml`) | Settings | Example models |
+    | --- | --- | --- |
+    | `openai` | `OPENAI_API_KEY` | `gpt-4o`, `gpt-4o-mini` |
+    | `anthropic` | `ANTHROPIC_API_KEY` | `claude-3-5-sonnet`, `claude-3-5-haiku` |
+    | `gemini` | `GEMINI_API_KEY`, `GEMINI_BASE_URL` | `gemini-flash-latest`, `gemini-flash-lite-latest`, `gemini-pro-latest` |
+    | `openrouter` | `OPENROUTER_API_KEY` | `openrouter-llama-3.1-70b` |
+    | `openai_compatible` | `OPENAI_COMPATIBLE_BASE_URL`, `OPENAI_COMPATIBLE_API_KEY`, `OPENAI_COMPATIBLE_MODEL` | local Ollama / vLLM |
+
+    Gemini is a fallback in every role chain and is skipped while `GEMINI_API_KEY` is empty. To use it first, set e.g.
+    `LLM_ROLE_GENERATOR_PRIMARY=gemini-flash`. `OPENAI_COMPATIBLE_*` stays reserved for a local server.
 - **Defense-in-Depth Multi-Tenancy**:
   - `tenant_id`, `user_id`, and `role` are extracted exclusively from verified JWT principals (`src/ragassist/shared/security/jwt.py`).
   - Every tenant-scoped database operation executes inside [`UnitOfWork`](src/ragassist/shared/db/uow.py), which opens a transaction and runs `SET LOCAL app.tenant_id = :tenant_id` enforced by PostgreSQL `ROW LEVEL SECURITY` and `FORCE ROW LEVEL SECURITY`.

@@ -158,4 +158,18 @@ class ModelCatalog:
             if canonical not in resolved_chain:
                 resolved_chain.append(canonical)
 
+        if settings is not None:
+            resolved_chain = [
+                model_id
+                for position, model_id in enumerate(resolved_chain)
+                if position == 0 or self.is_model_configured(model_id, settings)
+            ]
         return resolved_chain
+
+    def is_model_configured(self, model_id: str, settings: Settings) -> bool:
+        """False only for a model whose provider is optional (``skip_when_unconfigured``) and has no API key set."""
+        model = self.get_model(model_id)
+        provider = self._providers.get(model.provider)
+        if provider is None or not provider.skip_when_unconfigured or not provider.api_key_env:
+            return True
+        return bool(str(getattr(settings, provider.api_key_env, "") or "").strip())

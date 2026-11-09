@@ -6,6 +6,7 @@ import structlog
 from langchain_core.language_models.chat_models import BaseChatModel
 
 from ragassist.platform.llm.adapters.anthropic_adapter import AnthropicAdapter
+from ragassist.platform.llm.adapters.gemini_adapter import GeminiAdapter
 from ragassist.platform.llm.adapters.openai_adapter import OpenAIAdapter
 from ragassist.platform.llm.adapters.openrouter_adapter import (
     OpenAICompatibleAdapter,
@@ -28,6 +29,7 @@ def create_default_llm_registry(settings: Settings | None = None) -> ProviderReg
     registry.register("openai", lambda: OpenAIAdapter(settings=active_settings))
     registry.register("anthropic", lambda: AnthropicAdapter(settings=active_settings))
     registry.register("openrouter", lambda: OpenRouterAdapter(settings=active_settings))
+    registry.register("gemini", lambda: GeminiAdapter(settings=active_settings))
     registry.register("openai_compatible", lambda: OpenAICompatibleAdapter(settings=active_settings))
 
     return registry
