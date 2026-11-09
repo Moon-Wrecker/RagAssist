@@ -378,6 +378,10 @@ export interface paths {
         /**
          * Send a message in a conversation
          * @description Send message to assistant with Server-Sent Events streaming or JSON response.
+         *
+         *     The turn runs in a task detached from the request: if the client disconnects (Stop), the answer is still saved,
+         *     the ticket still opened, and ``message.created`` still published. While the conversation is ``escalated`` the
+         *     graph is skipped: the message is saved and the result is the handoff (see docs/api/sse-contract.md).
          */
         post: operations["ask_message_v1_conversations__conversation_id__messages_post"];
         delete?: never;
@@ -475,9 +479,49 @@ export interface paths {
         put?: never;
         /**
          * Resolve an escalated conversation
-         * @description Mark an escalated conversation as resolved.
+         * @description Mark an escalated conversation as resolved; the next customer message goes to the assistant again.
          */
         post: operations["resolve_escalation_v1_escalations__escalation_id__resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/chunks/{chunk_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the passage behind a citation
+         * @description Text and metadata of one chunk of the caller's tenant or a global one.
+         */
+        get: operations["get_chunk_v1_chunks__chunk_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Live change notifications (SSE)
+         * @description Open the caller's event stream. Needs the bearer token, so use a fetch-based reader, not ``EventSource``.
+         */
+        get: operations["stream_events_v1_events_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -531,6 +575,34 @@ export interface components {
         Body_upload_document_v1_documents_post: {
             /** File */
             file: string;
+        };
+        /** ChunkResponse */
+        ChunkResponse: {
+            /** Chunk Id */
+            chunk_id: string;
+            /** Document Id */
+            document_id: string;
+            /**
+             * Document Title
+             * @default
+             */
+            document_title: string;
+            /**
+             * Title
+             * @default
+             */
+            title: string;
+            /** Text */
+            text: string;
+            /** Page */
+            page?: number | null;
+            /** Heading Path */
+            heading_path?: string[];
+            /**
+             * Is Global
+             * @default false
+             */
+            is_global: boolean;
         };
         /** ConversationDetailResponse */
         ConversationDetailResponse: {
@@ -1809,6 +1881,64 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
                 };
+            };
+        };
+    };
+    get_chunk_v1_chunks__chunk_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chunk_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChunkResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    stream_events_v1_events_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server-Sent Events: `ready`, `job.updated`, `document.changed`, `message.created`, `conversation.updated`, `escalation.changed`, `resync`, `reauth`. Payloads carry ids only. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+            /** @description Too many open event streams for this user. */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

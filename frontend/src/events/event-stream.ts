@@ -79,6 +79,11 @@ async function readOnce(options: EventStreamOptions, onReady: () => void, idleTi
       retryOnUnauthorized: true,
     });
     if (response.status === 401) throw new SessionEnded();
+    if (response.status === 429) {
+      // Per-user stream cap: honour Retry-After rather than hammering.
+      const seconds = Number(response.headers.get("Retry-After"));
+      throw new RetryLater(Number.isFinite(seconds) && seconds > 0 ? seconds * 1000 : 0);
+    }
     if (!response.ok || !response.body) throw new Error(`Event stream refused with status ${response.status}`);
 
     let reason: EndReason = "ended";
@@ -107,6 +112,14 @@ async function readOnce(options: EventStreamOptions, onReady: () => void, idleTi
 
 class SessionEnded extends Error {}
 
+class RetryLater extends Error {
+  readonly ms: number;
+  constructor(ms: number) {
+    super("Event stream refused: too many open streams");
+    this.ms = ms;
+  }
+}
+
 /** Runs until `options.signal` aborts or the session ends. Never rejects. */
 export async function runEventStream(options: EventStreamOptions): Promise<void> {
   const {
@@ -123,6 +136,7 @@ export async function runEventStream(options: EventStreamOptions): Promise<void>
   while (!signal.aborted) {
     options.onStatus?.(everReady ? "reconnecting" : "connecting");
     let reason: EndReason = "ended";
+    let minDelayMs = 0;
     try {
       reason = await readOnce(
         options,
@@ -137,6 +151,7 @@ export async function runEventStream(options: EventStreamOptions): Promise<void>
     } catch (error) {
       if (signal.aborted) return;
       if (error instanceof SessionEnded) return;
+      if (error instanceof RetryLater) minDelayMs = error.ms;
     }
     if (signal.aborted) return;
 
@@ -154,7 +169,7 @@ export async function runEventStream(options: EventStreamOptions): Promise<void>
       }
     }
 
-    await sleep(backoffDelay(attempt, baseDelayMs, maxDelayMs, random), signal);
+    await sleep(Math.max(minDelayMs, backoffDelay(attempt, baseDelayMs, maxDelayMs, random)), signal);
     attempt += 1;
   }
 }

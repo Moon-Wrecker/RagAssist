@@ -186,13 +186,13 @@ describe("runEventStream", () => {
     mockFetch({
       [EVENTS]: () => {
         call += 1;
-        if (call === 1) return jsonResponse({ detail: "Too many streams" }, 429);
+        if (call === 1) return jsonResponse({ detail: "Too many streams" }, 429, { "Retry-After": "7" });
         setTimeout(() => controller.abort(), 10);
         return sseResponse([], { hold: true });
       },
     });
     await done;
-    expect(delays[0]).toBe(500);
+    expect(delays[0]).toBe(7000); // Retry-After wins over the 500 ms backoff
   });
 
   it("treats a silent connection as dead and reconnects", async () => {
