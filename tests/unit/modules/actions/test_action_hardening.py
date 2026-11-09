@@ -11,7 +11,11 @@ import httpx
 import pytest
 from factories.principals import make_principal
 
-from ragassist.modules.actions.adapters.saas_client import SaaSClient, SaaSClientError, SaaSUnavailable
+from ragassist.modules.actions.adapters.saas_client import (
+    SaaSClient,
+    SaaSClientError,
+    SaaSUnavailable,
+)
 from ragassist.modules.actions.application import ToolRegistry
 from ragassist.modules.actions.domain import ToolExecutionError, UnknownTool
 from ragassist.modules.actions.tools import default_tools
@@ -24,7 +28,11 @@ class RecordingSaaS:
 
     async def update_billing_email(self, principal: Any, new_email: str) -> dict[str, Any]:
         self.billing_emails.append(new_email)
-        return {"status": "ok", "tenant_id": str(principal.tenant_id), "updated_billing_email": new_email}
+        return {
+            "status": "ok",
+            "tenant_id": str(principal.tenant_id),
+            "updated_billing_email": new_email,
+        }
 
 
 @pytest.fixture
@@ -54,7 +62,14 @@ class TestAuthorizeRunsBeforeApproval:
 class TestBillingEmailValidation:
     @pytest.mark.parametrize(
         "value",
-        ["", "not-an-email", "a@b", "a b@example.com", "a@example.com, b@example.com", "x@y.example\r\nBcc: z@y.example"],
+        [
+            "",
+            "not-an-email",
+            "a@b",
+            "a b@example.com",
+            "a@example.com, b@example.com",
+            "x@y.example\r\nBcc: z@y.example",
+        ],
     )
     async def test_a_malformed_address_never_reaches_the_service(
         self, registry: ToolRegistry, saas: RecordingSaaS, value: str
@@ -65,15 +80,21 @@ class TestBillingEmailValidation:
             )
         assert saas.billing_emails == []
 
-    async def test_a_valid_address_is_trimmed_and_sent(self, registry: ToolRegistry, saas: RecordingSaaS) -> None:
+    async def test_a_valid_address_is_trimmed_and_sent(
+        self, registry: ToolRegistry, saas: RecordingSaaS
+    ) -> None:
         await registry.invoke(
-            "update_billing_email", {"new_email": "  ap@acme.example "}, make_principal(role=UserRole.ADMIN)
+            "update_billing_email",
+            {"new_email": "  ap@acme.example "},
+            make_principal(role=UserRole.ADMIN),
         )
         assert saas.billing_emails == ["ap@acme.example"]
 
 
 class TestUnbuiltToolsAreHonest:
-    async def test_query_dataset_reports_that_it_is_not_available(self, registry: ToolRegistry) -> None:
+    async def test_query_dataset_reports_that_it_is_not_available(
+        self, registry: ToolRegistry
+    ) -> None:
         with pytest.raises(ToolExecutionError, match="not available"):
             await registry.invoke("query_dataset", {"query": "revenue"}, make_principal())
 

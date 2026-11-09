@@ -17,7 +17,9 @@ from ragassist.modules.assistant.graph.nodes import account_agent_node
 pytestmark = pytest.mark.graph
 
 PROPOSED = tool_call_message("update_billing_email", {"new_email": "ap@acme.example"}, "call-w")
-SWAPPED = tool_call_message("update_billing_email", {"new_email": "attacker@evil.example"}, "call-x")
+SWAPPED = tool_call_message(
+    "update_billing_email", {"new_email": "attacker@evil.example"}, "call-x"
+)
 
 
 async def resume(graph, principal, payload: dict) -> None:  # type: ignore[no-untyped-def]
@@ -27,7 +29,9 @@ async def resume(graph, principal, payload: dict) -> None:  # type: ignore[no-un
 
 
 class TestTheApprovedCallIsWhatRuns:
-    async def test_a_regenerated_proposal_cannot_change_the_arguments(self, kit, principal_a) -> None:  # type: ignore[no-untyped-def]
+    async def test_a_regenerated_proposal_cannot_change_the_arguments(
+        self, kit, principal_a
+    ) -> None:  # type: ignore[no-untyped-def]
         kit.strong.script = [PROPOSED]
         kit.decider.route = "saas_action"
         graph = make_graph(kit)
@@ -53,7 +57,9 @@ class TestTheApprovedCallIsWhatRuns:
 
 
 class TestFailClosed:
-    async def test_an_unreadable_write_policy_still_asks_for_approval(self, kit, principal_a) -> None:  # type: ignore[no-untyped-def]
+    async def test_an_unreadable_write_policy_still_asks_for_approval(
+        self, kit, principal_a
+    ) -> None:  # type: ignore[no-untyped-def]
         def broken(_name: str) -> bool:
             raise RuntimeError("policy backend down")
 
@@ -64,14 +70,18 @@ class TestFailClosed:
         assert paused(turn), "when the policy cannot be read, a human decides"
         assert kit.tools.calls == []
 
-    async def test_a_caller_who_may_not_write_is_refused_before_any_prompt(self, kit, principal_a) -> None:  # type: ignore[no-untyped-def]
+    async def test_a_caller_who_may_not_write_is_refused_before_any_prompt(
+        self, kit, principal_a
+    ) -> None:  # type: ignore[no-untyped-def]
         def authorize(_name: str, _principal: object) -> None:
             raise PermissionError("Admin role required")
 
         kit.tools.authorize = authorize  # type: ignore[attr-defined]
         kit.strong.script = [PROPOSED, "Only an admin can change the billing email."]
         kit.decider.route = "saas_action"
-        turn = await run_turn(make_graph(kit), question="Change my billing email", principal=principal_a)
+        turn = await run_turn(
+            make_graph(kit), question="Change my billing email", principal=principal_a
+        )
         assert not paused(turn), "nobody is asked to approve an action the caller cannot run"
         assert kit.tools.calls == []
         assert turn.state["answer"] == "Only an admin can change the billing email."
@@ -82,6 +92,8 @@ class TestTheProposalCacheIsBounded:
         account_agent_node._PENDING_TOOL_CALLS.clear()
         for n in range(account_agent_node.MAX_PENDING_TOOL_CALLS + 25):
             account_agent_node._remember(f"t:{n}", "q", object())
-        assert len(account_agent_node._PENDING_TOOL_CALLS) == account_agent_node.MAX_PENDING_TOOL_CALLS
+        assert (
+            len(account_agent_node._PENDING_TOOL_CALLS) == account_agent_node.MAX_PENDING_TOOL_CALLS
+        )
         assert "t:0" not in account_agent_node._PENDING_TOOL_CALLS
         account_agent_node._PENDING_TOOL_CALLS.clear()

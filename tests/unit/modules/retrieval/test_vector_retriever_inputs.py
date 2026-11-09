@@ -22,7 +22,9 @@ def test_any_other_scan_mode_is_rejected(mode: str) -> None:
         build(iterative_scan=mode)
 
 
-@pytest.mark.parametrize("table", ["chunks; DROP TABLE users", "chunks c", "public.chunks", "1chunks", ""])
+@pytest.mark.parametrize(
+    "table", ["chunks; DROP TABLE users", "chunks c", "public.chunks", "1chunks", ""]
+)
 def test_a_table_name_that_is_not_a_plain_identifier_is_rejected(table: str) -> None:
     with pytest.raises(ValueError):
         build(table_name=table)

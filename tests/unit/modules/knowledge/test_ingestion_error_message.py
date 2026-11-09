@@ -30,7 +30,10 @@ async def test_the_stored_reason_names_the_stage_not_the_exception_text(
         max_retries=3,
     )
     body = make_message(
-        job_id=job.job_id, tenant_id=job.tenant_id, object_key=job.object_key, document_id=job.document_id
+        job_id=job.job_id,
+        tenant_id=job.tenant_id,
+        object_key=job.object_key,
+        document_id=job.document_id,
     )
 
     await worker.handle(body)

@@ -21,7 +21,9 @@ from ragassist.main import create_app
 from ragassist.modules.assistant.api.router import get_conversation_store
 from ragassist.shared.security.jwt import UserRole, create_access_token
 
-WRITE_REQUEST = tool_call_message("update_billing_email", {"new_email": "ap@acme.example"}, "call-w")
+WRITE_REQUEST = tool_call_message(
+    "update_billing_email", {"new_email": "ap@acme.example"}, "call-w"
+)
 
 
 def headers(tenant: str, role: UserRole = UserRole.USER, user: str | None = None) -> dict[str, str]:
@@ -42,14 +44,18 @@ async def client():  # type: ignore[no-untyped-def]
         yield c
 
 
-async def open_conversation(client: httpx.AsyncClient, who: dict[str, str], title: str = "T") -> str:
+async def open_conversation(
+    client: httpx.AsyncClient, who: dict[str, str], title: str = "T"
+) -> str:
     created = await client.post("/v1/conversations", json={"title": title}, headers=who)
     assert created.status_code == 201
     return created.json()["conversation_id"]
 
 
 class TestOwnership:
-    async def test_another_user_of_the_tenant_cannot_read_a_conversation(self, client, tenant) -> None:  # type: ignore[no-untyped-def]
+    async def test_another_user_of_the_tenant_cannot_read_a_conversation(
+        self, client, tenant
+    ) -> None:  # type: ignore[no-untyped-def]
         owner, other = headers(tenant), headers(tenant)
         cid = await open_conversation(client, owner)
         assert (await client.get(f"/v1/conversations/{cid}", headers=owner)).status_code == 200
@@ -76,22 +82,30 @@ class TestOwnership:
                 await client.get(f"/v1/conversations/{cid}", headers=headers(tenant, role))
             ).status_code == 200
 
-    async def test_a_conversation_without_a_recorded_owner_is_staff_only(self, client, tenant) -> None:  # type: ignore[no-untyped-def]
+    async def test_a_conversation_without_a_recorded_owner_is_staff_only(
+        self, client, tenant
+    ) -> None:  # type: ignore[no-untyped-def]
         cid = str(uuid4())
         get_conversation_store().create(tenant_id=tenant, conversation_id=cid)
-        assert (await client.get(f"/v1/conversations/{cid}", headers=headers(tenant))).status_code == 404
+        assert (
+            await client.get(f"/v1/conversations/{cid}", headers=headers(tenant))
+        ).status_code == 404
         assert (
             await client.get(f"/v1/conversations/{cid}", headers=headers(tenant, UserRole.AGENT))
         ).status_code == 200
 
-    async def test_the_list_holds_only_the_callers_conversations_unless_staff(self, client, tenant) -> None:  # type: ignore[no-untyped-def]
+    async def test_the_list_holds_only_the_callers_conversations_unless_staff(
+        self, client, tenant
+    ) -> None:  # type: ignore[no-untyped-def]
         alice, bob = headers(tenant), headers(tenant)
         mine = await open_conversation(client, alice)
         await open_conversation(client, bob)
         listed = (await client.get("/v1/conversations", headers=alice)).json()
         assert [c["conversation_id"] for c in listed["items"]] == [mine]
         assert listed["total"] == 1
-        staff = (await client.get("/v1/conversations", headers=headers(tenant, UserRole.AGENT))).json()
+        staff = (
+            await client.get("/v1/conversations", headers=headers(tenant, UserRole.AGENT))
+        ).json()
         assert staff["total"] == 2
 
 
@@ -112,7 +126,10 @@ class TestEscalationList:
         first = (await client.get("/v1/escalations?limit=1&offset=0", headers=agent)).json()
         second = (await client.get("/v1/escalations?limit=1&offset=1", headers=agent)).json()
         assert first["total"] == second["total"] == 2
-        assert {first["items"][0]["escalation_id"], second["items"][0]["escalation_id"]} == escalated
+        assert {
+            first["items"][0]["escalation_id"],
+            second["items"][0]["escalation_id"],
+        } == escalated
 
 
 @pytest.fixture
@@ -155,12 +172,16 @@ class TestApprovalIsBoundToThePendingAction:
         owner = headers(tenant, UserRole.ADMIN)
         cid, _ = await ask_for_the_write(client, owner)
         refused = await client.post(
-            f"/v1/conversations/{cid}/actions/not-the-pending-id", json={"approved": True}, headers=owner
+            f"/v1/conversations/{cid}/actions/not-the-pending-id",
+            json={"approved": True},
+            headers=owner,
         )
         assert refused.status_code == 409
         assert write_graph.tools.calls == []
 
-    async def test_a_conversation_with_nothing_pending_refuses_any_decision(self, client, tenant) -> None:  # type: ignore[no-untyped-def]
+    async def test_a_conversation_with_nothing_pending_refuses_any_decision(
+        self, client, tenant
+    ) -> None:  # type: ignore[no-untyped-def]
         owner = headers(tenant)
         cid = await open_conversation(client, owner)
         refused = await client.post(
@@ -174,9 +195,13 @@ class TestApprovalIsBoundToThePendingAction:
         cid, interrupt = await ask_for_the_write(client, owner)
         path = f"/v1/conversations/{cid}/actions/{interrupt['interrupt_id']}"
 
-        assert (await client.post(path, json={"approved": True}, headers=headers(tenant))).status_code == 404
         assert (
-            await client.post(path, json={"approved": True}, headers=headers(tenant, UserRole.AGENT))
+            await client.post(path, json={"approved": True}, headers=headers(tenant))
+        ).status_code == 404
+        assert (
+            await client.post(
+                path, json={"approved": True}, headers=headers(tenant, UserRole.AGENT)
+            )
         ).status_code == 403
         assert write_graph.tools.calls == []
 
@@ -187,7 +212,9 @@ class TestApprovalIsBoundToThePendingAction:
         cid, interrupt = await ask_for_the_write(client, admin)
         path = f"/v1/conversations/{cid}/actions/{interrupt['interrupt_id']}"
 
-        decided = await client.post(path, json={"approved": True, "reason": "verified"}, headers=admin)
+        decided = await client.post(
+            path, json={"approved": True, "reason": "verified"}, headers=admin
+        )
         assert decided.status_code == 200
         body = decided.json()
         assert body["status"] == "resumed" and body["answer"]

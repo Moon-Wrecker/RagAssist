@@ -20,7 +20,9 @@ from .conftest import Seed
 @pytest.fixture
 def store(app_engines: Callable[..., AsyncEngine]) -> PostgresConversationStore:
     engine = app_engines()
-    return PostgresConversationStore(ScopedDatabase(async_sessionmaker(engine, expire_on_commit=False)))
+    return PostgresConversationStore(
+        ScopedDatabase(async_sessionmaker(engine, expire_on_commit=False))
+    )
 
 
 async def make(store: PostgresConversationStore, tenant, user, status: str = "open") -> str:  # type: ignore[no-untyped-def]
@@ -29,7 +31,9 @@ async def make(store: PostgresConversationStore, tenant, user, status: str = "op
     return cid
 
 
-async def test_the_owner_is_recorded_and_returned(seed: Seed, store: PostgresConversationStore) -> None:
+async def test_the_owner_is_recorded_and_returned(
+    seed: Seed, store: PostgresConversationStore
+) -> None:
     alice = seed.a_users[0]
     cid = await make(store, seed.tenant_a, alice)
     row = await store.get(seed.tenant_a, cid)
@@ -50,14 +54,20 @@ async def test_listing_by_owner_returns_only_that_users_conversations(
     assert everyone == 4
 
 
-async def test_the_status_filter_applies_before_paging(seed: Seed, store: PostgresConversationStore) -> None:
+async def test_the_status_filter_applies_before_paging(
+    seed: Seed, store: PostgresConversationStore
+) -> None:
     alice = seed.a_users[0]
     for _ in range(3):
         await make(store, seed.tenant_a, alice, "open")
     escalated = {await make(store, seed.tenant_a, alice, "escalated") for _ in range(2)}
 
-    first, total = await store.list(seed.tenant_a, limit=1, offset=0, statuses=("escalated", "resolved"))
-    second, _ = await store.list(seed.tenant_a, limit=1, offset=1, statuses=("escalated", "resolved"))
+    first, total = await store.list(
+        seed.tenant_a, limit=1, offset=0, statuses=("escalated", "resolved")
+    )
+    second, _ = await store.list(
+        seed.tenant_a, limit=1, offset=1, statuses=("escalated", "resolved")
+    )
 
     assert total == 2
     assert {first[0]["conversation_id"], second[0]["conversation_id"]} == escalated
