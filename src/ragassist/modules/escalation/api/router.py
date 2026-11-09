@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 
 from ragassist.modules.assistant.application.conversation_store import get_conversation_store
 from ragassist.modules.escalation.application import ReplyToEscalation
-from ragassist.modules.escalation.domain import EscalationNotFound, RoleNotAllowed
+from ragassist.modules.escalation.domain import EscalationNotFound, NotEscalated, RoleNotAllowed
 from ragassist.shared.security.deps import get_current_principal
 from ragassist.shared.security.jwt import Principal, UserRole
 
@@ -121,6 +121,8 @@ async def _handle_reply(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(exc),
         ) from exc
+    except NotEscalated as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=exc.message) from exc
 
 
 @router.post(
@@ -174,6 +176,9 @@ async def resolve_escalation(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Escalation not found",
         )
+
+    if conv.get("status") != "escalated":
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This conversation is not escalated.")
 
     await store.set_status(principal.tenant_id, escalation_id, "resolved")
     return EscalationResolveResponse(

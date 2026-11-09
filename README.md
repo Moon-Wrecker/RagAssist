@@ -70,8 +70,8 @@ ragassist worker
 | Method & Path | Description | Auth |
 |---|---|---|
 | `GET /healthz`, `GET /readyz` | Liveness and readiness probes | Public |
-| `GET /metrics` | Prometheus metrics endpoint | Bearer JWT |
-| `POST /v1/auth/token` | Issue development JWT (`development`/`test`/`local` only) | Public (Dev) |
+| `GET /metrics` | Prometheus metrics endpoint | Bearer JWT (admin) |
+| `POST /v1/auth/token` | Issue development JWT (`development`/`test` only; needs the `X-Dev-Auth-Secret` header) | Dev secret |
 | `POST /v1/documents` | Upload document (`PDF`, `MD`, `HTML`, `CSV`, `JSON`, `TXT`) for async ingestion | Bearer JWT |
 | `GET /v1/documents` | List tenant documents and ingestion status | Bearer JWT |
 | `GET /v1/documents/{id}` | Retrieve specific tenant document metadata | Bearer JWT |

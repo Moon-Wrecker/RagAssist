@@ -24,7 +24,7 @@ services:
     container_name: ragassist-postgres
     restart: unless-stopped
     ports:
-      - "${DB_PORT:?run ragassist init-env}:5432"
+      - "127.0.0.1:${DB_PORT:?run ragassist init-env}:5432"
     environment:
       POSTGRES_DB: ${DB_NAME:?run ragassist init-env}
       POSTGRES_USER: ${DB_ADMIN_USER:?run ragassist init-env}
@@ -91,7 +91,7 @@ services:
     restart: unless-stopped
     command: ["ragassist", "serve", "--host", "0.0.0.0", "--port", "8000"]
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     depends_on:
       migrate:
         condition: service_completed_successfully

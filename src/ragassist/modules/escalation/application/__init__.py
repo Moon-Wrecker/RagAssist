@@ -14,6 +14,7 @@ from typing import Any, Protocol
 from ragassist.modules.escalation.domain import (
     EscalationNotFound,
     EscalationResult,
+    NotEscalated,
     RoleNotAllowed,
 )
 from ragassist.shared.security.jwt import Principal, UserRole
@@ -105,6 +106,8 @@ class ReplyToEscalation:
         conv = await self.conversations.get(principal.tenant_id, escalation_id)
         if conv is None:
             raise EscalationNotFound(f"Conversation '{escalation_id}' not found")
+        if conv.get("status") != "escalated":
+            raise NotEscalated("This conversation is not escalated.")
 
         reply_message = {
             "role": "agent",

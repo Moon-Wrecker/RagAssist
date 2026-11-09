@@ -17,9 +17,16 @@ def body(**overrides: object) -> dict[str, object]:
     return {"user_id": str(uuid4()), "tenant_id": str(uuid4()), **overrides}
 
 
+def dev_secret_header() -> dict[str, str]:
+    from ragassist.shared.config.settings import get_settings
+
+    return {"X-Dev-Auth-Secret": get_settings().DEV_AUTH_SECRET}
+
+
 @pytest.fixture
 async def client(api_client_for: Callable[..., httpx.AsyncClient]):  # type: ignore[no-untyped-def]
     async with api_client_for() as c:
+        c.headers.update(dev_secret_header())
         yield c
 
 
@@ -109,7 +116,37 @@ class TestEnvironmentGating:
         self, api_client_for: Callable[..., httpx.AsyncClient], env: str
     ) -> None:
         async with api_client_for(APP_ENV=env) as dev_client:
+            dev_client.headers.update(dev_secret_header())
             assert (await dev_client.post(TOKEN_URL, json=body())).status_code == 200
+
+
+class TestTheDevTokenNeedsItsSecret:
+    """DEV_AUTH_SECRET gates the stub: the environment flag alone must not hand out admin tokens."""
+
+    async def test_no_secret_is_refused(
+        self, api_client_for: Callable[..., httpx.AsyncClient]
+    ) -> None:
+        async with api_client_for() as c:
+            assert (await c.post(TOKEN_URL, json=body(role="admin"))).status_code == 403
+
+    @pytest.mark.parametrize("wrong", ["", "x", "not-the-secret-0123456789", "a" * 500])
+    async def test_a_wrong_secret_is_refused(
+        self, api_client_for: Callable[..., httpx.AsyncClient], wrong: str
+    ) -> None:
+        async with api_client_for() as c:
+            response = await c.post(
+                TOKEN_URL, json=body(role="admin"), headers={"X-Dev-Auth-Secret": wrong}
+            )
+        assert response.status_code == 403 and "access_token" not in response.text
+
+    async def test_the_secret_in_the_body_does_not_count(
+        self, api_client_for: Callable[..., httpx.AsyncClient]
+    ) -> None:
+        from ragassist.shared.config.settings import get_settings
+
+        async with api_client_for() as c:
+            payload = body(role="admin", dev_auth_secret=get_settings().DEV_AUTH_SECRET)
+            assert (await c.post(TOKEN_URL, json=payload)).status_code == 403
 
 
 class TestApplication:

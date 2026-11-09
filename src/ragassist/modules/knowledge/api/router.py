@@ -216,6 +216,32 @@ def get_message_queue() -> Any:
     return _message_queue
 
 
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024
+_READ_CHUNK = 1024 * 1024
+
+
+def _require_admin(principal: Principal, action: str) -> None:
+    if principal.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=f"Admin role required to {action}"
+        )
+
+
+async def _read_bounded(file: UploadFile) -> bytes:
+    """Read an upload without ever holding more than the cap (plus one chunk) in memory."""
+    chunks: list[bytes] = []
+    size = 0
+    while chunk := await file.read(_READ_CHUNK):
+        size += len(chunk)
+        if size > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File exceeds the {MAX_UPLOAD_BYTES // (1024 * 1024)} MB limit.",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
+
 @router.post(
     "/documents",
     response_model=DocumentUploadResponse,
@@ -236,7 +262,7 @@ async def upload_document(
             detail="Admin role required to upload documents",
         )
 
-    content = await file.read()
+    content = await _read_bounded(file)
     if not content:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -252,7 +278,7 @@ async def upload_document(
         store=store,
         queue=queue,
         documents=knowledge_store,
-        max_bytes=50 * 1024 * 1024,
+        max_bytes=MAX_UPLOAD_BYTES,
     )
 
     try:
@@ -292,7 +318,7 @@ async def upload_document(
         ) from exc
     except FileTooLarge as exc:
         raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            status_code=413,
             detail=str(exc),
         ) from exc
 
@@ -336,7 +362,8 @@ async def delete_document(
     store: Any = Depends(get_object_store),
     knowledge_store: InMemoryDocumentStore = Depends(get_knowledge_store),
 ) -> dict[str, Any]:
-    """Delete document by ID with tenant isolation verification."""
+    """Delete document by ID with tenant isolation verification (administrators only, like upload)."""
+    _require_admin(principal, "delete documents")
     doc = await knowledge_store.get_document(str(principal.tenant_id), document_id)
     if doc is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
@@ -361,7 +388,8 @@ async def reindex_document(
     queue: Any = Depends(get_message_queue),
     knowledge_store: InMemoryDocumentStore = Depends(get_knowledge_store),
 ) -> dict[str, Any]:
-    """Trigger re-indexing of an existing document."""
+    """Trigger re-indexing of an existing document (administrators only, like upload)."""
+    _require_admin(principal, "re-index documents")
     doc = await knowledge_store.get_document(str(principal.tenant_id), document_id)
     if doc is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")

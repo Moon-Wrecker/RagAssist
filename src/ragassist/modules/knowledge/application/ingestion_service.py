@@ -293,9 +293,13 @@ class ProcessIngestionJob:
         except Exception as exc:
             return await _handle_failure("load document", exc)
 
-        key = object_key or (getattr(doc, "object_key", None) or getattr(doc, "s3_key", None))
+        # The key comes from the document row, never from the queue message: a message can be forged by anything
+        # that can write to the queue, the row cannot. It must also live under this tenant's prefix.
+        key = getattr(doc, "object_key", None) or getattr(doc, "s3_key", None) or object_key
         if not key:
             return await _handle_failure("document has no object key")
+        if not str(key).startswith(f"tenants/{tenant_id}/"):
+            return await _handle_failure("object key outside the tenant")
 
         try:
             if hasattr(self.store, "get_object"):

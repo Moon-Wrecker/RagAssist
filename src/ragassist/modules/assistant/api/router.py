@@ -13,6 +13,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 from collections.abc import AsyncIterator
+from dataclasses import replace
 from datetime import datetime, timezone
 from typing import Any
 from uuid import uuid4
@@ -106,6 +107,18 @@ async def _create_conversation(
         kwargs["user_id"] = principal.user_id
     row = store.create(**kwargs)
     return await row if inspect.isawaitable(row) else row
+
+
+def _checkpointable(principal: Principal) -> Principal:
+    """The principal as it may be written to the durable checkpoint: without the caller's bearer token.
+
+    With the Postgres runtime the state is stored in plaintext, so the token must not be part of it; each tool call
+    mints a short-lived token for the verified user instead (``runtime.build_tool_registry``). The in-memory
+    checkpointer never leaves the process, so it keeps the token the in-process tools forward.
+    """
+    from ragassist.runtime import active_runtime
+
+    return replace(principal, raw_token="") if active_runtime() is not None else principal
 
 
 def _pending_interrupt(snapshot: Any) -> dict[str, Any] | None:
@@ -475,7 +488,7 @@ async def ask_message(
     config = {"configurable": {"thread_id": thread_id}}
     input_state = {
         "question": req.content,
-        "principal": principal,
+        "principal": _checkpointable(principal),
         "conversation_id": conversation_id,
     }
 
