@@ -11,6 +11,11 @@
 *.key
 secrets/
 
+# --- Agent Workspaces, Sessions & Swarm Artifacts ---
+.agents/
+.gemini/
+.claude/
+
 # --- Python / uv / Packaging ---
 __pycache__/
 *.py[cod]

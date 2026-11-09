@@ -186,6 +186,28 @@ def _hermetic_environment(monkeypatch: pytest.MonkeyPatch) -> Iterator[None]:
     _reset_db_singletons()
 
 
+@pytest.fixture(autouse=True)
+def _offline_assistant_graph(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The API serves the graph the container builds. Tests have no LLM, so give the container a graph made
+    from scripted fakes (the real ``build_graph``). Opt out with ``@pytest.mark.real_assistant_graph``."""
+    if request.node.get_closest_marker("real_assistant_graph"):
+        return
+    from ragassist.container import Container
+
+    cache: dict[str, Any] = {}
+
+    def _graph(self: Container, checkpointer: Any = None) -> Any:
+        if "graph" not in cache:
+            from support.api_graph import make_api_graph
+
+            cache["graph"] = make_api_graph()
+        return cache["graph"]
+
+    monkeypatch.setattr(Container, "get_assistant_graph", _graph)
+
+
 _LOOPBACK = {"127.0.0.1", "::1", "localhost", "0.0.0.0", "::"}  # noqa: S104 - comparison only
 
 

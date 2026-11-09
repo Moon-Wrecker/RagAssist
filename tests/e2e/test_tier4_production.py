@@ -360,10 +360,13 @@ async def test_feature_29_sse_token_event_parsing_and_assembly(
     token_events = parsed_stream.of("token")
     assert len(token_events) >= 3
 
-    # Assemble tokens
+    # The tokens, concatenated in order, are the assistant's answer: the one stored for the turn.
     assembled = "".join(e.json()["text"] for e in token_events)
-    assert len(assembled) > 0
-    assert "Explain architecture" in assembled
+    assert assembled.strip()
+    detail = (await tier4_client.get(f"/v1/conversations/{conv_id}", headers=auth_headers_a)).json()
+    answers = [m["text"] for m in detail["messages"] if m["role"] == "assistant"]
+    assert answers, "the finished turn must store the assistant message"
+    assert assembled.strip() == answers[-1].strip()
 
 
 @pytest.mark.asyncio

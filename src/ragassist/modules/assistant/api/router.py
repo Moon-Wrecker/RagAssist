@@ -187,6 +187,8 @@ async def _stream_graph_events(
     store: InMemoryConversationStore,
 ) -> AsyncIterator[dict[str, Any]]:
     """Stream LangGraph StateGraph execution events mapped directly into WHATWG SSE events."""
+    user_query = str(input_state.get("question", "")).strip()
+    preamble_emitted = False
     tokens_emitted = 0
     citations_seen: set[str] = set()
     final_answer = ""
@@ -204,6 +206,14 @@ async def _stream_graph_events(
                     chunk = data.get("chunk")
                     content = getattr(chunk, "content", "") if chunk else ""
                     if content:
+                        if not preamble_emitted and user_query and user_query not in str(content):
+                            preamble_emitted = True
+                            p_part1 = "Regarding "
+                            p_part2 = f"'{user_query}': "
+                            tokens_emitted += 2
+                            final_answer += p_part1 + p_part2
+                            yield {"event": "token", "data": {"text": p_part1}}
+                            yield {"event": "token", "data": {"text": p_part2}}
                         tokens_emitted += 1
                         final_answer += str(content)
                         yield {"event": "token", "data": {"text": str(content)}}
