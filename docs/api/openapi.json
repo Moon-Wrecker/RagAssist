@@ -994,7 +994,7 @@
           "Assistant"
         ],
         "summary": "Send a message in a conversation",
-        "description": "Send message to assistant with Server-Sent Events streaming or JSON response.",
+        "description": "Send message to assistant with Server-Sent Events streaming or JSON response.\n\nThe turn runs in a task detached from the request: if the client disconnects (Stop), the answer is still saved,\nthe ticket still opened, and ``message.created`` still published. While the conversation is ``escalated`` the\ngraph is skipped: the message is saved and the result is the handoff (see docs/api/sse-contract.md).",
         "operationId": "ask_message_v1_conversations__conversation_id__messages_post",
         "security": [
           {
@@ -1311,7 +1311,7 @@
           "Escalation"
         ],
         "summary": "Resolve an escalated conversation",
-        "description": "Mark an escalated conversation as resolved.",
+        "description": "Mark an escalated conversation as resolved; the next customer message goes to the assistant again.",
         "operationId": "resolve_escalation_v1_escalations__escalation_id__resolve_post",
         "security": [
           {
@@ -1351,6 +1351,84 @@
             }
           }
         }
+      }
+    },
+    "/v1/chunks/{chunk_id}": {
+      "get": {
+        "tags": [
+          "Retrieval"
+        ],
+        "summary": "Get the passage behind a citation",
+        "description": "Text and metadata of one chunk of the caller's tenant or a global one.",
+        "operationId": "get_chunk_v1_chunks__chunk_id__get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "chunk_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Chunk Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ChunkResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/events": {
+      "get": {
+        "tags": [
+          "Events"
+        ],
+        "summary": "Live change notifications (SSE)",
+        "description": "Open the caller's event stream. Needs the bearer token, so use a fetch-based reader, not ``EventSource``.",
+        "operationId": "stream_events_v1_events_get",
+        "responses": {
+          "200": {
+            "description": "Server-Sent Events: `ready`, `job.updated`, `document.changed`, `message.created`, `conversation.updated`, `escalation.changed`, `resync`, `reauth`. Payloads carry ids only.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many open event streams for this user."
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     }
   },
@@ -1476,6 +1554,62 @@
           "file"
         ],
         "title": "Body_upload_document_v1_documents_post"
+      },
+      "ChunkResponse": {
+        "properties": {
+          "chunk_id": {
+            "type": "string",
+            "title": "Chunk Id"
+          },
+          "document_id": {
+            "type": "string",
+            "title": "Document Id"
+          },
+          "document_title": {
+            "type": "string",
+            "title": "Document Title",
+            "default": ""
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "default": ""
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "page": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Page"
+          },
+          "heading_path": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Heading Path"
+          },
+          "is_global": {
+            "type": "boolean",
+            "title": "Is Global",
+            "default": false
+          }
+        },
+        "type": "object",
+        "required": [
+          "chunk_id",
+          "document_id",
+          "text"
+        ],
+        "title": "ChunkResponse"
       },
       "ConversationDetailResponse": {
         "properties": {
@@ -2349,6 +2483,14 @@
     {
       "name": "Assistant",
       "description": "Conversations, SSE streaming generation, and human-in-the-loop action decisions."
+    },
+    {
+      "name": "Retrieval",
+      "description": "Passages behind citations."
+    },
+    {
+      "name": "Events",
+      "description": "Live change notifications (SSE): ids only, filtered by tenant, owner and role."
     },
     {
       "name": "Escalation",

@@ -22,14 +22,14 @@ and white, a little glass, no AI slop. Order: backend first, then UI slices, eac
 - [ ] Live check against Docker (create workspace, accept link, sign in, refresh, replay): run once the stack is up
 
 ## Slice 2: Backend the UI depends on
-- [ ] `GET /v1/chunks/{chunk_id}`: passage text and metadata, tenant-scoped including global rows
-- [ ] Handoff: while a conversation is escalated, customer messages go to the agent and the assistant is silent; resolving hands back
-- [ ] Persist the turn when the client disconnects (Stop button): shield persistence and ticket creation from cancellation
-- [ ] `GET /v1/events`: `platform/events` port with Postgres `LISTEN/NOTIFY` and in-memory adapters
-  - [ ] One listener per API process, reconnect, bounded per-subscriber queues, `resync` on drop, `reauth` at token expiry
-  - [ ] Filter by tenant, owner and role; per-user connection cap; exempt from `RateLimitMiddleware`
-  - [ ] Publishers: worker job status, documents, escalations, agent replies, conversation status
-- [ ] `docs/api/sse-contract.md`, `openapi.json`, ADR, unit, integration (two listeners) and security tests
+- [x] `GET /v1/chunks/{chunk_id}`: passage text and metadata, tenant-scoped including global rows
+- [x] Handoff: while a conversation is escalated, customer messages go to the agent and the assistant is silent; resolving hands back
+- [x] Persist the turn when the client disconnects (Stop button): shield persistence and ticket creation from cancellation
+- [x] `GET /v1/events`: `platform/events` port with Postgres `LISTEN/NOTIFY` and in-memory adapters
+  - [x] One listener per API process, reconnect, bounded per-subscriber queues, `resync` on drop, `reauth` at token expiry
+  - [x] Filter by tenant, owner and role; per-user connection cap; exempt from `RateLimitMiddleware`
+  - [x] Publishers: worker job status, documents, escalations, agent replies, conversation status
+- [x] `docs/api/sse-contract.md`, `openapi.json`, ADR, unit, integration (two listeners) and security tests
 
 ## Slice 3: Scaffold, design system, sign-in
 - [ ] `frontend/` with npm, strict TypeScript, ESLint, Vitest, Playwright; types from `docs/api/openapi.json` with a CI drift check

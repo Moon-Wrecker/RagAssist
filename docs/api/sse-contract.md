@@ -126,7 +126,8 @@ with a defined result. A support agent replies through `POST /v1/escalations/{id
 (`POST /v1/escalations/{id}/resolve`) sets the status to `resolved`; the next customer message goes to the assistant
 again, and a new escalation then opens a new ticket.
 
-- Streaming (`Accept: text/event-stream`): no `token` events; one `escalated` event with the open ticket, then `done`.
+- Streaming (`Accept: text/event-stream`): no `token` events; one `escalated` event with the open ticket (when the
+  ticket id is known), then `done`.
 
 ```sse
 event: escalated
