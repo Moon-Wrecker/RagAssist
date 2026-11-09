@@ -49,9 +49,16 @@ docker compose up -d postgres localstack mock-saas
 # Apply Alembic migrations (creates schema, HNSW/GIN indexes, and RLS policies)
 ragassist db upgrade
 
-# Seed demo tenants, users, and sample knowledge documents
+# Seed demo tenants and users; prints a one-time set-password link per demo account
 ragassist seed
+
+# Or create your own workspace; prints the first administrator's one-time link
+ragassist workspace create --name "Acme Inc" --slug acme-inc --admin-email you@example.com
 ```
+
+Open a link (`<WEB_BASE_URL>/accept#token=...`, or `POST /v1/auth/invites/accept` with the token) to set a password.
+People sign in with workspace slug, email and password; administrators add more people from the team API. See
+[ADR 0007](docs/adr/0007-accounts-and-sessions.md).
 
 ### 4. Run the API Server & Ingestion Worker
 
@@ -72,6 +79,11 @@ ragassist worker
 | `GET /healthz`, `GET /readyz` | Liveness and readiness probes | Public |
 | `GET /metrics` | Prometheus metrics endpoint | Bearer JWT (admin) |
 | `POST /v1/auth/token` | Issue development JWT (`development`/`test` only; needs the `X-Dev-Auth-Secret` header) | Dev secret |
+| `POST /v1/auth/login` | Sign in with workspace, email and password; sets the refresh cookie | Public |
+| `POST /v1/auth/refresh`, `POST /v1/auth/logout` | Rotate or end the session (refresh cookie + `Origin`) | Cookie |
+| `GET /v1/auth/me` | The signed-in user and workspace | Bearer JWT |
+| `POST /v1/auth/invites/accept` | Spend an invite or reset link: set a password and sign in | Public (token) |
+| `/v1/team/members`, `/v1/team/invites` | List and manage members, roles, invitations, reset links | Bearer JWT (admin) |
 | `POST /v1/documents` | Upload document (`PDF`, `MD`, `HTML`, `CSV`, `JSON`, `TXT`) for async ingestion | Bearer JWT |
 | `GET /v1/documents` | List tenant documents and ingestion status | Bearer JWT |
 | `GET /v1/documents/{id}` | Retrieve specific tenant document metadata | Bearer JWT |

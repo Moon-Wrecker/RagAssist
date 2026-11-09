@@ -77,9 +77,10 @@ def worker() -> None:
 
 
 def _register_operator_commands() -> None:
-    from ragassist.cli.ops import db_app, seed_command, token_command
+    from ragassist.cli.ops import db_app, seed_command, token_command, workspace_app
 
     app.add_typer(db_app, name="db")
+    app.add_typer(workspace_app, name="workspace")
     app.command("seed")(seed_command)
     app.command("token")(token_command)
 

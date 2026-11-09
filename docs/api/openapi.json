@@ -12,7 +12,7 @@
           "Observability"
         ],
         "summary": "Metrics Endpoint",
-        "description": "Expose Prometheus metrics in text format.",
+        "description": "Expose Prometheus metrics in text format (administrators only: it is process-wide telemetry).",
         "operationId": "metrics_endpoint_metrics_get",
         "responses": {
           "200": {
@@ -23,7 +23,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
       }
     },
     "/healthz": {
@@ -52,19 +57,18 @@
         }
       }
     },
-    "/v1/auth/token": {
+    "/v1/auth/login": {
       "post": {
         "tags": [
           "Authentication"
         ],
-        "summary": "Generate Dev Token",
-        "description": "Generate a valid JWT with tenant_id, user_id, and role claims.",
-        "operationId": "generate_dev_token_v1_auth_token_post",
+        "summary": "Sign in with workspace, email and password",
+        "operationId": "login_v1_auth_login_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/TokenRequest"
+                "$ref": "#/components/schemas/LoginRequest"
               }
             }
           },
@@ -76,10 +80,481 @@
             "content": {
               "application/json": {
                 "schema": {
+                  "$ref": "#/components/schemas/SessionOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invalid workspace, email or password."
+          },
+          "429": {
+            "description": "Too many attempts."
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Exchange the refresh cookie for a new access token (the cookie rotates)",
+        "operationId": "refresh_v1_auth_refresh_post",
+        "parameters": [
+          {
+            "name": "ragassist_refresh",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ragassist Refresh"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "End this session and clear the refresh cookie",
+        "operationId": "logout_v1_auth_logout_post",
+        "parameters": [
+          {
+            "name": "ragassist_refresh",
+            "in": "cookie",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Ragassist Refresh"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/auth/me": {
+      "get": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "The signed-in user and their workspace",
+        "operationId": "me_v1_auth_me_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MeOut"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/auth/invites/accept": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Spend an invite or password-reset link: set a password and sign in",
+        "operationId": "accept_link_v1_auth_invites_accept_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AcceptRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SessionOut"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "The link is invalid, used or expired."
+          },
+          "422": {
+            "description": "Password rejected."
+          }
+        }
+      }
+    },
+    "/v1/auth/token": {
+      "post": {
+        "tags": [
+          "Authentication"
+        ],
+        "summary": "Generate Dev Token",
+        "description": "Generate a valid JWT with tenant_id, user_id, and role claims.\n\nDevelopment and test only, and only for a caller that knows ``DEV_AUTH_SECRET`` (sent as ``X-Dev-Auth-Secret``):\nthe environment flag alone would let anyone who can reach a development stack sign in as any tenant's admin.",
+        "operationId": "generate_dev_token_v1_auth_token_post",
+        "parameters": [
+          {
+            "name": "x-dev-auth-secret",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Dev-Auth-Secret"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TokenRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
                   "$ref": "#/components/schemas/TokenResponse"
                 }
               }
             }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/team/members": {
+      "get": {
+        "tags": [
+          "Team"
+        ],
+        "summary": "Everyone in the workspace",
+        "operationId": "list_members_v1_team_members_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MemberOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Members V1 Team Members Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/team/members/{user_id}": {
+      "patch": {
+        "tags": [
+          "Team"
+        ],
+        "summary": "Change a member's role or status",
+        "operationId": "change_member_v1_team_members__user_id__patch",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MemberPatch"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MemberOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/team/members/{user_id}/reset-link": {
+      "post": {
+        "tags": [
+          "Team"
+        ],
+        "summary": "Issue a one-time password-reset link for a member",
+        "operationId": "issue_reset_link_v1_team_members__user_id__reset_link_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "User Id"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedLinkOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/team/invites": {
+      "get": {
+        "tags": [
+          "Team"
+        ],
+        "summary": "Pending invitations and reset links",
+        "operationId": "list_invites_v1_team_invites_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/InviteOut"
+                  },
+                  "type": "array",
+                  "title": "Response List Invites V1 Team Invites Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      },
+      "post": {
+        "tags": [
+          "Team"
+        ],
+        "summary": "Invite a person by email; returns the one-time link to give them",
+        "operationId": "create_invite_v1_team_invites_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InviteRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IssuedLinkOut"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/team/invites/{invite_id}": {
+      "delete": {
+        "tags": [
+          "Team"
+        ],
+        "summary": "Revoke a pending invitation",
+        "operationId": "revoke_invite_v1_team_invites__invite_id__delete",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "invite_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Invite Id"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
           },
           "422": {
             "description": "Validation Error",
@@ -207,7 +682,7 @@
           "Knowledge"
         ],
         "summary": "Delete a document and its indexed vectors",
-        "description": "Delete document by ID with tenant isolation verification.",
+        "description": "Delete document by ID with tenant isolation verification (administrators only, like upload).",
         "operationId": "delete_document_v1_documents__document_id__delete",
         "security": [
           {
@@ -257,7 +732,7 @@
           "Knowledge"
         ],
         "summary": "Re-index an existing document",
-        "description": "Trigger re-indexing of an existing document.",
+        "description": "Trigger re-indexing of an existing document (administrators only, like upload).",
         "operationId": "reindex_document_v1_documents__document_id__reindex_post",
         "security": [
           {
@@ -881,6 +1356,27 @@
   },
   "components": {
     "schemas": {
+      "AcceptRequest": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 200,
+            "title": "Token",
+            "description": "The token from the invite or reset link."
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 1024,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token",
+          "password"
+        ],
+        "title": "AcceptRequest"
+      },
       "ActionDecisionRequest": {
         "properties": {
           "approved": {
@@ -1394,6 +1890,215 @@
         "title": "IngestionJobResponse",
         "description": "Ingestion job progress and status details."
       },
+      "InviteOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          },
+          "created_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "kind",
+          "email",
+          "role",
+          "expires_at",
+          "created_at"
+        ],
+        "title": "InviteOut"
+      },
+      "InviteRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "title": "Email"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole",
+            "default": "user"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "InviteRequest"
+      },
+      "IssuedLinkOut": {
+        "properties": {
+          "invite_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Invite Id"
+          },
+          "kind": {
+            "type": "string",
+            "title": "Kind"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole"
+          },
+          "url": {
+            "type": "string",
+            "title": "Url",
+            "description": "Shown once. Give it to the person; only its hash is stored."
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Expires At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "invite_id",
+          "kind",
+          "email",
+          "role",
+          "url",
+          "expires_at"
+        ],
+        "title": "IssuedLinkOut"
+      },
+      "LoginRequest": {
+        "properties": {
+          "workspace": {
+            "type": "string",
+            "maxLength": 100,
+            "title": "Workspace",
+            "description": "The workspace slug."
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "title": "Email"
+          },
+          "password": {
+            "type": "string",
+            "maxLength": 1024,
+            "title": "Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "workspace",
+          "email",
+          "password"
+        ],
+        "title": "LoginRequest"
+      },
+      "MeOut": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/UserOut"
+          },
+          "workspace": {
+            "$ref": "#/components/schemas/WorkspaceOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "workspace"
+        ],
+        "title": "MeOut"
+      },
+      "MemberOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "has_password": {
+            "type": "boolean",
+            "title": "Has Password"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "role",
+          "status",
+          "has_password"
+        ],
+        "title": "MemberOut"
+      },
+      "MemberPatch": {
+        "properties": {
+          "role": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserRole"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(active|disabled)$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "title": "MemberPatch"
+      },
       "SendMessageRequest": {
         "properties": {
           "content": {
@@ -1418,6 +2123,38 @@
           "content"
         ],
         "title": "SendMessageRequest"
+      },
+      "SessionOut": {
+        "properties": {
+          "access_token": {
+            "type": "string",
+            "title": "Access Token"
+          },
+          "token_type": {
+            "type": "string",
+            "title": "Token Type",
+            "default": "bearer"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In",
+            "description": "Seconds until the access token expires."
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserOut"
+          },
+          "workspace": {
+            "$ref": "#/components/schemas/WorkspaceOut"
+          }
+        },
+        "type": "object",
+        "required": [
+          "access_token",
+          "expires_in",
+          "user",
+          "workspace"
+        ],
+        "title": "SessionOut"
       },
       "TokenRequest": {
         "properties": {
@@ -1478,6 +2215,34 @@
         ],
         "title": "TokenResponse"
       },
+      "UserOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email"
+          },
+          "role": {
+            "$ref": "#/components/schemas/UserRole"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "email",
+          "role",
+          "status"
+        ],
+        "title": "UserOut"
+      },
       "UserRole": {
         "type": "string",
         "enum": [
@@ -1527,6 +2292,30 @@
           "type"
         ],
         "title": "ValidationError"
+      },
+      "WorkspaceOut": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "slug"
+        ],
+        "title": "WorkspaceOut"
       }
     },
     "securitySchemes": {
@@ -1547,7 +2336,11 @@
     },
     {
       "name": "Authentication",
-      "description": "JWT authentication token issuance for development and testing."
+      "description": "Sign-in with workspace, email and password; refresh, sign-out, invite links."
+    },
+    {
+      "name": "Team",
+      "description": "Workspace administrators manage members, roles, invitations and reset links."
     },
     {
       "name": "Knowledge",

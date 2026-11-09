@@ -18,6 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from ragassist.modules.assistant.api.router import router as assistant_router
 from ragassist.modules.escalation.api.router import router as escalation_router
 from ragassist.modules.identity.api.router import router as auth_router
+from ragassist.modules.identity.api.team_router import router as team_router
 from ragassist.modules.knowledge.api.router import router as knowledge_router
 from ragassist.shared.config.settings import get_settings
 from ragassist.shared.observability.logging import configure_logging
@@ -35,7 +36,11 @@ TAGS_METADATA = [
     },
     {
         "name": "Authentication",
-        "description": "JWT authentication token issuance for development and testing.",
+        "description": "Sign-in with workspace, email and password; refresh, sign-out, invite links.",
+    },
+    {
+        "name": "Team",
+        "description": "Workspace administrators manage members, roles, invitations and reset links.",
     },
     {
         "name": "Knowledge",
@@ -106,6 +111,7 @@ def create_app() -> FastAPI:
 
     # Register module routers with API_V1_PREFIX (/v1)
     app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
+    app.include_router(team_router, prefix=settings.API_V1_PREFIX)
     app.include_router(knowledge_router, prefix=settings.API_V1_PREFIX)
     app.include_router(assistant_router, prefix=settings.API_V1_PREFIX)
     app.include_router(escalation_router, prefix=settings.API_V1_PREFIX)

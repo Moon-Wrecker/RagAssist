@@ -26,6 +26,9 @@ PUBLIC_EXACT = {
         "/v1/auth/token",
     ),  # dev token stub: gated per environment (see identity tests, DEFECT-08)
     ("GET", "/openapi.json"),
+    # Sign-in and spending an invite link are how a credential is obtained, so they cannot require one.
+    ("POST", "/v1/auth/login"),
+    ("POST", "/v1/auth/invites/accept"),
 }
 PUBLIC_PREFIXES = ("/docs", "/redoc")  # FastAPI's interactive documentation pages
 

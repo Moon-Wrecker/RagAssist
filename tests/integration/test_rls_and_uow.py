@@ -181,9 +181,10 @@ class TestInsertPolicy:
             await rows(
                 app_engines(),
                 None,
-                "INSERT INTO users (id, tenant_id, email, role, created_at) VALUES (:i, :t, 'x@a.example', 'user', now())",
+                "INSERT INTO users (id, tenant_id, email, role, created_at) VALUES (:i, :t, :e, 'user', now())",
                 i=uuid4(),
                 t=seed.tenant_a,
+                e=f"{uuid4()}@a.example",
             )
 
 
@@ -278,12 +279,14 @@ class TestUnitOfWorkOnARealSession:
     ) -> None:
         engine = app_engines()
         keep, drop = uuid4(), uuid4()
-        insert = "INSERT INTO users (id, tenant_id, email, role, created_at) VALUES (:i, :t, 'x@a.example', 'user', now())"
-        await rows(engine, seed.tenant_a, insert, i=keep, t=seed.tenant_a)
+        insert = "INSERT INTO users (id, tenant_id, email, role, created_at) VALUES (:i, :t, :e, 'user', now())"
+        await rows(engine, seed.tenant_a, insert, i=keep, t=seed.tenant_a, e=f"{keep}@a.example")
         with pytest.raises(RuntimeError):
 
             async def work(session: AsyncSession) -> None:
-                await session.execute(text(insert), {"i": drop, "t": seed.tenant_a})
+                await session.execute(
+                    text(insert), {"i": drop, "t": seed.tenant_a, "e": f"{drop}@a.example"}
+                )
                 raise RuntimeError("boom")
 
             await as_tenant(engine, seed.tenant_a, work)

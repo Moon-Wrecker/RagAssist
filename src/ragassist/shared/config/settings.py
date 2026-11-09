@@ -70,6 +70,21 @@ class Settings(BaseSettings):
     JWT_ACCESS_TOKEN_EXPIRE_MINUTES: int
     DEV_AUTH_SECRET: str = Field(min_length=16)
 
+    # --- Sign-in (workspace + email + password) ---
+    # Lifetime of the access token returned by login/refresh; the refresh cookie renews it.
+    AUTH_ACCESS_TOKEN_MINUTES: int = Field(ge=1)
+    AUTH_REFRESH_TOKEN_DAYS: int = Field(ge=1)
+    AUTH_INVITE_HOURS: int = Field(ge=1)
+    AUTH_MIN_PASSPHRASE_LENGTH: int = Field(ge=8)
+    # Send the refresh cookie over HTTPS only. Must be true behind TLS (staging, production).
+    AUTH_COOKIE_SECURE: bool
+    # Failed attempts allowed per account, and attempts allowed per client address, inside the window.
+    AUTH_LOGIN_MAX_FAILURES: int = Field(ge=1)
+    AUTH_LOGIN_MAX_PER_IP: int = Field(ge=1)
+    AUTH_LOGIN_WINDOW_SECONDS: int = Field(ge=1)
+    # Public origin of the web app; invite and password-reset links are built from it.
+    WEB_BASE_URL: str
+
     # --- AWS & LocalStack ---
     AWS_REGION: str
     USE_LOCALSTACK: bool
@@ -175,6 +190,13 @@ class Settings(BaseSettings):
                 f"postgresql+asyncpg://{quote(self.DB_ADMIN_USER, safe='')}:"
                 f"{quote(self.DB_ADMIN_PASSWORD, safe='')}@{target}"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _require_secure_cookie_over_tls(self) -> Settings:
+        """A refresh cookie sent over plain HTTP can be stolen on the wire, so staging and production insist."""
+        if self.APP_ENV in ("staging", "production") and not self.AUTH_COOKIE_SECURE:
+            raise ValueError(f"AUTH_COOKIE_SECURE must be true in {self.APP_ENV}.")
         return self
 
     @model_validator(mode="after")

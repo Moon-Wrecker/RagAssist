@@ -25,6 +25,7 @@ from ragassist.shared.config.settings import Settings, get_settings
 from ragassist.shared.security.jwt import UserRole, create_access_token
 
 db_app = typer.Typer(help="Database operations", no_args_is_help=True)
+workspace_app = typer.Typer(help="Workspace (tenant) administration", no_args_is_help=True)
 
 #: Demo tenants. The ids match the mock SaaS accounts, so account tools resolve for them.
 DEMO_TENANTS: dict[str, tuple[UUID, str]] = {
@@ -134,11 +135,69 @@ async def _seed(settings: Settings) -> list[str]:
     return lines
 
 
+async def _identity_services(settings: Settings):  # type: ignore[no-untyped-def]
+    """Identity services on the application role's connection (row-level security applies, as in the API)."""
+    from ragassist.modules.identity.adapters.postgres import PostgresIdentityStore
+    from ragassist.modules.identity.wiring import build_identity
+    from ragassist.shared.db.scoped import ScopedDatabase
+    from ragassist.shared.db.session import get_engine, get_session_factory
+
+    engine = get_engine(settings)
+    services = build_identity(settings, PostgresIdentityStore(ScopedDatabase(get_session_factory(settings))))
+    return services, engine
+
+
+async def _demo_links(settings: Settings) -> list[str]:
+    """One set-password link for each demo account (they are created without a password)."""
+    services, engine = await _identity_services(settings)
+    lines: list[str] = []
+    try:
+        for slug, (tenant_id, _) in DEMO_TENANTS.items():
+            for role in (UserRole.ADMIN, UserRole.AGENT, UserRole.USER):
+                link = await services.accounts.setup_link_for(tenant_id, demo_user_id(slug, role))
+                lines.append(f"  {slug:<7} {link.email:<28} {link.url}")
+    finally:
+        await engine.dispose()
+    return lines
+
+
 def seed_command() -> None:
     """Create the demo tenants (Acme, Globex) with an admin, an agent and a user each."""
-    for line in run_async(_seed(get_settings())):
+    settings = get_settings()
+    for line in run_async(_seed(settings)):
         typer.echo(line)
-    typer.echo("Mint a token with: ragassist token --tenant acme --role admin")
+    typer.echo("\nSet each account's password with its one-time link (valid for AUTH_INVITE_HOURS hours):")
+    for line in run_async(_demo_links(settings)):
+        typer.echo(line)
+    typer.echo("\nFor API testing without a password: ragassist token --tenant acme --role admin")
+
+
+async def _create_workspace(settings: Settings, name: str, slug: str, admin_email: str) -> tuple[str, str, str]:
+    services, engine = await _identity_services(settings)
+    try:
+        workspace, link = await services.accounts.create_workspace(name, slug, admin_email)
+    finally:
+        await engine.dispose()
+    return str(workspace.id), workspace.slug, link.url
+
+
+@workspace_app.command("create")
+def workspace_create(
+    name: str = typer.Option(..., "--name", help="Display name of the workspace"),
+    slug: str = typer.Option(..., "--slug", help="What people type at sign-in (lower-case, digits, hyphens)"),
+    admin_email: str = typer.Option(..., "--admin-email", help="Email of the first administrator"),
+) -> None:
+    """Create a workspace and print the one-time link its first administrator uses to set a password."""
+    from ragassist.shared.domain import DomainError
+
+    try:
+        workspace_id, final_slug, url = run_async(_create_workspace(get_settings(), name, slug, admin_email))
+    except DomainError as exc:
+        typer.echo(exc.message, err=True)
+        raise typer.Exit(code=1) from exc
+    typer.echo(f"Workspace '{final_slug}' created ({workspace_id}).")
+    typer.echo("Give the administrator this link; it is shown once and works once:")
+    typer.echo(url)
 
 
 def token_command(

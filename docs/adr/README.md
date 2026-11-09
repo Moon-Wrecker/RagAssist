@@ -10,3 +10,4 @@ This directory contains lightweight Architecture Decision Records documenting ke
 - [0004: Decision Layer First with Calibrated Probabilities](file:///d:/Coding/RagAssist-1/docs/adr/0004-decision-layer.md)
 - [0005: Toggleable Reranker Chain with CPU/GPU Graceful Fallback](file:///d:/Coding/RagAssist-1/docs/adr/0005-reranker-chain.md)
 - [0006: Per-User Conversation Access and Approval Bound to the Pending Action](file:///d:/Coding/RagAssist-1/docs/adr/0006-conversation-access-and-approval-binding.md)
+- [0007: Accounts, Passwords, Refresh Sessions and Invite Links](0007-accounts-and-sessions.md)
