@@ -4,7 +4,7 @@ import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 
 function Command({ className, ...props }: ComponentProps<typeof CommandPrimitive>) {
-  return <CommandPrimitive className={cn("flex w-full flex-col overflow-hidden rounded-lg", className)} {...props} />;
+  return <CommandPrimitive className={cn("flex w-full flex-col overflow-hidden rounded-3xl", className)} {...props} />;
 }
 
 function CommandInput({ className, ...props }: ComponentProps<typeof CommandPrimitive.Input>) {

@@ -9,4 +9,5 @@ export const queryKeys = {
   documents: ["documents"] as const,
   ingestionJob: (id: string) => ["ingestion-jobs", id] as const,
   teamMembers: ["team", "members"] as const,
+  teamInvites: ["team", "invites"] as const,
 };

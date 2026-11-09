@@ -1770,6 +1770,17 @@
             "type": "string",
             "title": "Status"
           },
+          "error_message": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Message"
+          },
           "created_at": {
             "type": "string",
             "title": "Created At"

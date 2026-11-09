@@ -30,7 +30,7 @@ test.describe("sign-in", () => {
     await page.goto("/sign-in");
     const values = await fillSignIn(page);
     await page.getByRole("button", { name: "Sign in" }).click();
-    await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "New conversation" })).toBeVisible();
     expect(api.lastBody("/v1/auth/login")).toEqual(values);
     await noHorizontalScroll(page);
   });
@@ -69,7 +69,7 @@ test.describe("sign-in", () => {
     await page.keyboard.press("Tab");
     await page.keyboard.type(values.password);
     await page.keyboard.press("Enter");
-    await expect(page.getByRole("heading", { name: "Chat" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "New conversation" })).toBeVisible();
   });
 
   test("the theme toggle switches between light and dark and is remembered", async ({ page }) => {

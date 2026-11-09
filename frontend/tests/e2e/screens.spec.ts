@@ -25,7 +25,7 @@ test("capture every screen", async ({ page }, info) => {
   await page.getByLabel("Email").fill("person@example.test");
   await page.getByLabel("Password").fill(`pw-${randomUUID()}`);
   await page.getByRole("button", { name: "Sign in" }).click();
-  await page.getByRole("heading", { name: "Chat" }).waitFor();
+  await page.getByRole("heading", { name: "New conversation" }).waitFor();
   await shot("chat");
   for (const [path, name] of [
     ["/inbox", "inbox"],

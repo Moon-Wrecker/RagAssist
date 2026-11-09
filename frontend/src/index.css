@@ -35,7 +35,7 @@
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
   --scrim: oklch(0 0 0 / 0.3);
-  --radius: 0.25rem;
+  --radius: 0.5rem;
 
   /* Glass levels. 1 = panels and containers that sit on the page; 2 = floating layers (top bar, dialogs,
      palette, menus). Never nest glass inside glass. The solid values are the fallbacks. */
@@ -44,12 +44,12 @@
   --glass-1-solid: oklch(0.985 0 0);
   --glass-2-solid: oklch(1 0 0);
   --glass-border: oklch(0 0 0 / 0.11);
-  --glass-edge: oklch(1 0 0 / 0.85);
-  --glass-shadow: 0 1px 2px oklch(0 0 0 / 0.04), 0 12px 32px -12px oklch(0 0 0 / 0.14);
+  --glass-edge: oklch(1 0 0 / 0.95);
+  --glass-shadow: 0 1px 2px oklch(0 0 0 / 0.04), 0 24px 56px -20px oklch(0 0 0 / 0.22);
 
   /* Backdrop: the darkest and lightest tones the glass can sit over (also read by the contrast test), and the
      strength of the grain. */
-  --ambient-lo: oklch(0.8 0 0);
+  --ambient-lo: oklch(0.74 0 0);
   --ambient-hi: oklch(1 0 0);
   --grain-opacity: 0.05;
 }
@@ -82,10 +82,10 @@
   --glass-2-solid: oklch(0.16 0 0);
   --glass-border: oklch(1 0 0 / 0.14);
   --glass-edge: oklch(1 0 0 / 0.16);
-  --glass-shadow: 0 1px 2px oklch(0 0 0 / 0.3), 0 16px 40px -12px oklch(0 0 0 / 0.55);
+  --glass-shadow: 0 1px 2px oklch(0 0 0 / 0.3), 0 28px 64px -20px oklch(0 0 0 / 0.7);
 
   --ambient-lo: oklch(0.05 0 0);
-  --ambient-hi: oklch(0.4 0 0);
+  --ambient-hi: oklch(0.5 0 0);
   --grain-opacity: 0.07;
 }
 
@@ -199,7 +199,7 @@
 .ambient > i {
   position: absolute;
   border-radius: 9999px;
-  filter: blur(72px);
+  filter: blur(56px);
   transform: translateZ(0);
 }
 .ambient > i:nth-child(1) {

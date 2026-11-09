@@ -203,6 +203,32 @@ class TestKnowledgeApi:
             assert doc_id_1 not in t2_ids
 
     @pytest.mark.asyncio
+    async def test_list_documents_shows_why_a_document_failed(self, app, tenant_1_admin_headers):
+        """The list carries the failure reason, so the UI can show it after a reload (no job id needed)."""
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            files = {"file": ("reason.md", b"Content", "text/markdown")}
+            up = await client.post("/v1/documents", files=files, headers=tenant_1_admin_headers)
+            doc_id = up.json()["document_id"]
+
+            fresh = await client.get("/v1/documents", headers=tenant_1_admin_headers)
+            item = next(d for d in fresh.json()["items"] if d["document_id"] == doc_id)
+            assert item["error_message"] is None
+
+            from ragassist.modules.knowledge.api.router import get_knowledge_store
+
+            store = get_knowledge_store()
+            store.documents[doc_id].update(
+                {"status": "failed", "error_message": "Could not read the file."}
+            )
+
+            failed = await client.get("/v1/documents", headers=tenant_1_admin_headers)
+            item = next(d for d in failed.json()["items"] if d["document_id"] == doc_id)
+            assert item["status"] == "failed"
+            assert item["error_message"] == "Could not read the file."
+
+    @pytest.mark.asyncio
     async def test_ingestion_job_status_and_isolation(
         self, app, tenant_1_admin_headers, tenant_2_admin_headers
     ):
