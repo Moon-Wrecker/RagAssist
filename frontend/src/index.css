@@ -105,8 +105,8 @@
 
   /* Glass fills, thin to thick, and their solid fallbacks (no backdrop-filter, or prefers-reduced-transparency).
      Thin = controls, Regular = navigation and bars, Thick = surfaces that hold content. */
-  --glass-thin: oklch(1 0 0 / 0.42);
-  --glass-regular: oklch(1 0 0 / 0.5);
+  --glass-thin: oklch(1 0 0 / 0.36);
+  --glass-regular: oklch(1 0 0 / 0.4);
   --glass-thick: oklch(1 0 0 / 0.8);
   --glass-thin-solid: oklch(0.97 0 0);
   --glass-regular-solid: oklch(0.98 0 0);
@@ -153,8 +153,8 @@
   --popover-foreground: oklch(0.985 0 0);
   --scrim: oklch(0 0 0 / 0.55);
 
-  --glass-thin: oklch(0.24 0 0 / 0.42);
-  --glass-regular: oklch(0.17 0 0 / 0.5);
+  --glass-thin: oklch(0.2 0 0 / 0.4);
+  --glass-regular: oklch(0.17 0 0 / 0.38);
   --glass-thick: oklch(0.14 0 0 / 0.8);
   --glass-thin-solid: oklch(0.22 0 0);
   --glass-regular-solid: oklch(0.17 0 0);
@@ -181,7 +181,7 @@
   --sidebar-w: 15rem;
   --sidebar-w-collapsed: 4.25rem;
   --header-h: 3.5rem;
-  --tabbar-h: 0rem;
+  --page-bottom: var(--gutter); /* the space the page leaves below its content: the gutter, or the phone tab bar */
   --page-max: 64rem; /* the one content column every page shares */
   --chat-max: 44rem;
   --r-control: 9999px; /* controls are capsules */
@@ -336,11 +336,6 @@
     background: transparent;
   }
 }
-/* A soft fade on the outer strip of a scroller (the gap between the glass bar and the window edge). */
-@utility scroll-fade {
-  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--gutter), #000 calc(100% - var(--gutter)), transparent 100%);
-}
-
 /* ---- Glass ----------------------------------------------------------------------------------------------------- */
 
 /* One recipe, three thicknesses: translucent fill; backdrop blur with a saturation and brightness lift; a bright 1px
@@ -467,23 +462,6 @@
     -webkit-mask:
       linear-gradient(#000 0 0) content-box xor,
       linear-gradient(#000 0 0);
-  }
-}
-
-/* Optional edge lensing: Chromium accepts an SVG filter inside backdrop-filter. src/background/lens.ts adds the
-   .lens class to <html> only where that works; everything else keeps the plain blur recipe above. */
-@utility glass-lens {
-  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-    :root.lens & {
-      -webkit-backdrop-filter: url("#ragassist-lens") blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
-      backdrop-filter: url("#ragassist-lens") blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
-    }
-  }
-  @media (prefers-reduced-transparency: reduce) {
-    :root.lens & {
-      -webkit-backdrop-filter: none;
-      backdrop-filter: none;
-    }
   }
 }
 

@@ -1,15 +1,13 @@
 import { startCursor } from "@/lib/cursor";
 import { startPointerLight } from "@/lib/pointer-light";
-import { enableLens } from "./lens";
 import { startLiquid, type LiquidHandle } from "./liquid";
 
 let liquid: LiquidHandle | null = null;
 
-/** Starts the non-React layers once: the liquid canvas, the glass light that follows the pointer, the lens, the cursor. */
+/** Starts the non-React layers once: the liquid canvas, the glass light that follows the pointer, the cursor. */
 export function startBackdrop(): void {
   liquid = startLiquid();
   startPointerLight();
-  enableLens();
   startCursor();
 }
 

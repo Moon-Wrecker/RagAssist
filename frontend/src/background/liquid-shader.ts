@@ -81,8 +81,10 @@ void main() {
   float hi = mix(CENTRE, EDGE, edge);
 
   // A soft dark scrim under the reading column.
-  float col = 1.0 - smoothstep(uColumn.y * 0.55, uColumn.y * 1.25, abs(uv.x - uColumn.x));
-  hi = mix(hi, SCRIM, col * (1.0 - edge * 0.6));
+  // Inside the column the ceiling is SCRIM everywhere, so page text sits on at most SCRIM (+ grain): the contrast test
+  // relies on this. Soft shoulders on both sides let the brighter liquid come back outside the column.
+  float col = 1.0 - smoothstep(uColumn.y * 0.92, uColumn.y * 1.2 + 0.02, abs(uv.x - uColumn.x));
+  hi = mix(hi, SCRIM, col);
 
   float lum = mix(FLOOR, hi, ink);
   // Light theme is the inverse of the dark one.
