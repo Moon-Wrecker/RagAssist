@@ -71,6 +71,9 @@ def get_cache_service() -> CacheService:
         from ragassist.shared.config.settings import get_settings
 
         _service = build_cache_service(get_settings())
+        from ragassist.platform.cache.metrics import install_cache_metrics
+
+        install_cache_metrics(_service)
     return _service
 
 
