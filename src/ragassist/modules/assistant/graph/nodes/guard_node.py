@@ -18,7 +18,16 @@ def make_guard_node(decision_service: DecisionService):  # type: ignore[no-untyp
             "decider_used": verdict.provider_used,
         }
         if not is_safe:
-            updates["answer"] = "I cannot process this request because it violates safety guidelines."
+            if "safety_check_error" in verdict.violation_categories:
+                # Fail closed, but do not accuse the person: the check itself did not run.
+                updates["answer"] = (
+                    "I could not run the safety check just now, so I cannot answer yet. "
+                    "Please try again in a moment."
+                )
+            else:
+                updates["answer"] = (
+                    "I cannot process this request because it violates safety guidelines."
+                )
             updates["status"] = "blocked"
             updates["escalated"] = False
             updates["citations"] = []
