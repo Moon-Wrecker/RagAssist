@@ -55,7 +55,7 @@ function PassageBody({ source }: { source: OpenSource }) {
 
   if (query.isPending) {
     return (
-      <p role="status" className="font-mono text-sm text-muted-foreground">
+      <p role="status" className="text-meta text-muted-foreground">
         Loading the passage
       </p>
     );
@@ -74,7 +74,7 @@ function PassageBody({ source }: { source: OpenSource }) {
             Try again
           </Button>
         )}
-        <p className="font-mono text-xs text-muted-foreground">{citation.title || citation.chunkId}</p>
+        <p className="text-meta text-muted-foreground">{citation.title || citation.chunkId}</p>
       </div>
     );
   }
@@ -84,12 +84,12 @@ function PassageBody({ source }: { source: OpenSource }) {
   return (
     <article className="space-y-4">
       <header className="space-y-1">
-        <h2 className="text-base font-semibold break-words">{passage.document_title || citation.title || "Untitled document"}</h2>
+        <h2 className="text-base font-medium break-words">{passage.document_title || citation.title || "Untitled document"}</h2>
         {passage.title && passage.title !== passage.document_title ? (
           <p className="text-sm text-muted-foreground break-words">{passage.title}</p>
         ) : null}
         {where || passage.is_global ? (
-          <p className="font-mono text-xs text-muted-foreground break-words">
+          <p className="text-meta break-words text-muted-foreground">
             {[where, passage.is_global ? "shared knowledge" : ""].filter((part) => part !== "").join("  ·  ")}
           </p>
         ) : null}

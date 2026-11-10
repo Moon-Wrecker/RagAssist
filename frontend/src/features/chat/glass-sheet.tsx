@@ -8,9 +8,9 @@ import { cn } from "@/lib/utils";
 export type SheetPlacement = "left" | "right" | "bottom";
 
 const placementClass: Record<SheetPlacement, string> = {
-  left: "inset-y-3 left-3 w-[min(22rem,calc(100vw-1.5rem))] rounded-3xl",
-  right: "inset-y-3 right-3 w-[min(26rem,calc(100vw-1.5rem))] rounded-3xl",
-  bottom: "inset-x-0 bottom-0 max-h-[78dvh] rounded-t-3xl border-b-0",
+  left: "inset-y-3 left-3 w-[min(22rem,calc(100vw-1.5rem))] rounded-(--r-bar)",
+  right: "inset-y-3 right-3 w-[min(26rem,calc(100vw-1.5rem))] rounded-(--r-bar)",
+  bottom: "inset-x-(--gutter) bottom-(--gutter) max-h-[78dvh] rounded-(--r-bar)",
 };
 
 const placementMotion: Record<SheetPlacement, { x?: string; y?: string }> = {
@@ -75,7 +75,7 @@ export function GlassSheet({
             >
               <motion.div
                 className={cn(
-                  "glass-2 fixed z-50 flex flex-col text-popover-foreground",
+                  "glass-thick fixed z-50 flex flex-col text-popover-foreground",
                   placementClass[placement],
                   className,
                 )}
@@ -86,13 +86,13 @@ export function GlassSheet({
               >
                 <div className="flex items-start justify-between gap-3 p-5 pb-3">
                   <div className="min-w-0">
-                    <DialogPrimitive.Title className="font-mono text-xs uppercase tracking-wide text-muted-foreground">
+                    <DialogPrimitive.Title className="text-meta text-muted-foreground">
                       {title}
                     </DialogPrimitive.Title>
                     <DialogPrimitive.Description className="sr-only">{description}</DialogPrimitive.Description>
                   </div>
                   <DialogPrimitive.Close asChild>
-                    <Button variant="ghost" size="icon" aria-label="Close" className="-mt-2 -mr-2 shrink-0 rounded-full">
+                    <Button variant="ghost" size="icon-sm" aria-label="Close" className="-mt-2 -mr-2 shrink-0">
                       <X aria-hidden />
                     </Button>
                   </DialogPrimitive.Close>

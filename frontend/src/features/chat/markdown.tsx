@@ -53,7 +53,7 @@ function CitationMarker({
       aria-label={label}
       title={label}
       onClick={(event) => onOpen(citation, number, event.currentTarget)}
-      className="mx-0.5 inline-flex min-h-6 min-w-6 items-center justify-center rounded-full border border-border-strong px-1.5 align-baseline font-mono text-[0.6875rem] leading-none text-foreground transition-colors hover:bg-accent"
+      className="press text-meta mx-0.5 inline-flex h-[1.375rem] min-w-[1.375rem] items-center justify-center rounded-full bg-accent px-1.5 align-baseline text-[0.6875rem] leading-none text-foreground hover:bg-border"
     >
       {number}
     </button>
@@ -77,14 +77,14 @@ function buildComponents(citations: readonly Citation[], open: OpenCitation): Co
     function StyledElement({ children, className: extra, ...props }: ElementProps) {
       return createElement(tag, { ...omitNode(props), className: cn(className, extra) }, markers ? mark(children) : children);
     };
-  const heading = (tag: string) => styled(tag, "mt-6 mb-2 text-base font-semibold first:mt-0", true);
+  const heading = (tag: string) => styled(tag, "mt-6 mb-2 text-base font-medium first:mt-0", true);
 
   return {
     p: styled("p", "my-3 first:mt-0 last:mb-0", true),
     li: styled("li", "my-1", true),
     td: styled("td", "border-b px-3 py-1.5 align-top", true),
     th: styled("th", "border-b border-border-strong px-3 py-1.5 text-left font-medium", true),
-    strong: styled("strong", "font-semibold", true),
+    strong: styled("strong", "font-medium", true),
     em: styled("em", "italic", true),
     h1: heading("h1"),
     h2: heading("h2"),
@@ -97,13 +97,13 @@ function buildComponents(citations: readonly Citation[], open: OpenCitation): Co
     blockquote: styled("blockquote", "my-3 border-l-2 border-border-strong pl-4 text-muted-foreground", false),
     hr: styled("hr", "my-6", false),
     table: ({ children, ...props }: ElementProps) => (
-      <div className="my-3 overflow-x-auto">
+      <div className="scroll-area my-3 overflow-x-auto">
         <table {...omitNode(props)} className="w-full border-collapse text-sm">
           {children}
         </table>
       </div>
     ),
-    pre: styled("pre", "my-3 overflow-x-auto rounded-md border bg-accent p-3 font-mono text-[0.8125rem] leading-relaxed", false),
+    pre: styled("pre", "scroll-area my-3 overflow-x-auto rounded-xl bg-accent p-3 font-mono text-[0.8125rem] leading-relaxed", false),
     code: ({ className, children, ...props }: ElementProps) => (
       <code {...omitNode(props)} className={cn("font-mono text-[0.875em]", !className && "rounded-sm bg-accent px-1 py-0.5", className)}>
         {children}
