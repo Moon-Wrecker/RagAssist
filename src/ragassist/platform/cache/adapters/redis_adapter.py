@@ -73,7 +73,7 @@ class RedisCache:
             self._misses += 1
             return None
         self._hits += 1
-        return bytes(value)
+        return value if isinstance(value, bytes) else str(value).encode("utf-8")
 
     async def set(self, key: str, value: bytes, ttl_seconds: int) -> bool:
         if ttl_seconds <= 0:
