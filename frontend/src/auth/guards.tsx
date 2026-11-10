@@ -45,7 +45,7 @@ export function RequireRole({ roles }: { roles: readonly Role[] }) {
   if (state.status !== "authenticated") return <Restoring />;
   if (!roles.includes(state.user.role)) {
     return (
-      <StatusPage title="This page is not available to your role" body="Ask a workspace admin if you need access.">
+      <StatusPage title="This page is not available to your role" body="Ask a workspace admin if you need access." embedded>
         <Button asChild variant="secondary">
           <Link to="/">Back to chat</Link>
         </Button>

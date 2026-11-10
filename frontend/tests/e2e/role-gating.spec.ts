@@ -17,6 +17,14 @@ test.describe("role gating for the inbox, knowledge and team pages", () => {
     expect(dataCalls).toEqual([]);
   });
 
+  test("the not-allowed page has exactly one main landmark", async ({ page }) => {
+    await mockAdminApi(page, { role: "user" });
+    await page.goto("/inbox");
+    await expect(page.getByRole("heading", { name: BLOCKED })).toBeVisible();
+    await expect(page.locator("main")).toHaveCount(1);
+    await expect(page.getByRole("main")).toHaveCount(1);
+  });
+
   test("an agent gets the inbox but not knowledge or team", async ({ page }) => {
     await mockAdminApi(page, { role: "agent" });
     await page.goto("/inbox");
