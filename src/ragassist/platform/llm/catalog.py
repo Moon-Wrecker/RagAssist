@@ -89,6 +89,20 @@ class ModelCatalog:
         canonical_id = self.resolve_model_id(key_or_alias)
         return self._models[canonical_id]
 
+    def find_model(
+        self, name: str, provider_name: str | None = None
+    ) -> ModelDefinitionConfig | None:
+        """The model whose key, alias or API model name equals ``name`` (any case), or None."""
+        low = name.strip().lower()
+        for alias, key in self._aliases.items():
+            if alias.lower() == low and key in self._models:
+                return self._models[key]
+        for key, model in self._models.items():
+            names = (key.lower(), model.model_name.lower())
+            if low in names and provider_name in (None, model.provider):
+                return model
+        return None
+
     def get_capabilities(self, key_or_alias: str) -> ModelCapabilities:
         """Get domain ModelCapabilities for a model."""
         model = self.get_model(key_or_alias)

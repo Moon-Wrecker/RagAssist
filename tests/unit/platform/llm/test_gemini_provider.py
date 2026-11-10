@@ -284,7 +284,7 @@ class TestUnconfiguredGeminiIsSkipped:
         )
         assert catalog.resolve_role_chain("generator", settings=settings) == [
             "gpt-4o",
-            "claude-3-5-sonnet",
+            "claude-sonnet-5-5",
             "openrouter-llama-3.1-70b",
         ]
 
