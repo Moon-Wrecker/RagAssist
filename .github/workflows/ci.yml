@@ -184,6 +184,45 @@ jobs:
           path: frontend/playwright-report/
           if-no-files-found: ignore
 
+  web-image:
+    # Web delivery (ADR 0014): the image builds (type-check + vite build inside it), nginx accepts the rendered
+    # templates, and the running container answers with the headers the CSP and caching rules promise. No API, no
+    # database and no secret: the values come from .env.example, and `api` is pointed at loopback only so nginx can
+    # resolve its upstream. Image builds are cached by layer, so this stays a few minutes at most.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the web image
+        run: docker build -f infra/docker/web.Dockerfile -t ragassist-web:ci .
+      - name: Render the nginx templates and test the configuration
+        run: |
+          grep -E '^WEB_(PORT|SERVER_NAME|API_UPSTREAM|HSTS)=' .env.example > "$RUNNER_TEMP/web.env"
+          set -a; . "$RUNNER_TEMP/web.env"; set +a
+          docker run --rm --env-file "$RUNNER_TEMP/web.env" --add-host "${WEB_API_UPSTREAM%%:*}:127.0.0.1" \
+            ragassist-web:ci nginx -t
+      - name: Container serves the app with the promised headers
+        run: |
+          set -a; . "$RUNNER_TEMP/web.env"; set +a
+          docker run -d --name web-ci --env-file "$RUNNER_TEMP/web.env" --add-host "${WEB_API_UPSTREAM%%:*}:127.0.0.1" \
+            -p "127.0.0.1:${WEB_PORT}:${WEB_PORT}" ragassist-web:ci
+          for _ in $(seq 1 20); do
+            curl -sf "http://127.0.0.1:${WEB_PORT}/web-healthz" >/dev/null && break
+            sleep 1
+          done
+          base="http://127.0.0.1:${WEB_PORT}"
+          index="$(curl -si "$base/sign-in")"
+          echo "$index" | grep -qi '^content-security-policy: .*script-src .self.;'
+          echo "$index" | grep -qi '^cache-control: no-cache'
+          echo "$index" | grep -qi '^x-content-type-options: nosniff'
+          ! echo "$index" | grep -qi '^strict-transport-security'
+          asset="$(curl -s "$base/" | grep -o '/assets/[^"]*\.js' | head -1)"
+          curl -sI "$base$asset" | grep -qi '^cache-control: public, max-age=31536000, immutable'
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$base/assets/missing.js")" = 404
+          test "$(curl -s -o /dev/null -w '%{http_code}' "$base/.env")" = 404
+      - name: Container logs on failure
+        if: failure()
+        run: docker logs web-ci || true
+
   flake-nightly:
     # Plan section 8: a test that fails under another random order is a flake.
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
