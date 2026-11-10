@@ -68,3 +68,4 @@ monochrome, glass as the primary surface style over a calm monochrome backdrop, 
 - The sign-in throttle is per process (ADR 0007).
 - Two simultaneous refreshes from one browser can end the session; the client refreshes single-flight.
 - An access token outlives a role change or a disable by up to `AUTH_ACCESS_TOKEN_MINUTES`.
+- The CI `frontend` job is suspended (skipped unless the repository variable `RUN_FRONTEND_CI` is `true`) while the UI keeps changing; the checks still run locally (`npm run lint`, `typecheck`, `api:check`, `test`, `e2e`).

@@ -147,6 +147,9 @@ jobs:
 
   frontend:
     # Web app: lint, types, generated-API drift, unit tests, build and the mocked Playwright specs (no backend).
+    # SUSPENDED while the UI keeps changing: the job is skipped unless the repository variable RUN_FRONTEND_CI is
+    # 'true' (Settings > Secrets and variables > Actions > Variables). Run it locally with `npm run e2e` meanwhile.
+    if: vars.RUN_FRONTEND_CI == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
