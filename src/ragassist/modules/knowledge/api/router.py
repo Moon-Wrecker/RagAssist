@@ -12,7 +12,7 @@ import mimetypes
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID, uuid4
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, Response, UploadFile, status
 from pydantic import BaseModel, Field
 
 from ragassist.modules.knowledge.application import UploadCommand, UploadDocument
@@ -33,6 +33,7 @@ from ragassist.platform.events import (
 from ragassist.platform.queue.sqs_adapter import InMemoryMessageQueue, SQSMessageQueue
 from ragassist.platform.storage.s3_adapter import InMemoryObjectStore, S3ObjectStore
 from ragassist.shared.config.settings import get_settings
+from ragassist.shared.http_cache import etag_of, if_none_match_matches, validator_headers
 from ragassist.shared.security.deps import get_current_principal
 from ragassist.shared.security.jwt import Principal, UserRole
 
@@ -340,14 +341,20 @@ async def upload_document(
     "/documents",
     response_model=DocumentListResponse,
     summary="List tenant documents",
+    # If-None-Match -> 304 is read from ``request`` (not declared) so the OpenAPI schema stays unchanged.
 )
 async def list_documents(
+    request: Request,
+    response: Response,
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
     principal: Principal = Depends(get_current_principal),
     knowledge_store: InMemoryDocumentStore = Depends(get_knowledge_store),
-) -> DocumentListResponse:
+) -> Any:
     """List documents belonging exclusively to the authenticated tenant."""
+    # ``ETag`` plus ``Cache-Control: private, no-cache``: the browser keeps a copy but asks every time, and an
+    # unchanged list costs a ``304`` with no body. No ``max-age``: upload progress is live and a stale list would
+    # show a finished document as still processing.
     docs, total = await knowledge_store.list_documents(str(principal.tenant_id), limit=limit, offset=offset)
     items = [
         DocumentSummary(
@@ -363,7 +370,13 @@ async def list_documents(
         )
         for d in docs
     ]
-    return DocumentListResponse(items=items, total=total)
+    body = DocumentListResponse(items=items, total=total)
+    etag = etag_of(body.model_dump_json().encode("utf-8"))
+    headers = validator_headers(etag, "private, no-cache")
+    if if_none_match_matches(request.headers.get("if-none-match"), etag):
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=headers)
+    response.headers.update(headers)
+    return body
 
 
 @router.delete(

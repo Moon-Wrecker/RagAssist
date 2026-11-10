@@ -296,7 +296,9 @@ async def build_runtime(settings: Settings) -> Runtime:
 
     catalog, llm_settings = catalog_for(settings)
     llm = LLMService(catalog, create_default_llm_registry(llm_settings), llm_settings)
-    embeddings = build_embedding_service(settings)
+    from ragassist.platform.cache import get_cache_service
+
+    embeddings = build_embedding_service(settings, get_cache_service())
     decisions = build_decision_service(settings, llm_service=llm, embedding_service=embeddings)
     reranker = build_reranker_chain(settings)
 
@@ -328,6 +330,7 @@ async def build_runtime(settings: Settings) -> Runtime:
         reranker=reranker,
         tools=tools,
         checkpointer=checkpointer,
+        cache=get_cache_service(),
     )
 
     events = PostgresEventBus(
@@ -338,6 +341,9 @@ async def build_runtime(settings: Settings) -> Runtime:
     )
     await events.start()
     closers.append(events.stop)
+    from ragassist.platform.events import attach_cache_invalidation
+
+    attach_cache_invalidation(events.hub)  # document.changed (from the API and the worker) drops cached retrieval
 
     logger.info("runtime.started", persistence=settings.PERSISTENCE_BACKEND)
     return Runtime(

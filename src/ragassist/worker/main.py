@@ -170,7 +170,9 @@ async def main() -> None:
     settings = get_settings()
     queue = SQSMessageQueue(settings)
     store = S3ObjectStore(settings)
-    embedder = build_embedding_service(settings)
+    from ragassist.platform.cache import get_cache_service
+
+    embedder = build_embedding_service(settings, get_cache_service())
     chunker = HybridChunker.from_settings(settings, tokenizer=RegexTokenCounter())
 
     parsers = {

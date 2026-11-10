@@ -50,6 +50,8 @@ from ragassist.modules.assistant.graph.nodes.verify_grounding_node import (
     route_after_grounding,
 )
 from ragassist.modules.assistant.graph.state import AssistantState
+from ragassist.modules.assistant.graph.verdict_cache import VerdictCache
+from ragassist.modules.retrieval.application.cache import RetrievalResultCache
 
 NODE_NAMES: tuple[str, ...] = (
     "guard_input",
@@ -106,16 +108,29 @@ def build_graph(
     reranker: Any,
     tools: Any,
     checkpointer: Any = None,
+    cache: Any = None,
     **kwargs: Any,
 ) -> Any:
-    """Build and compile the Assistant StateGraph with checkpointing and interrupt approval."""
+    """Build and compile the Assistant StateGraph with checkpointing and interrupt approval.
+
+    ``cache`` (a ``CacheService``, ADR 0015) turns on the short-lived retrieval and safety/router verdict caches;
+    without it the graph behaves exactly as before.
+    """
     builder = StateGraph(AssistantState)
+    verdicts = retrieval_cache = None
+    if cache is not None and cache.enabled:
+        verdicts = VerdictCache(
+            cache,
+            decider_chain=str(getattr(settings, "DECIDER_CHAIN", "")),
+            router_chain=str(getattr(settings, "ROUTER_DECIDER_CHAIN", "")),
+        )
+        retrieval_cache = RetrievalResultCache(cache)
 
     # 1. Register nodes
-    builder.add_node("guard_input", make_guard_node(decision_service))
-    builder.add_node("router", make_router_node(decision_service))
+    builder.add_node("guard_input", make_guard_node(decision_service, verdicts))
+    builder.add_node("router", make_router_node(decision_service, verdicts))
     builder.add_node("rewrite", make_rewrite_node())
-    builder.add_node("hybrid_retrieve", make_hybrid_retrieve_node(retriever))
+    builder.add_node("hybrid_retrieve", make_hybrid_retrieve_node(retriever, retrieval_cache))
     builder.add_node("rerank", make_rerank_node(reranker))
     builder.add_node("grade_relevance", make_grade_relevance_node(decision_service))
     builder.add_node("account_agent", make_account_agent_node(dict(generator_tiers), tools))

@@ -152,11 +152,23 @@ class TestFailureHandling:
         answer = await LLMStructuredDeciderAdapter(chat_model=model).evaluate_choice("x", ROUTE)
         assert answer.choice == "saas_action" and answer.confidence == pytest.approx(0.9)
 
-    async def test_failed_predicate_is_flagged_as_uninformative_by_probability(self) -> None:
-        """Fallback predicate must not look like a confident verdict."""
-        model = ScriptedChatModel(script=[RuntimeError("boom")])
-        answer = await LLMStructuredDeciderAdapter(chat_model=model).evaluate_predicate("x", SAFETY)
-        assert answer.probability == pytest.approx(0.5)
+    async def test_a_failed_predicate_raises_instead_of_inventing_a_verdict(self) -> None:
+        """A made-up verdict hides the outage from the fallback chain, so the next decider never runs."""
+        model = ScriptedChatModel(script=[RuntimeError("boom"), RuntimeError("boom")])
+        with pytest.raises(RuntimeError):
+            await LLMStructuredDeciderAdapter(chat_model=model).evaluate_predicate("x", SAFETY)
+
+    async def test_a_failed_score_raises_instead_of_inventing_a_score(self) -> None:
+        model = ScriptedChatModel(script=[RuntimeError("boom"), RuntimeError("boom")])
+        with pytest.raises(RuntimeError):
+            await LLMStructuredDeciderAdapter(chat_model=model).evaluate_score("x", SCORE)
+
+    def test_the_name_can_be_set_so_traces_show_which_model_decided(self) -> None:
+        model = ScriptedChatModel(script=["x"])
+        assert LLMStructuredDeciderAdapter(chat_model=model, name="llm_structured_2").name == (
+            "llm_structured_2"
+        )
+        assert LLMStructuredDeciderAdapter(chat_model=model).name == "llm_structured"
 
 
 class TestBatch:

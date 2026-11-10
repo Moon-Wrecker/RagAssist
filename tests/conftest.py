@@ -208,6 +208,16 @@ def _fresh_event_bus() -> Iterator[None]:
 
 
 @pytest.fixture(autouse=True)
+def _fresh_cache_service() -> Iterator[None]:
+    """The cache facade is process-wide (ADR 0015); every test starts with an empty one built from its settings."""
+    from ragassist.platform.cache import reset_cache_service
+
+    reset_cache_service()
+    yield
+    reset_cache_service()
+
+
+@pytest.fixture(autouse=True)
 def _offline_assistant_graph(
     request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
 ) -> None:

@@ -24,14 +24,20 @@ class AnthropicAdapter(ChatModelProvider):
         return catalog.resolve_pricing(model_name, provider_name="anthropic")
 
     def get_capabilities(self, model_name: str) -> ModelCapabilities:
+        from ragassist.platform.llm.catalog import ModelCatalog
+
         pricing = self.get_pricing(model_name)
+        # The catalogue is the source of truth for models it lists (Claude 5.x: 1M window, vision on
+        # every tier); the heuristics only cover model names the catalogue does not know.
+        catalog = ModelCatalog.load_from_yaml(self.settings.MODELS_CONFIG_PATH)
+        known = catalog.find_model(model_name, provider_name="anthropic")
         return ModelCapabilities(
             supports_tools=True,
             supports_json_schema=True,
             supports_streaming=True,
             supports_logprobs=False,
-            supports_vision="sonnet" in model_name.lower(),
-            context_window=200_000,
+            supports_vision=known.capabilities.vision if known else "sonnet" in model_name.lower(),
+            context_window=known.context_window if known else 200_000,
             pricing=pricing,
         )
 

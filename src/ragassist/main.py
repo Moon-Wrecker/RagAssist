@@ -25,6 +25,8 @@ from ragassist.platform.events.router import router as events_router
 from ragassist.shared.config.settings import get_settings
 from ragassist.shared.observability.logging import configure_logging
 from ragassist.shared.observability.metrics import setup_observability
+from ragassist.platform.cache import get_shared_counters
+from ragassist.shared.http_cache import NoStoreMiddleware
 from ragassist.shared.security.rate_limiter import RateLimitMiddleware
 
 TAGS_METADATA = [
@@ -71,6 +73,7 @@ TAGS_METADATA = [
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     """Start the PostgreSQL runtime (pools, checkpointer, graph, events listener) when PERSISTENCE_BACKEND=postgres."""
     from ragassist.modules.assistant.application.turns import drain
+    from ragassist.platform.cache import shutdown_cache
     from ragassist.shared.observability.tracing import configure_langsmith, shutdown_tracing
 
     settings = get_settings()
@@ -81,6 +84,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         finally:
             await drain()
             await shutdown_tracing()
+            await shutdown_cache()
         return
     from ragassist.runtime import start_runtime, stop_runtime
 
@@ -91,6 +95,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await drain()  # finish in-flight assistant turns before the pools they use close
         await shutdown_tracing()  # then send what the traces still hold
         await stop_runtime()
+        await shutdown_cache()  # the Redis pool, when there is one
 
 
 def create_app() -> FastAPI:
@@ -119,7 +124,9 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(RateLimitMiddleware, shared=get_shared_counters())
+    # Outermost, so a 401 or a 429 on a sign-in or event route is ``no-store`` too (ADR 0015).
+    app.add_middleware(NoStoreMiddleware, prefix=settings.API_V1_PREFIX)
 
     # Observability & Metrics (/metrics & X-Process-Time)
     setup_observability(app)

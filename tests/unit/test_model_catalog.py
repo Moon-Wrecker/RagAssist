@@ -58,8 +58,8 @@ def test_model_catalog_alias_and_model_resolution():
 
     assert catalog.resolve_model_id("gen-default") == "gpt-4o"
     assert catalog.resolve_model_id("fast-default") == "gpt-4o-mini"
-    assert catalog.resolve_model_id("claude-sonnet") == "claude-3-5-sonnet"
-    assert catalog.resolve_model_id("claude-haiku") == "claude-3-5-haiku"
+    assert catalog.resolve_model_id("claude-sonnet") == "claude-sonnet-5-5"
+    assert catalog.resolve_model_id("claude-haiku") == "claude-haiku-5-5"
     assert catalog.resolve_model_id("gpt-4o") == "gpt-4o"
 
     with pytest.raises(KeyError) as exc_info:
@@ -93,15 +93,15 @@ def test_role_chain_resolution_with_settings_override():
     # Default role chain from YAML
     default_gen = catalog.resolve_role_chain("generator")
     assert default_gen[0] == "gpt-4o"
-    assert "claude-3-5-sonnet" in default_gen
+    assert "claude-sonnet-5-5" in default_gen
 
     # Custom settings override
     custom_settings = Settings(
-        LLM_ROLE_GENERATOR_PRIMARY="claude-3-5-sonnet",
+        LLM_ROLE_GENERATOR_PRIMARY="claude-sonnet-5-5",
         LLM_ROLE_GENERATOR_FALLBACKS="gpt-4o-mini,local-llama-3.1-8b",
     )
     overridden_gen = catalog.resolve_role_chain("generator", settings=custom_settings)
-    assert overridden_gen == ["claude-3-5-sonnet", "gpt-4o-mini", "local-llama-3.1-8b"]
+    assert overridden_gen == ["claude-sonnet-5-5", "gpt-4o-mini", "local-llama-3.1-8b"]
 
 
 def test_provider_registry_and_service_instantiation():
@@ -132,10 +132,10 @@ def test_llm_service_get_chat_model():
     assert openai_model.temperature == 0.2
     assert openai_model.max_tokens == 1000
 
-    # claude-3-5-sonnet should instantiate ChatAnthropic
-    anthropic_model = service.get_chat_model("claude-3-5-sonnet", temperature=0.1)
+    # claude-sonnet-5-5 should instantiate ChatAnthropic
+    anthropic_model = service.get_chat_model("claude-sonnet-5-5", temperature=0.1)
     assert isinstance(anthropic_model, ChatAnthropic)
-    assert anthropic_model.model == "claude-3-5-sonnet-20241022"
+    assert anthropic_model.model == "claude-sonnet-5-5"
 
 
 def test_llm_service_role_fallback_chain():

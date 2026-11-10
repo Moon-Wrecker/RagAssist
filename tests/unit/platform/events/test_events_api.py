@@ -53,7 +53,7 @@ class TestStream:
         try:
             assert call.status == 200
             assert call.headers["content-type"].startswith("text/event-stream")
-            assert call.headers["cache-control"] == "no-cache"
+            assert call.headers["cache-control"] == "no-store"
             assert call.headers["x-accel-buffering"] == "no"
             (first,) = await call.frames(1)
             assert frame_parts(first) == ("ready", {})
