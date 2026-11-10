@@ -5,6 +5,12 @@ import { documentRow, mockAdminApi } from "./admin-mock";
 const pick = (page: Page, files: { name: string; mimeType: string; buffer: Buffer }[]) =>
   page.getByLabel("Choose documents to upload").setInputFiles(files);
 
+/** Row actions live in a menu at the end of the row. */
+async function rowAction(page: Page, filename: string, action: "Re-index" | "Delete") {
+  await page.getByRole("button", { name: `Actions for ${filename}` }).click();
+  await page.getByRole("menuitem", { name: action }).click();
+}
+
 const table = (page: Page) => page.getByRole("table", { name: "Documents the assistant answers from" });
 
 test.describe("knowledge base", () => {
@@ -95,24 +101,26 @@ test.describe("knowledge base", () => {
 
     const failedRow = table(page).getByRole("row", { name: /pricing.html/ });
     await expect(failedRow).toContainText("The page could not be parsed.");
-    await page.getByRole("button", { name: "Re-index pricing.html" }).click();
+    await rowAction(page, "pricing.html", "Re-index");
     await expect(failedRow).toContainText("Queued");
     await expect(failedRow).not.toContainText("Why it failed");
     expect(api.calls.some((c) => c.path === `/v1/documents/${failed.id}/reindex`)).toBe(true);
-    await expect(page.getByRole("button", { name: "Re-index pricing.html" })).toBeDisabled();
+    await page.getByRole("button", { name: "Actions for pricing.html" }).click();
+    await expect(page.getByRole("menuitem", { name: "Re-index" })).toHaveAttribute("aria-disabled", "true");
+    await page.keyboard.press("Escape");
 
     // Delete: cancel first, nothing happens.
-    await page.getByRole("button", { name: "Delete faq.md" }).click();
+    await rowAction(page, "faq.md", "Delete");
     const dialog = page.getByRole("dialog", { name: "Delete this document?" });
     await expect(dialog).toContainText("faq.md");
     await dialog.getByRole("button", { name: "Keep it" }).click();
     await expect(dialog).toBeHidden();
     await expect(table(page).getByRole("row", { name: /faq.md/ })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Delete faq.md" })).toBeFocused();
+    await expect(page.getByRole("button", { name: "Actions for faq.md" })).toBeFocused();
     expect(api.calls.some((c) => c.method === "DELETE")).toBe(false);
 
     // Then confirm.
-    await page.getByRole("button", { name: "Delete faq.md" }).click();
+    await rowAction(page, "faq.md", "Delete");
     await page.getByRole("dialog", { name: "Delete this document?" }).getByRole("button", { name: "Delete document" }).click();
     await expect(table(page).getByRole("row", { name: /faq.md/ })).toHaveCount(0);
     expect(api.calls.filter((c) => c.method === "DELETE").map((c) => c.path)).toEqual([`/v1/documents/${keep.id}`]);
@@ -122,6 +130,6 @@ test.describe("knowledge base", () => {
     await mockAdminApi(page, { role: "admin" });
     await page.goto("/knowledge");
     await expect(page.getByText("No documents yet.")).toBeVisible();
-    await expect(page.getByText(/Add a PDF, Markdown, HTML or CSV file above/)).toBeVisible();
+    await expect(page.getByText(/Add a PDF, Markdown, HTML or CSV file/)).toBeVisible();
   });
 });

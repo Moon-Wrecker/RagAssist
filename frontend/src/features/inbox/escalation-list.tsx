@@ -1,6 +1,9 @@
 import { CircleCheck, CircleDot, Search } from "lucide-react";
 import { Link } from "react-router";
 import type { EscalationSummary } from "@/api/escalations";
+import { EmptyState, ErrorState } from "@/components/empty-state";
+import { Segmented } from "@/components/segmented";
+import { ListSkeleton } from "@/components/skeleton";
 import { StatusMark } from "@/components/status-mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,7 +21,10 @@ export function ListStatus({ item }: { item: Pick<EscalationSummary, "status"> }
   );
 }
 
-/** Filter buttons with counts, a search box and the list of conversations. Selection lives in the URL. */
+/**
+ * The left column of the inbox: a sticky glass toolbar (segmented filter with counts, search) over dense rows.
+ * Rows are plain with hairline dividers; only the hovered or open row gets thin glass. Selection lives in the URL.
+ */
 export function EscalationList({
   items,
   total,
@@ -44,84 +50,66 @@ export function EscalationList({
 }) {
   const loadedCount = counts.all;
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-col gap-3 border-b p-5">
-        <div role="group" aria-label="Show conversations" className="flex flex-wrap gap-1.5">
-          {FILTERS.map((value) => (
-            <Button
-              key={value}
-              type="button"
-              size="sm"
-              variant={filter === value ? "default" : "outline"}
-              aria-pressed={filter === value}
-              onClick={() => onFilter(value)}
-            >
-              {FILTER_LABELS[value]}
-              <span className="font-mono text-xs opacity-80">{counts[value]}</span>
-            </Button>
-          ))}
-        </div>
+    <div className="scroll-area min-h-0 flex-1">
+      <div className="sticky-glass sticky top-0 z-10 flex flex-col gap-3 border-b border-border p-4">
+        {/* Counts appear only once the list is loaded, so a failed load never reads as "0". */}
+        <Segmented
+          label="Show conversations"
+          value={filter}
+          onChange={onFilter}
+          options={FILTERS.map((value) => ({ value, label: FILTER_LABELS[value], count: state === "ready" ? counts[value] : undefined }))}
+        />
         <div className="relative">
-          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+          <Search aria-hidden className="pointer-events-none absolute top-1/2 left-3.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
             type="search"
             aria-label="Search conversations"
             placeholder="Search by topic"
             value={query}
             onChange={(event) => onQuery(event.target.value)}
-            className="pl-9"
+            className="h-9 rounded-full pl-10"
           />
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto">
-        {state === "loading" ? (
-          <p className="p-4 text-sm text-muted-foreground" role="status">
-            Loading conversations
-          </p>
-        ) : state === "error" ? (
-          <div className="flex flex-col items-start gap-3 p-4" role="alert">
-            <p className="text-sm">The conversations could not be loaded.</p>
-            <Button variant="outline" size="sm" onClick={onRetry}>
-              Try again
-            </Button>
-          </div>
-        ) : items.length === 0 ? (
-          <EmptyList filter={filter} query={query} loadedCount={loadedCount} onClear={() => onQuery("")} onShowResolved={() => onFilter("resolved")} />
-        ) : (
-          <ul aria-label="Conversations" className="flex flex-col gap-1 p-2.5">
-            {items.map((item) => {
-              const selected = item.escalation_id === selectedId;
-              return (
-                <li key={item.escalation_id}>
-                  <Link
-                    to={{ search: `?thread=${encodeURIComponent(item.escalation_id)}` }}
-                    aria-current={selected ? "true" : undefined}
-                    className={cn(
-                      "block rounded-2xl px-4 py-3.5 ring-1 ring-transparent transition-colors hover:bg-accent focus-visible:-outline-offset-2",
-                      selected && "bg-accent ring-border-strong",
-                    )}
-                  >
-                    <span className="flex items-center justify-between gap-3">
-                      <ListStatus item={item} />
-                      <span className="font-mono text-xs text-muted-foreground">{timeAgo(item.updated_at)}</span>
-                    </span>
-                    <span className={cn("mt-1.5 line-clamp-2 block text-sm", isOpen(item) ? "font-medium" : "text-muted-foreground")}>
+      {state === "loading" ? (
+        <ListSkeleton label="Loading conversations" />
+      ) : state === "error" ? (
+        <ErrorState what="The conversations" onRetry={onRetry} />
+      ) : items.length === 0 ? (
+        <EmptyList filter={filter} query={query} loadedCount={loadedCount} onClear={() => onQuery("")} onShowResolved={() => onFilter("resolved")} />
+      ) : (
+        <ul aria-label="Conversations">
+          {items.map((item) => {
+            const selected = item.escalation_id === selectedId;
+            return (
+              <li key={item.escalation_id} className="border-t border-border first:border-t-0">
+                <Link
+                  to={{ search: `?thread=${encodeURIComponent(item.escalation_id)}` }}
+                  aria-current={selected ? "true" : undefined}
+                  className={cn("row-hover block px-5 py-3 focus-visible:-outline-offset-2", selected && "row-selected")}
+                >
+                  <span className="flex items-baseline justify-between gap-3">
+                    <span className={cn("line-clamp-1 text-sm", isOpen(item) ? "font-medium" : "text-muted-foreground")}>
                       {item.summary || "Conversation without a summary"}
                     </span>
-                    <span className="mt-1 block font-mono text-xs text-muted-foreground">Priority {item.priority}</span>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        {state === "ready" && total > loadedCount ? (
-          <p className="border-t p-4 font-mono text-xs text-muted-foreground">
-            Showing the {loadedCount} most recently updated of {total}.
-          </p>
-        ) : null}
-      </div>
+                    <span className="text-meta shrink-0 text-muted-foreground">{timeAgo(item.updated_at)}</span>
+                  </span>
+                  <span className="mt-1.5 flex items-center justify-between gap-3">
+                    <ListStatus item={item} />
+                    <span className="text-meta text-muted-foreground">Priority {item.priority}</span>
+                  </span>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {state === "ready" && total > loadedCount ? (
+        <p className="text-meta border-t border-border p-4 text-muted-foreground">
+          Showing the {loadedCount} most recently updated of {total}.
+        </p>
+      ) : null}
     </div>
   );
 }
@@ -141,32 +129,23 @@ function EmptyList({
 }) {
   if (query.trim() !== "") {
     return (
-      <div className="flex flex-col items-start gap-3 p-4">
-        <p className="text-sm">No conversation matches that search.</p>
-        <Button variant="outline" size="sm" onClick={onClear}>
+      <EmptyState title="No conversation matches that search.">
+        <Button variant="secondary" size="sm" onClick={onClear}>
           Clear the search
         </Button>
-      </div>
+      </EmptyState>
     );
   }
   if (filter === "needs-reply") {
     return (
-      <div className="flex flex-col items-start gap-3 p-4">
-        <p className="text-sm font-medium">Nothing is waiting for a reply.</p>
-        <p className="text-sm text-muted-foreground">
-          When the assistant hands a customer to a person, the conversation appears here without a refresh.
-        </p>
+      <EmptyState title="Nothing is waiting for a reply." hint="New handoffs appear here.">
         {loadedCount > 0 ? (
-          <Button variant="outline" size="sm" onClick={onShowResolved}>
-            Show resolved conversations
+          <Button variant="secondary" size="sm" onClick={onShowResolved}>
+            Show resolved
           </Button>
         ) : null}
-      </div>
+      </EmptyState>
     );
   }
-  return (
-    <div className="p-4">
-      <p className="text-sm">No conversations here yet.</p>
-    </div>
-  );
+  return <EmptyState title="No conversations here yet." />;
 }

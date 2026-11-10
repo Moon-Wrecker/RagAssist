@@ -1,72 +1,59 @@
 import { Headset, RotateCcw } from "lucide-react";
-import type { ReactNode } from "react";
+import { memo, type ReactNode } from "react";
+import { Bubble, BubbleContent } from "@/components/ui/bubble";
 import { Button } from "@/components/ui/button";
+import { Message, MessageContent, MessageFooter, MessageHeader } from "@/components/ui/message";
+import { MessageScrollerItem } from "@/components/ui/message-scroller";
+import { Trace, TraceDescription, TraceIcon, TraceLine, TraceTitle } from "@/components/ui/trace";
 import { cn } from "@/lib/utils";
-import { ApprovalCard, DecisionLine } from "./approval-card";
+import { ApprovalRow, DecisionLine } from "./approval-card";
 import { Markdown, type OpenCitation } from "./markdown";
 import { sourceLocation } from "./source-location";
 import type { ThreadItem } from "./thread";
 import type { ThreadNote, TurnState } from "./turn";
 import type { ChatMessage, Citation } from "./types";
 
-function clock(iso: string | null): string {
+function clock(iso: string | null | undefined): string {
   if (!iso) return "";
   const date = new Date(iso);
   return Number.isNaN(date.getTime()) ? "" : date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-/** The small mono line above each turn: who spoke and when. */
-function Speaker({ name, at }: { name: string; at?: string | null }) {
-  const time = clock(at ?? null);
+/** The person's words: a small thin-glass bubble on the right. */
+function UserTurn({ text }: { text: string }) {
   return (
-    <p className="mb-1.5 font-mono text-xs uppercase tracking-wide text-muted-foreground">
-      {name}
-      {time ? <span className="ml-2 normal-case tracking-normal">{time}</span> : null}
-    </p>
+    <Message align="end">
+      <MessageContent>
+        <Bubble>
+          <BubbleContent>{text}</BubbleContent>
+        </Bubble>
+      </MessageContent>
+    </Message>
   );
 }
 
-const turnClass = "py-3 first:pt-0";
-
-/** The customer's words as a plain typographic block, not a bubble. */
-function UserTurn({ text, at }: { text: string; at?: string | null }) {
-  return (
-    <article className={cn(turnClass, "flex flex-col items-end")}>
-      <Speaker name="You" at={at} />
-      <p className="max-w-[88%] rounded-3xl rounded-tr-lg bg-foreground/[0.07] px-5 py-3 text-[1rem] leading-relaxed font-medium whitespace-pre-wrap break-words">
-        {text}
-      </p>
-    </article>
-  );
-}
-
-/** The sources of an answer as a list, so every one can be opened even when the text does not mark it. */
+/** The sources of an answer as a compact row of mono chips; each one opens the passage in the citation panel. */
 function Sources({ citations, onOpen }: { citations: readonly Citation[]; onOpen: OpenCitation }) {
   if (citations.length === 0) return null;
   return (
-    <section aria-label="Sources" className="mt-4 pt-1">
-      <h3 className="mb-1.5 font-mono text-xs uppercase tracking-wide text-muted-foreground">Sources</h3>
-      <ol className="-mx-2 space-y-0.5">
-        {citations.map((citation, index) => {
-          const where = sourceLocation({ headingPath: citation.headingPath, page: citation.page });
-          return (
-            <li key={citation.chunkId}>
-              <button
-                type="button"
-                onClick={(event) => onOpen(citation, index + 1, event.currentTarget)}
-                className="group flex w-full items-baseline gap-3 rounded-2xl px-2 py-1.5 text-left font-mono text-xs hover:bg-accent"
-              >
-                <span className="shrink-0 rounded-full border border-border-strong px-2 py-0.5">{index + 1}</span>
-                <span className="min-w-0 break-words">
-                  <span className="underline-offset-4 group-hover:underline">{citation.title || "Untitled document"}</span>
-                  {where ? <span className="text-muted-foreground">{`  ·  ${where}`}</span> : null}
-                </span>
-              </button>
-            </li>
-          );
-        })}
-      </ol>
-    </section>
+    <MessageFooter aria-label="Sources" role="group" className="pt-1">
+      {citations.map((citation, index) => {
+        const where = sourceLocation({ headingPath: citation.headingPath, page: citation.page });
+        const name = citation.title || "Untitled document";
+        return (
+          <button
+            key={citation.chunkId}
+            type="button"
+            onClick={(event) => onOpen(citation, index + 1, event.currentTarget)}
+            title={where ? `${name} · ${where}` : name}
+            className="glass-thin press text-meta inline-flex h-7 max-w-[15rem] items-center gap-1.5 rounded-full px-2.5 text-foreground"
+          >
+            <span>{index + 1}</span>
+            <span className="truncate text-muted-foreground">{name}</span>
+          </button>
+        );
+      })}
+    </MessageFooter>
   );
 }
 
@@ -77,62 +64,70 @@ function AnswerTurn({
   at,
   onOpenCitation,
   streaming = false,
-  children,
+  before,
+  after,
 }: {
-  name: string;
+  name: string | null;
   text: string;
   citations: readonly Citation[];
   at?: string | null;
   onOpenCitation: OpenCitation;
   streaming?: boolean;
-  children?: ReactNode;
+  before?: ReactNode;
+  after?: ReactNode;
 }) {
   return (
-    <article className={turnClass}>
-      <Speaker name={name} at={at} />
-      {/* aria-busy holds screen-reader updates until the answer is complete, then the whole text is read once. */}
-      <div aria-live="polite" aria-busy={streaming}>
-        {text !== "" ? (
-          <div className="text-[0.9375rem] leading-relaxed break-words">
-            <Markdown text={text} citations={citations} onOpenCitation={onOpenCitation} />
-            {streaming ? (
-              <span aria-hidden className="font-mono text-muted-foreground">
-                ▍
-              </span>
-            ) : null}
-          </div>
+    <Message>
+      <MessageContent>
+        {name ? (
+          <MessageHeader>
+            <span>{name}</span>
+            {clock(at) ? <span>{clock(at)}</span> : null}
+          </MessageHeader>
         ) : null}
-      </div>
-      {children}
-      {streaming ? null : <Sources citations={citations} onOpen={onOpenCitation} />}
-    </article>
+        {before}
+        {/* aria-busy holds screen-reader updates until the answer is complete, then the whole text is read once. */}
+        <div aria-live="polite" aria-busy={streaming}>
+          {text !== "" ? (
+            <Markdown
+              text={text}
+              citations={citations}
+              onOpenCitation={onOpenCitation}
+              className={cn("text-[0.9375rem] leading-[1.6] break-words", streaming && "[&>*:last-child]:fade-in")}
+            />
+          ) : null}
+        </div>
+        {after}
+        {streaming ? null : <Sources citations={citations} onOpen={onOpenCitation} />}
+      </MessageContent>
+    </Message>
   );
 }
 
-function MessageTurn({ message, onOpenCitation }: { message: ChatMessage; onOpenCitation: OpenCitation }) {
-  if (message.role === "user") return <UserTurn text={message.text} at={message.createdAt} />;
+const MessageTurn = memo(function MessageTurn({ message, onOpenCitation }: { message: ChatMessage; onOpenCitation: OpenCitation }) {
+  if (message.role === "user") return <UserTurn text={message.text} />;
   return (
     <AnswerTurn
-      name={message.role === "agent" ? "Support agent" : "Assistant"}
+      name={message.role === "agent" ? "Support agent" : null}
       text={message.text}
       citations={message.citations}
       at={message.createdAt}
       onOpenCitation={onOpenCitation}
     />
   );
-}
+});
 
 export function HandoffLine({ ticketId }: { ticketId: string | null }) {
   return (
-    <div className="my-4 flex items-start gap-3 rounded-2xl border border-border-strong px-4 py-3 text-sm">
-      <Headset className="mt-0.5 size-4 shrink-0" aria-hidden />
-      <div>
-        <p className="font-medium">A support agent has taken over</p>
-        <p className="font-mono text-xs text-muted-foreground">
-          {ticketId ? `Ticket ${ticketId}  ·  ` : ""}The assistant stays silent. Your messages go to the agent.
-        </p>
-      </div>
-    </div>
+    <Trace>
+      <TraceLine>
+        <TraceIcon>
+          <Headset />
+        </TraceIcon>
+        <TraceTitle className="text-foreground">A support agent has taken over</TraceTitle>
+      </TraceLine>
+      <TraceLine className="text-meta">{ticketId ? `Ticket ${ticketId}` : "Your messages now go to the agent."}</TraceLine>
+    </Trace>
   );
 }
 
@@ -157,60 +152,72 @@ function LiveTurnView({
   const needsDecision = turn.phase === "interrupted" || turn.phase === "deciding";
 
   return (
-    <>
+    <div className="flex flex-col gap-8">
       <UserTurn text={turn.question} />
       {showAnswer ? (
         <AnswerTurn
-          name="Assistant"
+          name={null}
           text={turn.answer}
           citations={turn.citations}
           onOpenCitation={onOpenCitation}
           streaming={streaming && turn.answer !== ""}
-        >
-          {turn.tools.length > 0 ? (
-            <ul aria-label="Steps" className="mb-2 space-y-0.5 font-mono text-xs text-muted-foreground">
-              {turn.tools.map((tool, index) => (
-                <li key={`${tool.tool}-${index}`}>
-                  <span aria-hidden>{tool.status === "completed" ? "● " : "○ "}</span>
-                  {tool.status === "completed" ? "Used" : "Using"} {tool.tool}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {waiting ? (
-            <p role="status" className="font-mono text-sm text-muted-foreground">
-              Looking through your documents
-            </p>
-          ) : null}
-        </AnswerTurn>
+          before={
+            turn.tools.length > 0 ? (
+              <Trace aria-label="Steps" role="list">
+                {turn.tools.map((tool, index) => (
+                  <TraceLine key={`${tool.tool}-${index}`} role="listitem" status={tool.status === "completed" ? "done" : "running"}>
+                    <TraceIcon>{tool.status === "completed" ? "●" : "○"}</TraceIcon>
+                    <TraceTitle>
+                      {tool.status === "completed" ? "Used" : "Using"} {tool.tool}
+                    </TraceTitle>
+                  </TraceLine>
+                ))}
+              </Trace>
+            ) : null
+          }
+          after={
+            waiting ? (
+              <p role="status" className="shimmer w-fit text-[0.9375rem]">
+                Looking through your documents
+              </p>
+            ) : null
+          }
+        />
       ) : null}
       {needsDecision && turn.interrupt ? (
-        <ApprovalCard interrupt={turn.interrupt} deciding={turn.phase === "deciding"} error={turn.error} onDecide={onDecide} />
+        <ApprovalRow interrupt={turn.interrupt} deciding={turn.phase === "deciding"} error={turn.error} onDecide={onDecide} />
       ) : null}
       {turn.outcome && !needsDecision ? <DecisionLine outcome={turn.outcome} /> : null}
       {turn.escalation && !turn.wasEscalated ? <HandoffLine ticketId={turn.escalation.ticketId} /> : null}
       {turn.stopped ? (
-        <div className="mt-3 flex flex-wrap items-center gap-3 font-mono text-xs text-muted-foreground">
-          <span>Stopped. The assistant may still finish and save this answer.</span>
-          <Button variant="outline" size="sm" onClick={onRetry}>
-            <RotateCcw aria-hidden />
-            Ask again
-          </Button>
-        </div>
+        <Trace>
+          <TraceLine className="text-meta flex-wrap">
+            <TraceTitle className="whitespace-normal">Stopped. The assistant may still finish and save this answer.</TraceTitle>
+            <Button variant="ghost" size="sm" onClick={onRetry}>
+              <RotateCcw aria-hidden />
+              Ask again
+            </Button>
+          </TraceLine>
+        </Trace>
       ) : null}
       {turn.error && turn.error.kind !== "decision" ? (
-        <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl border border-border-strong px-4 py-3 text-sm">
-          <span>{turn.error.message}</span>
-          <Button variant="outline" size="sm" onClick={onRetry}>
-            <RotateCcw aria-hidden />
-            Try again
-          </Button>
-        </div>
+        <Trace role="alert">
+          <TraceLine className="flex-wrap text-foreground">
+            <TraceTitle className="whitespace-normal">{turn.error.message}</TraceTitle>
+            <TraceDescription>
+              <Button variant="ghost" size="sm" onClick={onRetry}>
+                <RotateCcw aria-hidden />
+                Try again
+              </Button>
+            </TraceDescription>
+          </TraceLine>
+        </Trace>
       ) : null}
-    </>
+    </div>
   );
 }
 
+/** The thread's rows, each one a Message Scroller item. Finished messages are memoised, so a stream re-renders only the live turn. */
 export function ThreadView({
   items,
   onOpenCitation,
@@ -223,19 +230,18 @@ export function ThreadView({
   onRetry: () => void;
 }) {
   return (
-    <div>
-      {items.map((item) => {
-        switch (item.kind) {
-          case "message":
-            return <MessageTurn key={item.key} message={item.message} onOpenCitation={onOpenCitation} />;
-          case "note":
-            return <NoteView key={item.key} note={item.note} />;
-          case "live":
-            return (
-              <LiveTurnView key={item.key} turn={item.turn} onOpenCitation={onOpenCitation} onDecide={onDecide} onRetry={onRetry} />
-            );
-        }
-      })}
-    </div>
+    <>
+      {items.map((item) => (
+        <MessageScrollerItem key={item.key} messageId={item.key}>
+          {item.kind === "message" ? (
+            <MessageTurn message={item.message} onOpenCitation={onOpenCitation} />
+          ) : item.kind === "note" ? (
+            <NoteView note={item.note} />
+          ) : (
+            <LiveTurnView turn={item.turn} onOpenCitation={onOpenCitation} onDecide={onDecide} onRetry={onRetry} />
+          )}
+        </MessageScrollerItem>
+      ))}
+    </>
   );
 }

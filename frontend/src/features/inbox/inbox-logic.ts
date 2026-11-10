@@ -134,8 +134,8 @@ export function canSendReply(args: { status: string; text: string; role: string;
 
 export function replyBlockedReason(args: { status: string; role: string }): string | null {
   if (args.status !== "escalated") {
-    return "This conversation is resolved. The assistant answers the customer's next message.";
+    return "This conversation is resolved.";
   }
-  if (args.role !== "agent") return "Only support agents can reply. You can read the thread and resolve it.";
+  if (args.role !== "agent") return "Only support agents can reply.";
   return null;
 }

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 260 64" width="260" height="64" role="img" aria-label="RagAssist" color="#111">
+  <title>RagAssist, concept 3</title>
+  <g>
+  <path fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round" stroke-linejoin="round" d="M17 53V13h15a12.500 12.500 0 0 1 0 25H17"/>
+  <path fill="none" stroke="currentColor" stroke-width="9" stroke-linecap="round" d="M31 38c6 4 8 8 10 11"/>
+  <circle cx="46" cy="54" r="5.500" fill="currentColor"/>
+  </g>
+  <text x="80" y="43" font-family="Geist, 'Geist Sans', system-ui, sans-serif" font-size="30" font-weight="500" letter-spacing="-0.6" fill="currentColor">RagAssist</text>
+</svg>

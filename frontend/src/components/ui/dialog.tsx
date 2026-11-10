@@ -48,7 +48,7 @@ function DialogContent({ className, children, ...props }: ComponentProps<typeof 
           <DialogPrimitive.Content asChild forceMount {...props}>
             <motion.div
               className={cn(
-                "glass-2 fixed inset-x-4 top-[12vh] z-50 mx-auto max-w-lg rounded-3xl text-popover-foreground",
+                "glass-thick fixed inset-x-4 top-[12vh] z-50 mx-auto max-w-lg rounded-(--r-surface) text-popover-foreground",
                 className,
               )}
               initial={{ opacity: 0, y: 8 }}

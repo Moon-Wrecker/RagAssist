@@ -63,7 +63,7 @@ export function failureReason(doc: DocumentSummary, job: IngestionJob | undefine
   return (
     doc.error_message?.trim() ||
     (job && job.document_id === doc.document_id ? job.error_message?.trim() : "") ||
-    "The reason was not recorded. Try re-indexing; if it fails again, check the file opens normally."
+    "No reason was recorded. Try re-indexing."
   );
 }
 

@@ -46,13 +46,13 @@ const answerWithCitation = {
 
 test("empty state tells the person what to do, then an answer streams in with a source", async ({ page }, info) => {
   const chat = await open(page, (c) => c.script(() => answerWithCitation));
-  await expect(page.getByText("Ask a question about your account or your documents.")).toBeVisible();
-  await expect(page.getByText("How can I help you today")).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText(/^(Still up\?|Good (morning|afternoon|evening)\.)$/);
+  await expect(composer(page)).toHaveAttribute("placeholder", "Ask about your account or the documents");
   await shot(page, info, "empty");
 
   await ask(page, "How long do refunds take?");
   await expect(page.getByText("Refunds are issued within 5 business days")).toBeVisible();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("How long do refunds take?");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("How long do refunds take?");
   expect(chat.sent).toEqual(["How long do refunds take?"]);
   await expect(page).toHaveURL(/[?&]c=/);
   await shot(page, info, "answer");
@@ -104,7 +104,7 @@ for (const approved of [true, false]) {
     await expect(card).toContainText("new_email");
     await expect(card).toContainText("new.address@example.test");
     await expect(composer(page)).toHaveAttribute("aria-disabled", "true");
-    await expect(page.getByText("Decide on the action above to continue.")).toBeVisible();
+    await expect(page.getByText("Locked until you decide on the action above.")).toBeVisible();
     await shot(page, info, "approval");
 
     await card.getByRole("button", { name: approved ? /^Approve/ : /^Deny/ }).click();
@@ -135,14 +135,14 @@ test("escalation to a support agent: assistant goes silent, the agent's reply ar
   );
   await ask(page, "I was charged twice and need a person.");
   await expect(page.getByText("A support agent has taken over")).toBeVisible();
-  await expect(page.getByText("With a support agent.")).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("With a support agent");
   await expect(composer(page)).toHaveAccessibleName("Message to the support agent");
   await shot(page, info, "handoff");
 
   // The customer writes again: it goes to the agent and the assistant stays silent.
   await ask(page, "Any news?");
-  await expect(page.locator("article", { hasText: "Any news?" })).toBeVisible();
-  expect(chat.sent).toEqual(["I was charged twice and need a person.", "Any news?"]);
+  await expect(page.getByText("Any news?", { exact: true })).toBeVisible();
+  await expect.poll(() => chat.sent).toEqual(["I was charged twice and need a person.", "Any news?"]);
   await expect(page.getByText("Looking through your documents")).toHaveCount(0);
 
   // A person replies; the live event refreshes the conversation.
@@ -150,14 +150,14 @@ test("escalation to a support agent: assistant goes silent, the agent's reply ar
   conversation.messages.push({ role: "agent", text: "Hello, I have found the duplicate charge and refunded it.", created_at: new Date().toISOString() });
   chat.pushEvent("message.created", { conversation_id: conversation.conversation_id });
   await expect(page.getByText("Hello, I have found the duplicate charge and refunded it.")).toBeVisible();
-  await expect(page.locator("article", { hasText: "Hello, I have found" })).toContainText("Support agent");
+  await expect(page.getByText("Support agent", { exact: true })).toBeVisible();
   await shot(page, info, "agent-reply");
 
   // Resolving hands the conversation back to the assistant.
   conversation.status = "resolved";
   chat.pushEvent("conversation.updated", { conversation_id: conversation.conversation_id });
   await expect(composer(page)).toHaveAccessibleName("Message");
-  await expect(page.getByText("With a support agent.")).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 1 })).not.toContainText("With a support agent");
 });
 
 test("stop abandons the wait, the turn still finishes and its answer is picked up", async ({ page }, info) => {
@@ -219,21 +219,94 @@ test("history lists conversations and switching opens the chosen thread", async 
   });
   void chat;
 
-  await page.getByRole("button", { name: "History" }).click();
-  const history = page.getByRole("dialog", { name: "History" });
-  await expect(history).toBeVisible();
-  await expect(history.getByRole("button", { name: /Invoice question/ })).toBeVisible();
-  await expect(history.getByText("Resolved")).toBeVisible();
+  // On a phone the history is a sheet behind the History button; on a desktop it sits in the sidebar.
+  const phone = info.project.name.startsWith("phone");
+  async function pick(title: RegExp) {
+    if (phone) {
+      await page.getByRole("button", { name: "History" }).click();
+      const sheet = page.getByRole("dialog", { name: "History" });
+      await expect(sheet).toBeVisible();
+      await sheet.getByRole("button", { name: title }).click();
+      await expect(sheet).toBeHidden();
+    } else {
+      await page.getByRole("complementary", { name: "Sidebar" }).getByRole("button", { name: title }).click();
+    }
+  }
+
+  const list = phone ? null : page.getByRole("complementary", { name: "Sidebar" });
+  if (list) {
+    await expect(list.getByRole("button", { name: /Invoice question/ })).toBeVisible();
+    await expect(list.getByText("Resolved")).toBeVisible();
+  }
   await shot(page, info, "history");
 
-  await history.getByRole("button", { name: /Password reset/ }).click();
-  await expect(history).toBeHidden();
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Password reset");
+  await pick(/Password reset/);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Password reset");
   await expect(page.getByText("Use the reset link.")).toBeVisible();
 
-  await page.getByRole("button", { name: "History" }).click();
-  await page.getByRole("dialog", { name: "History" }).getByRole("button", { name: /Invoice question/ }).click();
+  await pick(/Invoice question/);
   await expect(page.getByText("Invoices are under Billing.")).toBeVisible();
   await expect(page.getByText("Use the reset link.")).toHaveCount(0);
   await shot(page, info, "switched");
+});
+
+// Playwright scrolls an obscured element into view before clicking it. The first source chip can sit under the glass
+// header, so the click targets the last chip (the one a reader can reach) to test the panel and not the test driver.
+test("opening a source does not push the end of the thread behind the composer", async ({ page }, info) => {
+  test.skip(info.project.name.startsWith("phone"), "on a phone the source is a sheet over the thread");
+  const iso = (offset: number) => new Date(Date.now() - offset).toISOString();
+  const seeded = { id: "" };
+  await open(page, (c) => {
+    const conversation = c.seed({
+      title: "Refunds",
+      messages: [
+        { role: "user", text: "How long do refunds take?", created_at: iso(240_000) },
+        {
+          role: "assistant",
+          text:
+            "Refunds are issued to the original payment method within 5 business days of approval [1].\n\n" +
+            "If the money has not arrived after that, check with your bank first, then ask here [1].\n\n" +
+            "- Card payments: 5 business days\n- Bank transfers: up to 10 business days",
+          citations: [citation],
+          created_at: iso(230_000),
+        },
+        { role: "user", text: "Thanks. Can you also check my invoice from last month?", created_at: iso(120_000) },
+        { role: "assistant", text: "Your invoice for last month is in Billing, under Invoices. It was issued on the 1st and paid by card [1].", citations: [citation], created_at: iso(110_000) },
+      ],
+    });
+    seeded.id = conversation.conversation_id;
+    c.script(() => ({
+      frames: [
+        frame("tool_call", { tool: "get_account", status: "started" }),
+        frame("tool_call", { tool: "get_account", status: "completed" }),
+        frame("token", { text: "I can change that for you. Please confirm the new address below." }),
+        frame("interrupt", {
+          interrupt_id: "interrupt-1",
+          action: "approval_required",
+          tool: "update_billing_email",
+          arguments: { new_email: "new.address@example.test" },
+          call_id: "call_1",
+        }),
+        frame("done", { status: "interrupted" }),
+      ],
+    }));
+  });
+  await page.goto(`/?c=${seeded.id}`);
+  await expect(page.getByText("Your invoice for last month")).toBeVisible();
+  await ask(page, "Change my billing email to new.address@example.test");
+  const card = page.getByRole("group", { name: "Needs your approval" });
+  await expect(card).toBeVisible();
+
+  const clear = async () => {
+    const [approval, box] = await Promise.all([card.boundingBox(), page.getByRole("form", { name: "Send a message" }).boundingBox()]);
+    return box!.y - (approval!.y + approval!.height);
+  };
+  await expect.poll(clear).toBeGreaterThanOrEqual(0);
+
+  await page.getByRole("button", { name: "Source 1: Billing FAQ" }).last().click();
+  await expect(page.getByRole("dialog", { name: "Source 1" })).toBeVisible();
+  // The column narrows and rewraps; the approval must still be fully above the composer.
+  await expect.poll(clear, { timeout: 3000 }).toBeGreaterThanOrEqual(0);
+  await page.waitForTimeout(600);
+  expect(await clear()).toBeGreaterThanOrEqual(0);
 });

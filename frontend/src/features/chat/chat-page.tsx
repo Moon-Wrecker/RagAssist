@@ -1,8 +1,18 @@
-import { History, Headset, Plus } from "lucide-react";
+import { History, Plus } from "lucide-react";
+import { AnimatePresence, motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/api/errors";
-import { Panel } from "@/components/panel";
+import { PageFrame } from "@/components/page-frame";
 import { Button } from "@/components/ui/button";
+import {
+  MessageScroller,
+  MessageScrollerButton,
+  MessageScrollerContent,
+  MessageScrollerProvider,
+  MessageScrollerViewport,
+} from "@/components/ui/message-scroller";
+import { spring } from "@/lib/motion";
+import { useSize } from "@/lib/use-size";
 import { cn } from "@/lib/utils";
 import { CitationPanel, type OpenSource } from "./citation-panel";
 import { Composer } from "./composer";
@@ -11,29 +21,17 @@ import type { OpenCitation } from "./markdown";
 import { ThreadView } from "./thread-view";
 import { useChat } from "./use-chat";
 
-/** Scrolls to the end when the thread grows, but only if the person is already reading the end. */
-function useFollowEnd(signal: unknown, resetKey: string | null) {
-  const endRef = useRef<HTMLDivElement>(null);
-  const following = useRef(true);
-
-  useEffect(() => {
-    const onScroll = () => {
-      following.current = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 160;
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => {
-    following.current = true;
-  }, [resetKey]);
-
-  useEffect(() => {
-    if (following.current) endRef.current?.scrollIntoView({ block: "end" });
-  }, [signal, resetKey]);
-
-  return endRef;
+function greeting(now = new Date()): string {
+  const hour = now.getHours();
+  if (hour < 5) return "Still up?";
+  if (hour < 12) return "Good morning.";
+  if (hour < 18) return "Good afternoon.";
+  return "Good evening.";
 }
+
+/** Height of the greeting block above the centred composer, and the gap between them (px). */
+const GREETING_BLOCK = 64;
+const GREETING_GAP = 24;
 
 function statusLine(status: string | undefined, messageCount: number): string {
   const parts: string[] = [];
@@ -43,12 +41,21 @@ function statusLine(status: string | undefined, messageCount: number): string {
   return parts.join("  ·  ");
 }
 
+/**
+ * Chat. Empty: a short serif greeting with the composer directly under it, centred. On the first send the composer
+ * glides down to its docked place at the bottom and the greeting fades out. Conversation: one 44rem column directly
+ * on the page (no boxes); only the message list scrolls, and it scrolls under the glass header and composer.
+ */
 export function ChatPage() {
   const chat = useChat();
   const [opened, setOpened] = useState<(OpenSource & { conversationId: string | null }) | null>(null);
   const [historyOpen, setHistoryOpen] = useState(false);
   const sourceTrigger = useRef<HTMLElement | null>(null);
   const historyTrigger = useRef<HTMLButtonElement>(null);
+  const [areaRef, area] = useSize<HTMLDivElement>();
+  const [composerRef, composer] = useSize<HTMLDivElement>();
+  // The room the page keeps below its content (the gutter, or the tab bar on a phone), measured in px.
+  const [floorRef, floor] = useSize<HTMLDivElement>();
 
   const activeId = chat.activeId;
   const openCitation: OpenCitation = useCallback(
@@ -61,95 +68,129 @@ export function ChatPage() {
   // A source belongs to the conversation it was opened from.
   const source = opened && opened.conversationId === activeId ? opened : null;
 
-  const lastItem = chat.items.at(-1);
-  const growth = `${chat.items.length}:${chat.turn.answer.length}:${chat.turn.phase}:${lastItem?.key ?? ""}`;
-  const endRef = useFollowEnd(growth, chat.activeId);
-
   const title = chat.conversation?.title ?? (chat.activeId ? "Conversation" : "New conversation");
   const messageCount = chat.conversation?.messages.length ?? 0;
   const missing = chat.conversationError instanceof ApiError && chat.conversationError.status === 404;
-  const empty = chat.items.length === 0 && !chat.conversationLoading && chat.conversationError === null;
-  const handoff = chat.status === "escalated";
+  const empty = chat.items.length === 0 && !chat.conversationLoading && chat.conversationError === null && chat.activeId === null;
+  const status = statusLine(chat.status, messageCount);
+
+  // Where the composer rests when the chat is empty, as an offset from its docked place.
+  const measured = area.height > 0 && composer.height > 0;
+  const group = GREETING_BLOCK + GREETING_GAP + composer.height;
+  const centredTop = (area.height - floor.height - group) / 2 + GREETING_BLOCK + GREETING_GAP;
+  const dockedTop = area.height - composer.height - floor.height - 12;
+  const restOffset = Math.min(0, centredTop - dockedTop);
+
+  const [hello] = useState(() => greeting());
+  const panelOpen = source !== null;
+
+  // Keep the document from scrolling when focus moves into the composer on a phone keyboard.
+  useEffect(() => {
+    const onFocus = () => window.scrollTo(0, 0);
+    window.addEventListener("focusin", onFocus);
+    return () => window.removeEventListener("focusin", onFocus);
+  }, []);
 
   return (
-    <div className={cn("transition-[padding] duration-200 motion-reduce:transition-none", source && "lg:pr-[26rem]")}>
-      <div className="mx-auto w-full max-w-3xl">
-        <Panel className="min-h-[calc(100dvh-14rem)]">
-          <header className="mb-6 flex flex-wrap items-start justify-between gap-x-4 gap-y-3 border-b pb-5">
-            <div className="min-w-0">
-              <h1 className="font-heading text-4xl break-words sm:text-5xl">{title}</h1>
-              <p className="mt-3 flex min-h-6 items-center" aria-live="polite">
-                {statusLine(chat.status, messageCount) !== "" ? (
-                  <span className="inline-flex items-center gap-2 rounded-full border px-3 py-0.5 font-mono text-xs text-muted-foreground">
-                    {handoff ? <Headset className="size-3.5" aria-hidden /> : null}
-                    {statusLine(chat.status, messageCount)}
-                  </span>
-                ) : null}
-              </p>
-            </div>
-            <div className="flex gap-1 sm:-mr-2">
-              <Button ref={historyTrigger} variant="ghost" size="sm" className="rounded-full" onClick={() => setHistoryOpen(true)}>
-                <History aria-hidden />
-                History
-              </Button>
-              <Button variant="ghost" size="sm" className="rounded-full" onClick={() => chat.open(null)} disabled={chat.activeId === null && chat.items.length === 0}>
-                <Plus aria-hidden />
-                New
-              </Button>
-            </div>
-          </header>
-
-          {handoff ? (
-            <p className="mb-5 rounded-2xl border border-border-strong px-4 py-3 text-sm">
-              <span className="font-medium">With a support agent.</span>{" "}
-              <span className="text-muted-foreground">The assistant stays silent while they handle this. Your messages go to the agent.</span>
-            </p>
+    <PageFrame
+      mode="bleed"
+      plainTitle
+      title={
+        <span className="flex min-w-0 items-baseline gap-3">
+          <span className="truncate">{title}</span>
+          {status !== "" ? (
+            <span className="text-meta shrink-0 font-normal text-muted-foreground" aria-live="polite">
+              {status}
+            </span>
           ) : null}
-
-          {chat.conversationLoading ? (
-            <p role="status" className="font-mono text-sm text-muted-foreground">
-              Loading the conversation
-            </p>
-          ) : chat.conversationError ? (
-            <div role="alert" className="space-y-3 text-sm">
-              <p>
-                {missing
-                  ? "This conversation could not be found. It may belong to someone else or no longer exist."
-                  : "The conversation could not be loaded."}
-              </p>
-              <div className="flex gap-2">
-                {missing ? null : (
-                  <Button variant="outline" size="sm" onClick={chat.reloadConversation}>
-                    Try again
-                  </Button>
+        </span>
+      }
+      actions={
+        <div className="flex gap-1 md:hidden">
+          <Button ref={historyTrigger} variant="ghost" size="sm" onClick={() => setHistoryOpen(true)}>
+            <History aria-hidden />
+            History
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => chat.open(null)} disabled={chat.activeId === null && chat.items.length === 0}>
+            <Plus aria-hidden />
+            New
+          </Button>
+        </div>
+      }
+    >
+      <div ref={areaRef} className="relative h-full">
+        <div ref={floorRef} aria-hidden className="pointer-events-none absolute bottom-0 left-0 h-(--page-bottom) w-px" />
+        {/* The message list: the only scroller. It is padded so the first message starts below the header and the last
+            one can rest above the composer; everything between passes under the glass. */}
+        {!empty ? (
+          <MessageScrollerProvider key={activeId ?? "new"} autoScroll defaultScrollPosition="end">
+            <MessageScroller className="absolute inset-0">
+              <MessageScrollerViewport
+                className={cn("pt-[calc(var(--gutter)*2+var(--header-h)+1rem)]", panelOpen && "lg:pr-[26rem]")}
+                style={{ paddingBottom: composer.height + floor.height + 12 + 32 }}
+              >
+                {chat.conversationLoading ? (
+                  <p role="status" className="text-meta mx-auto w-full max-w-(--chat-max) px-4 text-muted-foreground">
+                    Loading the conversation
+                  </p>
+                ) : chat.conversationError ? (
+                  <div role="alert" className="mx-auto w-full max-w-(--chat-max) space-y-3 px-4 text-sm">
+                    <p>{missing ? "This conversation could not be found." : "The conversation could not be loaded."}</p>
+                    <div className="flex gap-2">
+                      {missing ? null : (
+                        <Button variant="secondary" size="sm" onClick={chat.reloadConversation}>
+                          Try again
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="sm" onClick={() => chat.open(null)}>
+                        Start a new conversation
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <MessageScrollerContent className="mx-auto w-full max-w-(--chat-max) gap-8 px-4" aria-busy={chat.busy}>
+                    <ThreadView items={chat.items} onOpenCitation={openCitation} onDecide={(approved) => void chat.decide(approved)} onRetry={chat.retry} />
+                  </MessageScrollerContent>
                 )}
-                <Button variant="outline" size="sm" onClick={() => chat.open(null)}>
-                  Start a new conversation
-                </Button>
-              </div>
-            </div>
-          ) : empty ? (
-            <div className="max-w-prose space-y-3 text-[0.9375rem]">
-              <p className="text-[1.0625rem] font-medium">Ask a question about your account or your documents.</p>
-              <p className="text-muted-foreground">
-                Type it in the box below and press Enter. Answers point to the passages they come from. Anything that
-                would change your account waits for your approval first. Earlier conversations are under History.
-              </p>
-            </div>
-          ) : (
-            <ThreadView items={chat.items} onOpenCitation={openCitation} onDecide={(approved) => void chat.decide(approved)} onRetry={chat.retry} />
-          )}
-          <div ref={endRef} aria-hidden className="scroll-mb-40" />
-        </Panel>
+              </MessageScrollerViewport>
+              <MessageScrollerButton style={{ bottom: composer.height + floor.height + 12 + 16 }} />
+            </MessageScroller>
+          </MessageScrollerProvider>
+        ) : null}
 
-        <Composer state={chat.composer} onSend={chat.send} onStop={chat.stop} />
+        <AnimatePresence>
+          {empty && measured ? (
+            <motion.h2
+              key="greeting"
+              className="font-greeting pointer-events-none absolute inset-x-0 text-center"
+              style={{ top: centredTop - GREETING_BLOCK - GREETING_GAP, height: GREETING_BLOCK, lineHeight: `${GREETING_BLOCK}px` }}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+            >
+              {hello}
+            </motion.h2>
+          ) : null}
+        </AnimatePresence>
+
+        {/* The composer is one element for good: docked at the bottom, offset up to the middle while the chat is empty. */}
+        <motion.div
+          className={cn("absolute inset-x-0 bottom-[calc(var(--page-bottom)+0.75rem)] z-10 px-4", panelOpen && "lg:pr-[27rem]", !measured && "invisible")}
+          initial={false}
+          animate={{ y: empty ? restOffset : 0 }}
+          transition={spring.glide}
+        >
+          <div ref={composerRef} className="mx-auto w-full max-w-(--chat-max)">
+            <Composer state={chat.composer} onSend={chat.send} onStop={chat.stop} autoFocus={empty} />
+          </div>
+        </motion.div>
       </div>
 
       <CitationPanel source={source} onClose={() => setOpened(null)} returnFocusTo={sourceTrigger} />
       <HistorySheet
         open={historyOpen}
         onOpenChange={setHistoryOpen}
-        history={chat.history}
         activeId={chat.activeId}
         onSelect={(id) => {
           chat.open(id);
@@ -161,6 +202,6 @@ export function ChatPage() {
         }}
         returnFocusTo={historyTrigger}
       />
-    </div>
+    </PageFrame>
   );
 }

@@ -107,7 +107,7 @@ test.describe("inbox", () => {
     await mockAdminApi(empty, { role: "agent", escalations: [] });
     await empty.goto("/inbox");
     await expect(empty.getByText("Nothing is waiting for a reply.")).toBeVisible();
-    await expect(empty.getByText(/appears here without a refresh/)).toBeVisible();
+    await expect(empty.getByText(/New handoffs appear here/)).toBeVisible();
   });
 
   test("a conversation that is gone is explained", async ({ page }) => {

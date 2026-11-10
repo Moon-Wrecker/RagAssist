@@ -29,7 +29,7 @@ function SetPasswordForm({ title, intro, submitLabel }: { title: string; intro: 
     const password = String(form.get("password") ?? "");
     const repeat = String(form.get("repeat") ?? "");
     if (password !== repeat) {
-      setError("The two passwords are different. Type the same password in both fields.");
+      setError("The two passwords are different.");
       return;
     }
     setPending(true);
@@ -48,9 +48,9 @@ function SetPasswordForm({ title, intro, submitLabel }: { title: string; intro: 
     return (
       <AuthLayout
         title="This link is incomplete"
-        intro="The address is missing its one-time code. Open the full link an administrator sent you, or ask them for a new one."
+        intro="Open the full link you were sent, or ask for a new one."
       >
-        <Button asChild variant="outline">
+        <Button asChild variant="secondary">
           <Link to="/sign-in">Go to sign in</Link>
         </Button>
       </AuthLayout>
@@ -67,7 +67,7 @@ function SetPasswordForm({ title, intro, submitLabel }: { title: string; intro: 
           autoComplete="new-password"
           required
           maxLength={1024}
-          hint="Use a long phrase you will remember. There are no other rules."
+          hint="A long phrase works best."
           invalid={error !== null}
           errorId={errorId}
         />
@@ -94,7 +94,7 @@ export function AcceptInvitePage() {
   return (
     <SetPasswordForm
       title="Set your password"
-      intro="You have been invited to a workspace. Choose a password to finish setting up your account."
+      intro="Choose a password to finish setting up."
       submitLabel="Set password and sign in"
     />
   );
@@ -104,7 +104,7 @@ export function ResetPasswordPage() {
   return (
     <SetPasswordForm
       title="Choose a new password"
-      intro="Your administrator sent you this link. Pick a new password; every other session will be signed out."
+      intro="Choose a new password. Other sessions are signed out."
       submitLabel="Save password and sign in"
     />
   );

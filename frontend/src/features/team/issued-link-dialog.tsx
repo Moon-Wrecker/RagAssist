@@ -52,9 +52,8 @@ export function IssuedLinkDialog({
           <DialogDescription>
             {link ? (
               <>
-                For <span className="font-medium text-foreground break-all">{link.email}</span>. This link is shown only
-                once. Copy it now and send it to them yourself; it expires {timeUntil(link.expires_at)}. If you lose it,
-                revoke it and create a new one.
+                For <span className="font-medium text-foreground break-all">{link.email}</span>. It is shown only once:
+                copy it and send it yourself. It expires {timeUntil(link.expires_at)}.
               </>
             ) : null}
           </DialogDescription>
@@ -74,7 +73,7 @@ export function IssuedLinkDialog({
           </p>
         </div>
         <div className="flex justify-end gap-2 px-6 pb-6">
-          <Button variant="outline" onClick={() => void copyLink()}>
+          <Button variant="secondary" onClick={() => void copyLink()}>
             Copy link
           </Button>
           <Button onClick={onClose}>Done</Button>

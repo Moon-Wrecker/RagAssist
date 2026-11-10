@@ -1,9 +1,9 @@
-import { CircleDashed, CircleDot, CircleSlash } from "lucide-react";
+import { CircleDashed, CircleDot, CircleSlash, KeyRound, UserCheck, UserX } from "lucide-react";
 import type { Member } from "@/api/team";
 import type { Role } from "@/api/types";
 import { DataTable, TableCaption, TBody, Td, Th, THead, Tr } from "@/components/data-table";
 import { StatusMark } from "@/components/status-mark";
-import { Button } from "@/components/ui/button";
+import { MenuItem, RowMenu } from "@/components/ui/dropdown-menu";
 import { Select } from "@/components/ui/select";
 import { memberState, ROLE_LABELS, ROLE_ORDER, STATE_LABELS } from "./team-logic";
 
@@ -20,6 +20,7 @@ function StateMark({ member }: { member: Member }) {
   }
 }
 
+/** Members on a thick surface: role as an inline select, status as a mono label, actions in a row menu. */
 export function MembersTable({
   members,
   selfId,
@@ -31,7 +32,7 @@ export function MembersTable({
   members: Member[];
   selfId: string;
   onRole: (member: Member, role: Role) => void;
-  onDeactivate: (member: Member, trigger: HTMLElement) => void;
+  onDeactivate: (member: Member) => void;
   onReactivate: (member: Member) => void;
   onResetLink: (member: Member) => void;
 }) {
@@ -39,11 +40,11 @@ export function MembersTable({
     <DataTable>
       <TableCaption>Members of this workspace</TableCaption>
       <THead>
-        <Tr className="hover:bg-transparent">
+        <Tr className="hover:bg-transparent hover:shadow-none">
           <Th>Member</Th>
           <Th>Role</Th>
           <Th>Status</Th>
-          <Th>
+          <Th className="w-14">
             <span className="sr-only">Actions</span>
           </Th>
         </Tr>
@@ -56,16 +57,17 @@ export function MembersTable({
             <Tr key={member.id}>
               <Td primary label="Member" className="break-all">
                 {member.email}
-                {self ? <span className="ml-2 font-mono text-xs font-normal text-muted-foreground">you</span> : null}
+                {self ? <span className="text-meta ml-2 font-normal text-muted-foreground">you</span> : null}
               </Td>
-              <Td label="Role" className="sm:w-48">
+              <Td label="Role" className="sm:w-52">
                 <Select
+                  inline
                   aria-label={`Role for ${member.email}`}
                   value={member.role}
                   disabled={self}
                   title={self ? "You cannot change your own role here." : undefined}
                   onChange={(event) => onRole(member, event.target.value as Role)}
-                  className="h-9 max-sm:w-44"
+                  className="max-sm:w-44"
                 >
                   {ROLE_ORDER.map((role) => (
                     <option key={role} value={role}>
@@ -78,27 +80,23 @@ export function MembersTable({
                 <StateMark member={member} />
               </Td>
               <Td className="max-sm:justify-start sm:text-right">
-                <span className="inline-flex flex-wrap gap-1.5 sm:justify-end">
-                  <Button variant="outline" size="sm" onClick={() => onResetLink(member)} aria-label={`Create a password reset link for ${member.email}`} disabled={deactivated}>
-                    Reset link
-                  </Button>
+                <RowMenu label={`Actions for ${member.email}`}>
+                  <MenuItem disabled={deactivated} onSelect={() => onResetLink(member)}>
+                    <KeyRound aria-hidden />
+                    Reset password link
+                  </MenuItem>
                   {deactivated ? (
-                    <Button variant="outline" size="sm" onClick={() => onReactivate(member)} aria-label={`Reactivate ${member.email}`}>
+                    <MenuItem onSelect={() => onReactivate(member)}>
+                      <UserCheck aria-hidden />
                       Reactivate
-                    </Button>
+                    </MenuItem>
                   ) : (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={self}
-                      title={self ? "You cannot deactivate yourself." : undefined}
-                      onClick={(event) => onDeactivate(member, event.currentTarget)}
-                      aria-label={`Deactivate ${member.email}`}
-                    >
+                    <MenuItem disabled={self} onSelect={() => onDeactivate(member)}>
+                      <UserX aria-hidden />
                       Deactivate
-                    </Button>
+                    </MenuItem>
                   )}
-                </span>
+                </RowMenu>
               </Td>
             </Tr>
           );

@@ -83,3 +83,24 @@ monochrome, glass as the primary surface style over a calm monochrome backdrop, 
 - Two simultaneous refreshes from one browser can end the session; the client refreshes single-flight.
 - An access token outlives a role change or a disable by up to `AUTH_ACCESS_TOKEN_MINUTES`.
 - The CI `frontend` job is suspended (skipped unless the repository variable `RUN_FRONTEND_CI` is `true`) while the UI keeps changing; the checks still run locally (`npm run lint`, `typecheck`, `api:check`, `test`, `e2e`).
+
+## Liquid redesign (ADR 0016, branch `feat/frontend-liquid-redesign`)
+- [x] Inbox "Reconnecting" plus "could not be loaded": first successful stream connection after failures refetches; list retries while in error; no "0" counts beside an error (unit test)
+- [x] Tokens: monochrome oklch, three glass thicknesses with solid fallbacks, contrast test per tier, Geist and Instrument Serif self-hosted with measured fallbacks
+- [x] Liquid WebGL background (half resolution, 30 fps cap, paused when hidden, still frame under reduced motion, CSS fallback)
+- [x] Rim light that follows the pointer, custom cursor, shared springs, three button levels
+- [x] Shell: floating glass sidebar, capsule header, phone tab bar and Account sheet, the document never scrolls (Playwright check on every route)
+- [x] Chat: no boxes, serif greeting with a gliding composer, trace rows, approval row, source chips, citation panel
+- [x] Inbox, Knowledge, Team: thick table surfaces, sticky glass headers, hairline rows, row menus, inline role select, mono status labels, drop strip, one primary button per view
+- [x] Sign-in, accept-invite and reset-password on the new panel
+- [x] Skeletons, empty states and error states on every list
+- [x] Helper text rewritten, one short line each
+- [x] Nested `<main>` on the not-allowed page fixed (test)
+- [x] Lint, typecheck, API drift, Vitest and the mocked Playwright suite (phone and desktop, light and dark) pass
+- [ ] Refraction on small glass elements: dropped on purpose (Chromium garbles `backdrop-filter: url() blur()`); revisit if browsers fix it
+- [ ] Soft fade at scroll edges: dropped on purpose (a mask on a scroller flattens its glass children)
+- [ ] Per-token streaming fade: approximated by a fade on the last block per batch
+- [ ] Virtualise history, inbox and document lists: not done, the API pages them; revisit past the caps
+- [ ] Performance numbers for Inbox, Knowledge and Team at 100 rows, and on a real mid-range laptop
+- [ ] Apply a logo (three concepts in `docs/frontend/logo-concepts/`, none chosen); favicon, apple touch icon and Open Graph image follow the choice
+

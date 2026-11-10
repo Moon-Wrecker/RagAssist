@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
-import { useEffect, useId, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { ArrowLeft, ArrowUp } from "lucide-react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { Link } from "react-router";
 import { ApiError } from "@/api/errors";
 import {
@@ -12,12 +12,12 @@ import {
 } from "@/api/escalations";
 import { optimisticTarget, useOptimisticMutation } from "@/api/optimistic";
 import { queryKeys } from "@/api/query-keys";
-import { FormMessage } from "@/features/auth/form-message";
+import { ThreadSkeleton } from "@/components/skeleton";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { InputGroup, InputGroupAddon, InputGroupTextarea } from "@/components/ui/input-group";
 import { actionError } from "@/lib/error-message";
 import { formatDateTime } from "@/lib/format";
+import { useSize } from "@/lib/use-size";
 import { cn } from "@/lib/utils";
 import { ListStatus } from "./escalation-list";
 import {
@@ -62,8 +62,9 @@ export function ThreadView({ conversationId, role }: { conversationId: string; r
   });
   const headingRef = useRef<HTMLHeadingElement>(null);
   const logRef = useRef<HTMLOListElement>(null);
-  const draftId = useId();
   const errorId = useId();
+  const [replyRef, reply_] = useSize<HTMLFormElement>();
+  const draftRef = useRef<HTMLTextAreaElement>(null);
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -77,6 +78,14 @@ export function ThreadView({ conversationId, role }: { conversationId: string; r
       headingRef.current?.focus();
     }
   }, [conversationId]);
+
+  // The reply box grows with the text up to a limit.
+  useLayoutEffect(() => {
+    const element = draftRef.current;
+    if (!element) return;
+    element.style.height = "auto";
+    element.style.height = `${Math.min(element.scrollHeight, 200)}px`;
+  }, [draft]);
 
   // Keep the newest message in view as replies and customer messages arrive.
   useEffect(() => {
@@ -129,28 +138,19 @@ export function ThreadView({ conversationId, role }: { conversationId: string; r
     }
   }
 
-  if (detail.isPending) {
-    return (
-      <p className="p-6 text-sm text-muted-foreground" role="status">
-        Loading the conversation
-      </p>
-    );
-  }
+  if (detail.isPending) return <ThreadSkeleton label="Loading the conversation" />;
   if (detail.isError) {
     const gone = detail.error instanceof ApiError && detail.error.status === 404;
     return (
-      <div className="flex flex-col items-start gap-3 p-6" role="alert">
+      <div role="alert" className="m-auto flex flex-col items-center gap-3 px-6 py-14 text-center">
         <p className="font-medium">{gone ? "This conversation is not available." : "The conversation could not be loaded."}</p>
-        <p className="text-sm text-muted-foreground">
-          {gone ? "It may have been removed, or it belongs to another workspace." : "Check your connection and try again."}
-        </p>
         <div className="flex gap-2">
           {gone ? null : (
-            <Button variant="outline" size="sm" onClick={() => void detail.refetch()}>
+            <Button variant="secondary" size="sm" onClick={() => void detail.refetch()}>
               Try again
             </Button>
           )}
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="ghost" size="sm">
             <Link to={{ search: "" }}>Back to the list</Link>
           </Button>
         </div>
@@ -161,7 +161,7 @@ export function ThreadView({ conversationId, role }: { conversationId: string; r
   const open = status === "escalated";
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex flex-col gap-3 border-b p-5 sm:p-6">
+      <header className="sticky-glass z-10 flex shrink-0 flex-col gap-2 border-b border-border px-5 py-4 sm:px-6">
         <Link
           to={{ search: "" }}
           className="inline-flex w-fit items-center gap-1.5 rounded-full text-sm text-muted-foreground hover:text-foreground lg:hidden"
@@ -169,68 +169,79 @@ export function ThreadView({ conversationId, role }: { conversationId: string; r
           <ArrowLeft aria-hidden className="size-4" />
           All conversations
         </Link>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 flex-1 basis-64">
-            <h2 ref={headingRef} tabIndex={-1} className="font-heading text-3xl break-words outline-none sm:text-4xl">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0 flex-1 basis-56">
+            <h2 ref={headingRef} tabIndex={-1} className="font-heading text-2xl break-words outline-none">
               {detail.data.title || "Conversation"}
             </h2>
-            <p className="mt-2 flex items-center gap-3">
+            <p className="mt-1.5">
               <ListStatus item={{ status }} />
             </p>
           </div>
           {open ? (
-            <Button variant="outline" size="sm" onClick={() => resolve.mutate()} disabled={resolve.isPending}>
+            <Button variant="secondary" size="sm" onClick={() => resolve.mutate()} disabled={resolve.isPending}>
               {resolve.isPending ? "Resolving" : "Resolve and hand back"}
             </Button>
           ) : null}
         </div>
-        {open ? (
-          <p className="text-[0.8125rem] text-muted-foreground">
-            Resolving closes the handoff. The assistant answers the customer's next message.
-          </p>
-        ) : null}
       </header>
 
-      <ol
-        ref={logRef}
-        role="log"
-        aria-live="polite"
-        aria-label="Messages"
-        tabIndex={0}
-        className="flex min-h-32 flex-1 flex-col gap-5 overflow-y-auto p-5 sm:p-6"
-      >
-        {messages.length === 0 ? (
-          <li className="text-sm text-muted-foreground">There are no messages in this conversation yet.</li>
-        ) : (
-          messages.map((message) => <Message key={message.key} message={message} />)
-        )}
-      </ol>
+      <div className="relative min-h-0 flex-1">
+        <ol
+          ref={logRef}
+          role="log"
+          aria-live="polite"
+          aria-label="Messages"
+          tabIndex={0}
+          className="scroll-area absolute inset-0 flex flex-col gap-5 px-5 pt-5 sm:px-6"
+          style={{ paddingBottom: blocked ? 20 : reply_.height + 28 }}
+        >
+          {messages.length === 0 ? (
+            <li className="text-sm text-muted-foreground">No messages yet.</li>
+          ) : (
+            messages.map((message) => <Message key={message.key} message={message} />)
+          )}
+        </ol>
 
-      <form onSubmit={onSubmit} className="flex flex-col gap-3 border-t p-5 sm:p-6">
-        <FormMessage id={errorId} message={error} />
-        {blocked ? (
-          <p className="text-sm text-muted-foreground">{blocked}</p>
-        ) : (
-          <>
-            <Label htmlFor={draftId}>Reply to the customer</Label>
-            <Textarea
-              id={draftId}
-              rows={3}
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              onKeyDown={onKeyDown}
-              aria-describedby={error ? errorId : undefined}
-              placeholder="Write what the customer should read"
-            />
-            <div className="flex items-center justify-between gap-3">
-              <p className="hidden font-mono text-xs text-muted-foreground sm:block">Ctrl or Cmd + Enter sends</p>
-              <Button type="submit" disabled={!sendable} className="ml-auto">
-                Send reply
-              </Button>
-            </div>
-          </>
+        {blocked ? null : (
+          <form
+            ref={replyRef}
+            onSubmit={onSubmit}
+            aria-label="Write a reply"
+            className="glass-regular absolute inset-x-4 bottom-4 z-10 rounded-(--r-outer) p-(--pad) sm:inset-x-6"
+            style={{ ["--r-outer" as string]: "1.75rem", ["--pad" as string]: "0.5rem" }}
+          >
+            <InputGroup>
+              {error ? (
+                <p id={errorId} role="alert" className="px-3 pt-1.5 text-sm">
+                  {error}
+                </p>
+              ) : null}
+              <div className="flex items-end gap-2">
+                <InputGroupTextarea
+                  ref={draftRef}
+                  value={draft}
+                  onChange={(event) => setDraft(event.target.value)}
+                  onKeyDown={onKeyDown}
+                  rows={1}
+                  aria-label="Reply to the customer"
+                  aria-describedby={error ? errorId : undefined}
+                  placeholder="Write to the customer"
+                  className="max-h-[200px] min-h-10 px-3 py-2"
+                />
+                <InputGroupAddon align="inline-end" className="pb-0.5">
+                  <span className="text-meta hidden text-muted-foreground sm:inline">Ctrl + Enter</span>
+                  <Button type="submit" size="icon" disabled={!sendable} aria-label="Send reply" title="Send reply">
+                    <ArrowUp aria-hidden />
+                  </Button>
+                </InputGroupAddon>
+              </div>
+            </InputGroup>
+          </form>
         )}
-      </form>
+      </div>
+
+      {blocked ? <p className="shrink-0 border-t border-border px-5 py-4 text-sm text-muted-foreground sm:px-6">{blocked}</p> : null}
     </div>
   );
 }

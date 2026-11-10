@@ -19,3 +19,4 @@ This directory contains lightweight Architecture Decision Records documenting ke
 - [0013: Google Gemini as a First-Class Chat Provider](0013-gemini-provider.md)
 - [0014: Web Delivery: Built SPA on Unprivileged nginx, Same Origin as the API](0014-web-delivery.md)
 - [0015: Caching: a Bounded Port, Tenant-Scoped Keys, Short TTLs and Invalidation by Document Change](0015-caching.md)
+- [0016: Liquid Redesign: Ink in Water Under Three Glass Thicknesses](0016-liquid-redesign.md)

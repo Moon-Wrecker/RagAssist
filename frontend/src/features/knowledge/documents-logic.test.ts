@@ -72,7 +72,7 @@ describe("status line and failure reason", () => {
     expect(failureReason(doc("a", "failed"), job("a", "failed", "Embedding service refused the request."))).toBe(
       "Embedding service refused the request.",
     );
-    expect(failureReason(doc("a", "failed", "  "), undefined)).toMatch(/not recorded/);
+    expect(failureReason(doc("a", "failed", "  "), undefined)).toMatch(/No reason was recorded/);
   });
 });
 
