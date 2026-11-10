@@ -7,7 +7,8 @@ import type { LiveEvent } from "./invalidation";
  * with `fetch` and parsed with eventsource-parser.
  *
  * Lifecycle (docs/api/sse-contract.md):
- * - `ready` opens every connection. There is no replay, so after any reconnect the caller invalidates everything.
+ * - `ready` opens every connection. There is no replay, so after any reconnect, and after a first connection that
+ *   only succeeded on a later attempt, the caller invalidates everything.
  * - `resync` means the server may have dropped events; the caller invalidates everything. The stream stays open.
  * - `reauth` means the access token expired and the server is closing the stream: refresh, reconnect at once.
  * - Any other end or failure reconnects with exponential backoff and jitter. A silent connection (no frame or
@@ -132,6 +133,9 @@ export async function runEventStream(options: EventStreamOptions): Promise<void>
   } = options;
   let attempt = 0;
   let everReady = false;
+  // True once a connection attempt ended before its first `ready`: whatever the caller loaded in the meantime may
+  // have failed or gone stale, so the first `ready` after such a gap must trigger a refetch like any reconnect.
+  let missedStart = false;
 
   while (!signal.aborted) {
     options.onStatus?.(everReady ? "reconnecting" : "connecting");
@@ -143,7 +147,7 @@ export async function runEventStream(options: EventStreamOptions): Promise<void>
         () => {
           attempt = 0;
           options.onStatus?.("connected");
-          if (everReady) options.onReconnected();
+          if (everReady || missedStart) options.onReconnected();
           everReady = true;
         },
         idleTimeoutMs,
@@ -154,6 +158,7 @@ export async function runEventStream(options: EventStreamOptions): Promise<void>
       if (error instanceof RetryLater) minDelayMs = error.ms;
     }
     if (signal.aborted) return;
+    if (!everReady) missedStart = true;
 
     if (reason === "reauth") {
       try {

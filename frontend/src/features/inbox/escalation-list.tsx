@@ -57,7 +57,7 @@ export function EscalationList({
               onClick={() => onFilter(value)}
             >
               {FILTER_LABELS[value]}
-              <span className="font-mono text-xs opacity-80">{counts[value]}</span>
+              {state === "ready" ? <span className="font-mono text-xs opacity-80">{counts[value]}</span> : null}
             </Button>
           ))}
         </div>

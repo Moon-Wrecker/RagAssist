@@ -117,6 +117,22 @@ describe("runEventStream", () => {
     expect(onReconnected).toHaveBeenCalledTimes(1);
   });
 
+  it("also asks for a refetch when the first connection only succeeds after failed attempts", async () => {
+    const { controller, onReconnected, done } = harness();
+    let call = 0;
+    mockFetch({
+      [EVENTS]: () => {
+        call += 1;
+        if (call <= 2) throw new TypeError("offline");
+        setTimeout(() => controller.abort(), 10);
+        return sseResponse([frame("ready")], { hold: true });
+      },
+    });
+    await done;
+    // Screens that loaded while the stream was failing may hold errors or stale data.
+    expect(onReconnected).toHaveBeenCalledTimes(1);
+  });
+
   it("refreshes the token on reauth and reconnects at once without backing off", async () => {
     const fresh = fakeToken("fresh");
     const { controller, delays, done } = harness();

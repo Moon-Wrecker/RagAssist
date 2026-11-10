@@ -9,6 +9,8 @@ import { EscalationList } from "./escalation-list";
 import { countByFilter, filterEscalations, filterFor, type InboxFilter } from "./inbox-logic";
 import { ThreadView } from "./thread-view";
 
+const RECOVERY_POLL_MS = 8_000;
+
 /**
  * Split inbox: the list of escalated conversations beside the open thread; stacked on phones, where the thread
  * replaces the list and a link goes back. The open thread is `?thread=<id>` so Back, reload and links work.
@@ -22,7 +24,12 @@ export function InboxPage() {
   const [filter, setFilter] = useState<InboxFilter>("needs-reply");
   const [query, setQuery] = useState("");
 
-  const escalations = useQuery({ queryKey: queryKeys.escalations, queryFn: listEscalations });
+  // A failed load heals itself: ask again every few seconds until it works (a restart of the API is the usual cause).
+  const escalations = useQuery({
+    queryKey: queryKeys.escalations,
+    queryFn: listEscalations,
+    refetchInterval: (query) => (query.state.status === "error" ? RECOVERY_POLL_MS : false),
+  });
   const all = useMemo(() => escalations.data?.items ?? [], [escalations.data]);
   const counts = useMemo(() => countByFilter(all), [all]);
   const visible = useMemo(() => filterEscalations(all, filter, query), [all, filter, query]);
