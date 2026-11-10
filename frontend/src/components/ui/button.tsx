@@ -14,7 +14,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground shadow-[0_1px_2px_oklch(0_0_0/0.25),0_4px_14px_-4px_oklch(0_0_0/0.35)]",
-        secondary: "glass-thin glass-lens text-foreground",
+        secondary: "glass-thin text-foreground",
         ghost: "text-foreground hover:bg-accent",
         link: "h-auto rounded-none p-0 text-foreground underline underline-offset-4 hover:decoration-2",
       },

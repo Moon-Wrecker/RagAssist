@@ -6,6 +6,7 @@ import { queryKeys } from "@/api/query-keys";
 import { Panel } from "@/components/panel";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PageFrame } from "@/components/page-frame";
 import { FormMessage } from "@/features/auth/form-message";
 import { actionError } from "@/lib/error-message";
 import { DocumentsTable } from "./documents-table";
@@ -111,26 +112,17 @@ export function KnowledgePage() {
   const total = documents.data?.total ?? 0;
 
   return (
-    <div className="flex flex-col gap-6">
-      <header>
-        <h1 ref={headingRef} tabIndex={-1} className="font-heading text-5xl outline-none sm:text-6xl">
-          Knowledge
-        </h1>
-        <p className="mt-3 max-w-prose text-muted-foreground">
-          The documents the assistant answers from. Add a file and it is read, split into passages and indexed; you can
-          watch each one finish here.
-        </p>
-        <p className="sr-only" role="status" aria-live="polite">
-          {announcement}
-        </p>
-      </header>
+    <PageFrame title={<>Knowledge</>} headingRef={headingRef}>
+      <p className="sr-only" role="status" aria-live="polite">
+        {announcement}
+      </p>
 
       <Panel className="p-5 sm:p-6">
         <h2 className="mb-4 text-sm font-medium">Add documents</h2>
         <UploadZone entries={uploads} onFiles={(files) => void handleFiles(files)} onDismiss={(id) => dispatch({ type: "dismiss", id })} />
       </Panel>
 
-      <section aria-label="Documents" className="glass-1 overflow-hidden rounded-3xl">
+      <section aria-label="Documents" className="glass-thick overflow-hidden rounded-(--r-surface)">
         <div className="flex items-center justify-between gap-3 border-b px-5 py-4 sm:px-6">
           <h2 className="text-sm font-medium">
             Documents <span className="font-mono text-xs text-muted-foreground">{documents.isSuccess ? total : ""}</span>
@@ -204,6 +196,6 @@ export function KnowledgePage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageFrame>
   );
 }

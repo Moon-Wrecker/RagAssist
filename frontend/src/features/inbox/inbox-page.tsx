@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router";
 import { listEscalations } from "@/api/escalations";
 import { queryKeys } from "@/api/query-keys";
 import { useSignedIn } from "@/auth/auth-context";
+import { PageFrame } from "@/components/page-frame";
 import { cn } from "@/lib/utils";
 import { EscalationList } from "./escalation-list";
 import { countByFilter, filterEscalations, filterFor, type InboxFilter } from "./inbox-logic";
@@ -47,21 +48,14 @@ export function InboxPage() {
     escalations.isSuccess ? (waiting === 0 ? "No conversations need a reply." : `${waiting} ${waiting === 1 ? "conversation needs" : "conversations need"} a reply.`) : "";
 
   return (
-    <div className="flex flex-col gap-6">
-      <header>
-        <h1 className="font-heading text-5xl sm:text-6xl">Inbox</h1>
-        <p className="mt-3 max-w-prose text-muted-foreground">
-          Customers the assistant has handed to a person. Open one to read it, answer, and resolve it when it is done.
-        </p>
-        <p className="sr-only" role="status" aria-live="polite">
-          {announcement}
-        </p>
-      </header>
-
-      <div className="grid gap-6 lg:h-[calc(100dvh-15rem)] lg:min-h-[36rem] lg:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)]">
+    <PageFrame title="Inbox" mode="fill">
+      <p className="sr-only" role="status" aria-live="polite">
+        {announcement}
+      </p>
+      <div className="grid h-full min-h-0 gap-3 px-(--gutter) lg:grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)]">
         <section
           aria-label="Conversation list"
-          className={cn("glass-1 min-h-0 flex-col overflow-hidden rounded-3xl", selectedId ? "hidden lg:flex" : "flex")}
+          className={cn("glass-regular min-h-0 flex-col overflow-hidden rounded-(--r-surface)", selectedId ? "hidden lg:flex" : "flex")}
         >
           <EscalationList
             items={visible}
@@ -79,20 +73,17 @@ export function InboxPage() {
 
         <section
           aria-label="Conversation"
-          className={cn("glass-1 min-h-0 flex-col overflow-hidden rounded-3xl", selectedId ? "flex" : "hidden lg:flex")}
+          className={cn("glass-thick min-h-0 flex-col overflow-hidden rounded-(--r-surface)", selectedId ? "flex" : "hidden lg:flex")}
         >
           {selectedId ? (
             <ThreadView key={selectedId} conversationId={selectedId} role={user.role} />
           ) : (
-            <div className="p-6 sm:p-8">
-              <p className="font-medium">Choose a conversation to read it.</p>
-              <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-                The thread opens here. You can reply and then resolve it, which hands the customer back to the assistant.
-              </p>
+            <div className="p-6">
+              <p className="font-medium">Choose a conversation.</p>
             </div>
           )}
         </section>
       </div>
-    </div>
+    </PageFrame>
   );
 }

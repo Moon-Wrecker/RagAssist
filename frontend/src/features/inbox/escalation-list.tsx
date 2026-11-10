@@ -52,7 +52,7 @@ export function EscalationList({
               key={value}
               type="button"
               size="sm"
-              variant={filter === value ? "default" : "outline"}
+              variant={filter === value ? "default" : "secondary"}
               aria-pressed={filter === value}
               onClick={() => onFilter(value)}
             >

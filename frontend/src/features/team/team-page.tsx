@@ -18,6 +18,7 @@ import type { Role } from "@/api/types";
 import { useSignedIn } from "@/auth/auth-context";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { PageFrame } from "@/components/page-frame";
 import { FormMessage } from "@/features/auth/form-message";
 import { actionError } from "@/lib/error-message";
 import { InviteForm, InvitesTable } from "./invites-section";
@@ -105,23 +106,14 @@ export function TeamPage() {
   const inviteList = invites.data ?? [];
 
   return (
-    <div className="flex flex-col gap-6">
-      <header>
-        <h1 ref={headingRef} tabIndex={-1} className="font-heading text-5xl outline-none sm:text-6xl">
-          Team
-        </h1>
-        <p className="mt-3 max-w-prose text-muted-foreground">
-          Who can sign in to this workspace and what they can do. There is no email service: when you invite someone or
-          reset a password you get a link to give them yourself.
-        </p>
-        <p className="sr-only" role="status" aria-live="polite">
-          {announcement}
-        </p>
-      </header>
+    <PageFrame title={<>Team</>} headingRef={headingRef}>
+      <p className="sr-only" role="status" aria-live="polite">
+        {announcement}
+      </p>
 
       <FormMessage id="team-action-error" message={message} />
 
-      <section aria-label="Members" className="glass-1 overflow-hidden rounded-3xl">
+      <section aria-label="Members" className="glass-thick overflow-hidden rounded-(--r-surface)">
         <div className="flex items-center justify-between gap-3 border-b px-5 py-4 sm:px-6">
           <h2 className="text-sm font-medium">
             Members <span className="font-mono text-xs text-muted-foreground">{members.isSuccess ? memberList.length : ""}</span>
@@ -154,7 +146,7 @@ export function TeamPage() {
         )}
       </section>
 
-      <section aria-label="Invitations" className="glass-1 overflow-hidden rounded-3xl">
+      <section aria-label="Invitations" className="glass-thick overflow-hidden rounded-(--r-surface)">
         <div className="border-b px-5 py-4 sm:px-6">
           <h2 className="text-sm font-medium">Invite someone</h2>
         </div>
@@ -220,6 +212,6 @@ export function TeamPage() {
           </div>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageFrame>
   );
 }
