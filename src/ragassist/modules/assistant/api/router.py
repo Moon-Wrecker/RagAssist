@@ -45,6 +45,25 @@ from ragassist.shared.security.jwt import Principal
 
 logger = structlog.get_logger(__name__)
 
+#: Per-turn fields. The graph checkpoints its state per conversation, so without this a new question starts from the
+#: previous turn's answer, citations, counters and status (a second message could be answered with the first
+#: answer, retry budgets were shared across turns, and a conversation handed back after "escalated" kept that status).
+FRESH_TURN_STATE: dict[str, object] = {
+    "answer": "",
+    "citations": [],
+    "status": "",
+    "escalated": False,
+    "tool_calls": [],
+    "error": None,
+    "current_query": "",
+    "rewrite_count": 0,
+    "retrieve_count": 0,
+    "generate_count": 0,
+    "retrieved_chunks": [],
+    "reranked_chunks": [],
+    "graded_chunks": [],
+}
+
 router = APIRouter(tags=["Assistant"])
 
 
@@ -694,6 +713,7 @@ async def ask_message(
     thread_id = f"{principal.tenant_id}:{conversation_id}"
     config = {"configurable": {"thread_id": thread_id}}
     input_state = {
+        **FRESH_TURN_STATE,
         "question": req.content,
         "principal": _checkpointable(principal),
         "conversation_id": conversation_id,
