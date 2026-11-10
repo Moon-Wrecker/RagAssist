@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 export type StatusEmphasis = "strong" | "normal" | "muted" | "alert";
 
 /**
- * A status as shape, weight and pattern plus its word, never colour: the icon differs in shape (filled dot, dashed
+ * A status as a small mono label with a glyph (no pill, no border), by shape, weight and pattern plus its word, never colour: the icon differs in shape (filled dot, dashed
  * ring, check, cross), `strong` is bold, `muted` is dimmed, and `alert` adds a dashed underline. The word is always
  * present, so the icon is decoration for assistive technology.
  */
@@ -22,7 +22,7 @@ export function StatusMark({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 font-mono text-xs",
+        "inline-flex items-center gap-1.5 text-meta",
         emphasis === "strong" && "font-medium text-foreground",
         emphasis === "normal" && "text-foreground",
         emphasis === "muted" && "text-muted-foreground",

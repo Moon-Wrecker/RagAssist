@@ -520,6 +520,65 @@
   }
 }
 
+
+/* ---- Table surfaces -------------------------------------------------------------------------------------------- */
+
+/* The header row of a table on a thick surface: translucent, so the rows scroll under it and blur through it.
+   Solid without backdrop-filter and under prefers-reduced-transparency. */
+@utility sticky-glass {
+  background: var(--glass-thick-solid);
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    background: color-mix(in oklab, var(--glass-thick-solid) 78%, transparent);
+    -webkit-backdrop-filter: blur(14px) saturate(1.4);
+    backdrop-filter: blur(14px) saturate(1.4);
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background: var(--glass-thick-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
+
+/* Row hover and the selected row: a thin-glass fill and a hairline rim, painted only on the one row (no backdrop
+   filter, so a long table costs nothing at rest or while scrolling). */
+@utility row-hover {
+  transition: background-color var(--dur-fast) var(--ease-out), box-shadow var(--dur-fast) var(--ease-out);
+  @media (hover: hover) {
+    &:hover {
+      background: var(--glass-thin);
+      box-shadow:
+        inset 0 1px 0 oklch(1 0 0 / calc(0.4 * var(--rim-bright))),
+        inset 0 -1px 0 var(--rim-line);
+    }
+  }
+}
+@utility row-selected {
+  background: var(--glass-thin);
+  box-shadow:
+    inset 0 1px 0 oklch(1 0 0 / calc(0.4 * var(--rim-bright))),
+    inset 0 -1px 0 var(--rim-line);
+}
+
+/* A placeholder bar in a skeleton: a slow change of opacity while something loads. */
+@utility skeleton {
+  background: var(--foreground);
+  opacity: 0.08;
+  border-radius: 9999px;
+  animation: skeleton 1.6s ease-in-out infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+@keyframes skeleton {
+  0%,
+  100% {
+    opacity: 0.06;
+  }
+  50% {
+    opacity: 0.14;
+  }
+}
+
 /* Text that streams in fades in once per rendered batch. */
 @keyframes fade-in {
   from {
