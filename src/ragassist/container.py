@@ -169,6 +169,8 @@ class Container:
                 def _llm_type(self) -> str:
                     return "local_fallback"
 
+            from ragassist.platform.cache import get_cache_service
+
             decision_svc = self.get_decision_service()
             retrieval_svc = self.get_retrieval_service()
             fallback_model = LocalFallbackChatModel()
@@ -210,6 +212,7 @@ class Container:
                 reranker=reranker,
                 tools=tools,
                 checkpointer=cp,
+                cache=get_cache_service(),
             )
             if checkpointer is None:
                 self._assistant_graph = compiled

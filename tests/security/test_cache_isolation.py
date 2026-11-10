@@ -139,3 +139,73 @@ class TestDocumentChangesPurgeTheTenant:
         await bus.publish(document_changed(TENANT_A, "doc-1"))
         await settle()
         assert len(bus.published) == 1
+
+
+class TestThroughTheApi:
+    """Deleting, re-indexing or uploading a document through the real endpoints purges that tenant's entries."""
+
+    @pytest.fixture
+    async def client(self):  # type: ignore[no-untyped-def]
+        import httpx
+
+        from ragassist.main import create_app
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=create_app()), base_url="http://api.test"
+        ) as c:
+            yield c
+
+    @staticmethod
+    def admin(tenant: str) -> dict[str, str]:
+        from uuid import uuid4
+
+        from factories.principals import auth_header, make_token
+
+        from ragassist.shared.security.jwt import UserRole
+
+        return auth_header(make_token(role=UserRole.ADMIN, tenant_id=tenant, user_id=uuid4()))  # type: ignore[arg-type]
+
+    async def seed(self, tenant: str) -> str:
+        from ragassist.platform.cache import get_cache_service
+
+        svc = get_cache_service()
+        key = svc.keys.key(kinds.RETRIEVAL, tenant, role="admin", text=QUESTION)
+        assert await svc.set_json(kinds.RETRIEVAL, key, {"v": 1}, 60)
+        return key
+
+    @pytest.mark.parametrize("action", ["delete", "reindex", "upload"])
+    async def test_document_endpoints_purge_only_the_callers_tenant(
+        self,
+        client,
+        action: str,  # type: ignore[no-untyped-def]
+    ) -> None:
+        import asyncio
+        from uuid import uuid4
+
+        from ragassist.platform.cache import get_cache_service
+
+        tenant_a, tenant_b = str(uuid4()), str(uuid4())
+        headers = self.admin(tenant_a)
+        up = await client.post(
+            "/v1/documents", files={"file": ("a.md", b"# a", "text/markdown")}, headers=headers
+        )
+        doc_id = up.json()["document_id"]
+        await asyncio.sleep(0)
+        svc = get_cache_service()
+        mine, theirs = await self.seed(tenant_a), await self.seed(tenant_b)
+        version = await svc.corpus_version(tenant_a)
+
+        if action == "delete":
+            res = await client.delete(f"/v1/documents/{doc_id}", headers=headers)
+        elif action == "reindex":
+            res = await client.post(f"/v1/documents/{doc_id}/reindex", headers=headers)
+        else:
+            res = await client.post(
+                "/v1/documents", files={"file": ("b.md", b"# b", "text/markdown")}, headers=headers
+            )
+        assert res.status_code in (200, 202)
+        await settle()
+
+        assert await svc.cache.get(mine) is None
+        assert await svc.cache.get(theirs) is not None
+        assert await svc.corpus_version(tenant_a) != version

@@ -330,6 +330,7 @@ async def build_runtime(settings: Settings) -> Runtime:
         reranker=reranker,
         tools=tools,
         checkpointer=checkpointer,
+        cache=get_cache_service(),
     )
 
     events = PostgresEventBus(
