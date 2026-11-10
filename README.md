@@ -179,10 +179,20 @@ grouped by conversation and user), set `LANGFUSE_TRACING=true`, `LANGFUSE_PUBLIC
 `LANGFUSE_BASE_URL` of your region in `.env`. Credentials are redacted before export, but conversation text and retrieved
 passages are sent to the project, so choose the region deliberately. See [ADR 0012](docs/adr/0012-langfuse-tracing.md).
 
+## Caching
+
+On by default and in memory (`CACHE_ENABLED=true`, `CACHE_BACKEND=memory`): repeated questions reuse query embeddings,
+retrieval results and safety/router verdicts for a short TTL, re-indexing skips chunks it has already embedded, and
+nothing crosses a tenant or role (every key carries both and only hashes of the text). Uploading, re-indexing or deleting
+a document invalidates that tenant's retrieval. Hit/miss/eviction counters are on `/metrics`. To share the cache between
+API replicas, start the optional Redis service and point the app at it:
+`docker compose --profile redis up -d redis`, then set `CACHE_BACKEND=redis`, `CACHE_REDIS_URL=redis://redis:6379/0` and
+`CACHE_REDIS_PASSWORD` in `.env`. Turn it all off with `CACHE_ENABLED=false`. See [ADR 0015](docs/adr/0015-caching.md).
+
 ## Documentation & Architecture Decision Records
 
 - **Repository Rules & Hygiene**: [`AGENTS.md`](AGENTS.md)
-- **Architecture Decision Records**: [`docs/adr/`](docs/adr/) (`ADR-0001` through `ADR-0014`)
+- **Architecture Decision Records**: [`docs/adr/`](docs/adr/) (`ADR-0001` through `ADR-0015`)
 - **Architecture overview (arc42)**: [`docs/arc42/`](docs/arc42/)
 - **SSE Streaming Contract**: [`docs/api/sse-contract.md`](docs/api/sse-contract.md)
 - **Testing Strategy**: [`docs/testing.md`](docs/testing.md)

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import deque
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 
 from ragassist.platform.events.model import Event, Viewer, visible_to
@@ -76,6 +76,13 @@ class EventHub:
         self._queue_size = queue_size
         self._max_per_user = max_streams_per_user
         self._subscriptions: set[Subscription] = set()
+        self._observers: list[Callable[[Event], None]] = []
+
+    def add_observer(self, observer: Callable[[Event], None]) -> None:
+        """Call ``observer(event)`` for every dispatched event, whatever the audience (for server-side reactions
+        such as cache invalidation, never for delivery). It must be quick and must not raise; if it does, the
+        failure is ignored so a broken observer cannot stop the events reaching the streams."""
+        self._observers.append(observer)
 
     @property
     def size(self) -> int:
@@ -97,6 +104,11 @@ class EventHub:
 
     def dispatch(self, event: Event) -> None:
         """Deliver ``event`` to every subscription whose viewer may see it."""
+        for observer in tuple(self._observers):
+            try:
+                observer(event)
+            except Exception:  # noqa: BLE001, S110 - an observer is a hint, never a reason to drop an event
+                pass
         for sub in tuple(self._subscriptions):
             if visible_to(sub.viewer, event):
                 sub.offer(event)

@@ -77,7 +77,9 @@ class Container:
 
                 session_factory = get_session_factory(self.settings)
                 db = ScopedDatabase(session_factory)
-                embedder = build_embedding_service(self.settings)
+                from ragassist.platform.cache import get_cache_service
+
+                embedder = build_embedding_service(self.settings, get_cache_service())
                 dense = PgVectorRetriever(db=db, embedder=embedder)
                 sparse = PgKeywordRetriever(db=db)
                 hybrid = HybridRetriever(
@@ -167,6 +169,8 @@ class Container:
                 def _llm_type(self) -> str:
                     return "local_fallback"
 
+            from ragassist.platform.cache import get_cache_service
+
             decision_svc = self.get_decision_service()
             retrieval_svc = self.get_retrieval_service()
             fallback_model = LocalFallbackChatModel()
@@ -208,6 +212,7 @@ class Container:
                 reranker=reranker,
                 tools=tools,
                 checkpointer=cp,
+                cache=get_cache_service(),
             )
             if checkpointer is None:
                 self._assistant_graph = compiled

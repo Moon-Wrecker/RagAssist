@@ -62,8 +62,20 @@ class HybridRetriever:
         filters: dict[str, Any] | None = None,
     ) -> list[Hit]:
         """Perform parallel dense and sparse search and fuse results with RRF."""
+        hits, _complete = await self.search_with_status(query, tenant_id=tenant_id, k=k, filters=filters)
+        return hits
+
+    async def search_with_status(
+        self,
+        query: str,
+        *,
+        tenant_id: Any,
+        k: int,
+        filters: dict[str, Any] | None = None,
+    ) -> tuple[list[Hit], bool]:
+        """``search`` plus whether both retrievers answered. A degraded result (one side failed) must not be cached."""
         if k <= 0 or not query.strip():
-            return []
+            return [], True
 
         # Run both searches in parallel
         dense_coro = self.dense.search(query, tenant_id=tenant_id, k=k, filters=filters)
@@ -71,20 +83,23 @@ class HybridRetriever:
 
         results = await asyncio.gather(dense_coro, sparse_coro, return_exceptions=True)
 
+        complete = True
         dense_hits: list[Hit] = []
         if isinstance(results[0], list):
             dense_hits = results[0]
         elif isinstance(results[0], Exception):
+            complete = False
             logger.warning("hybrid_retriever.dense_search_failed", error=str(results[0]))
 
         sparse_hits: list[Hit] = []
         if isinstance(results[1], list):
             sparse_hits = results[1]
         elif isinstance(results[1], Exception):
+            complete = False
             logger.warning("hybrid_retriever.sparse_search_failed", error=str(results[1]))
 
         fused = fuse_hit_rankings([dense_hits, sparse_hits], k=self.rrf_k, top_k=k)
-        return fused
+        return fused, complete
 
 
 __all__ = [

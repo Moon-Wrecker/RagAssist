@@ -125,7 +125,13 @@ class VectorRetriever:
             return []
 
         # Generate query embedding vector
-        query_vector = await self.embedder.embed_query(query)
+        # With the cache on (ADR 0015) the service answers repeats for this tenant from memory; any other embedder
+        # (or a service without a cache) takes the plain path.
+        embed_for_tenant = getattr(self.embedder, "embed_query_for", None)
+        if embed_for_tenant is not None:
+            query_vector = await embed_for_tenant(tenant_id, query)
+        else:
+            query_vector = await self.embedder.embed_query(query)
         vector_str = "[" + ",".join(str(float(x)) for x in query_vector) + "]"
 
         filter_clauses = ["(tenant_id = :tenant_id OR tenant_id IS NULL)"]

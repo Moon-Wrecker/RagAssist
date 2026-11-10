@@ -37,6 +37,11 @@ class SentenceTransformersEmbeddingAdapter(EmbeddingProvider):
     def name(self) -> str:
         return "sentence_transformers"
 
+    @property
+    def model_name(self) -> str:
+        """The configured model; part of the embedding cache key (a new model must never reuse old vectors)."""
+        return str(self._model_name)
+
     def dimension(self) -> int:
         return self._target_dimension
 

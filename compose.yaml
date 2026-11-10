@@ -78,6 +78,35 @@ services:
       timeout: 5s
       retries: 5
 
+  # Optional shared cache (ADR 0015). Off unless the `redis` profile is requested:
+  #   docker compose --profile redis up -d redis
+  # then set CACHE_BACKEND=redis, CACHE_REDIS_URL=redis://redis:6379/0 and CACHE_REDIS_PASSWORD in .env.
+  # The official image from Docker Hub, pinned. No host port is published: the api and worker reach it by service
+  # name inside the compose network. The password is read from .env and never written into this file; it reaches
+  # the server and the health check through environment variables, not the process arguments.
+  redis:
+    image: redis:8.2.11-alpine
+    container_name: ragassist-redis
+    profiles: ["redis"]
+    restart: unless-stopped
+    environment:
+      REDIS_PASSWORD: ${CACHE_REDIS_PASSWORD:-}
+      REDISCLI_AUTH: ${CACHE_REDIS_PASSWORD:-}
+    # A required variable (`:?`) would stop every `docker compose` command while the profile is off, so the
+    # requirement is enforced here instead: the container refuses to start without a password.
+    command:
+      - sh
+      - -c
+      - >-
+        test -n "$$REDIS_PASSWORD" || { echo "set CACHE_REDIS_PASSWORD in .env to use the redis profile" >&2; exit 1; };
+        exec redis-server --requirepass "$$REDIS_PASSWORD" --maxmemory 256mb --maxmemory-policy allkeys-lru
+        --save "" --appendonly no
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   migrate:
     <<: *app
     container_name: ragassist-migrate

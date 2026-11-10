@@ -39,6 +39,16 @@ class SimplePrometheusRegistry:
         self._gauges: dict[str, dict[tuple[tuple[str, str], ...], float]] = defaultdict(lambda: defaultdict(float))
         self._help: dict[str, str] = {}
         self._types: dict[str, str] = {}
+        self._collectors: dict[str, Callable[[SimplePrometheusRegistry], None]] = {}
+
+    def add_collector(self, name: str, collector: Callable[[SimplePrometheusRegistry], None]) -> None:
+        """Register a function that refreshes metrics just before they are exported (replaces one of the same
+        name). For values another component owns, such as cache counters, that are read rather than incremented."""
+        self._collectors[name] = collector
+
+    def set_counter(self, name: str, value: float, **labels: str) -> None:
+        """Set a counter to an absolute value owned elsewhere (it must only ever grow)."""
+        self._counters[name][tuple(sorted(labels.items()))] = value
 
     def register(self, name: str, metric_type: str, help_text: str) -> None:
         self._types[name] = metric_type
@@ -65,6 +75,11 @@ class SimplePrometheusRegistry:
 
     def export_text(self) -> str:
         """Render all collected metrics in standard Prometheus text format."""
+        for collector in tuple(self._collectors.values()):
+            try:
+                collector(self)
+            except Exception:  # noqa: BLE001, S110 - one broken collector must not take /metrics down
+                pass
         lines: list[str] = []
 
         # Export counters
