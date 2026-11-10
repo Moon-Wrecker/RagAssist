@@ -3,7 +3,9 @@ import { useMemo, useReducer, useRef, useState } from "react";
 import { deleteDocument, getIngestionJob, listDocuments, reindexDocument, uploadDocument, type DocumentList, type DocumentSummary, type IngestionJob } from "@/api/documents";
 import { optimisticTarget, useOptimisticMutation } from "@/api/optimistic";
 import { queryKeys } from "@/api/query-keys";
-import { Panel } from "@/components/panel";
+import { EmptyState, ErrorState } from "@/components/empty-state";
+import { TableSkeleton } from "@/components/skeleton";
+import { TableSurface } from "@/components/table-surface";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { PageFrame } from "@/components/page-frame";
@@ -32,7 +34,6 @@ export function KnowledgePage() {
   // The document stays set while the dialog animates closed, so its text does not vanish mid-fade.
   const [toDelete, setToDelete] = useState<DocumentSummary | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
-  const deleteTrigger = useRef<HTMLElement | null>(null);
   const headingRef = useRef<HTMLHeadingElement>(null);
 
   const watched = items.filter((doc) => isInFlight(doc) && jobIds[doc.document_id]);
@@ -112,80 +113,69 @@ export function KnowledgePage() {
   const total = documents.data?.total ?? 0;
 
   return (
-    <PageFrame title={<>Knowledge</>} headingRef={headingRef}>
+    <PageFrame
+      title={<>Knowledge</>}
+      headingRef={headingRef}
+      mode="fill"
+      actions={
+        <Button variant="ghost" size="sm" onClick={() => void documents.refetch()} disabled={documents.isFetching}>
+          {documents.isFetching ? "Refreshing" : "Refresh"}
+        </Button>
+      }
+    >
       <p className="sr-only" role="status" aria-live="polite">
         {announcement}
       </p>
 
-      <Panel className="p-5 sm:p-6">
-        <h2 className="mb-4 text-sm font-medium">Add documents</h2>
-        <UploadZone entries={uploads} onFiles={(files) => void handleFiles(files)} onDismiss={(id) => dispatch({ type: "dismiss", id })} />
-      </Panel>
-
-      <section aria-label="Documents" className="glass-thick overflow-hidden rounded-(--r-surface)">
-        <div className="flex items-center justify-between gap-3 border-b px-5 py-4 sm:px-6">
-          <h2 className="text-sm font-medium">
-            Documents <span className="font-mono text-xs text-muted-foreground">{documents.isSuccess ? total : ""}</span>
-          </h2>
-          <Button variant="ghost" size="sm" onClick={() => void documents.refetch()} disabled={documents.isFetching}>
-            {documents.isFetching ? "Refreshing" : "Refresh"}
-          </Button>
+      <div className="flex h-full min-h-0 flex-col gap-3 px-(--gutter)">
+        <div className="shrink-0">
+          <UploadZone entries={uploads} onFiles={(files) => void handleFiles(files)} onDismiss={(id) => dispatch({ type: "dismiss", id })} />
+          <FormMessage id="knowledge-action-error" message={actionMessage} />
         </div>
-        <FormMessage id="knowledge-action-error" message={actionMessage} />
-        {documents.isPending ? (
-          <p className="p-6 text-sm text-muted-foreground" role="status">
-            Loading documents
-          </p>
-        ) : documents.isError ? (
-          <div className="flex flex-col items-start gap-3 p-6" role="alert">
-            <p className="text-sm">The documents could not be loaded.</p>
-            <Button variant="secondary" size="sm" onClick={() => void documents.refetch()}>
-              Try again
-            </Button>
-          </div>
-        ) : items.length === 0 ? (
-          <div className="p-6">
-            <p className="font-medium">No documents yet.</p>
-            <p className="mt-2 max-w-prose text-sm text-muted-foreground">
-              Add a PDF, Markdown, HTML or CSV file above. Until you do, the assistant has nothing of yours to answer from.
+
+        <TableSurface aria-label="Documents" className="flex-1">
+          {documents.isPending ? (
+            <TableSkeleton label="Loading documents" columns={5} />
+          ) : documents.isError ? (
+            <ErrorState what="The documents" onRetry={() => void documents.refetch()} />
+          ) : items.length === 0 ? (
+            <EmptyState title="No documents yet." hint="Add a PDF, Markdown, HTML or CSV file." />
+          ) : (
+            <DocumentsTable
+              documents={items}
+              jobs={jobs}
+              onReindex={(doc) => {
+                setActionMessage(null);
+                reindex.mutate(doc.document_id);
+              }}
+              onDelete={(doc) => {
+                setToDelete(doc);
+                setDeleteOpen(true);
+              }}
+            />
+          )}
+          {documents.isSuccess && total > items.length ? (
+            <p className="text-meta border-t border-border p-4 text-muted-foreground">
+              Showing the newest {items.length} of {total}.
             </p>
-          </div>
-        ) : (
-          <DocumentsTable
-            documents={items}
-            jobs={jobs}
-            onReindex={(doc) => {
-              setActionMessage(null);
-              reindex.mutate(doc.document_id);
-            }}
-            onDelete={(doc, trigger) => {
-              deleteTrigger.current = trigger;
-              setToDelete(doc);
-              setDeleteOpen(true);
-            }}
-          />
-        )}
-        {documents.isSuccess && total > items.length ? (
-          <p className="border-t p-4 font-mono text-xs text-muted-foreground">
-            Showing the newest {items.length} of {total}.
-          </p>
-        ) : null}
-      </section>
+          ) : null}
+        </TableSurface>
+      </div>
 
       <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <DialogContent
           onCloseAutoFocus={(event) => {
-            // Return focus to the button that opened the dialog; if its row is gone (deleted), go to the page title.
+            // Return focus to the row menu that led here; if its row is gone (deleted), go to the page title.
             event.preventDefault();
-            const trigger = deleteTrigger.current;
-            (trigger?.isConnected ? trigger : headingRef.current)?.focus();
+            const name = toDelete ? `Actions for ${toDelete.filename}` : "";
+            const trigger = name ? document.querySelector<HTMLElement>(`[aria-label="${CSS.escape(name)}"]`) : null;
+            (trigger ?? headingRef.current)?.focus();
           }}
         >
           <DialogHeader>
             <DialogTitle>Delete this document?</DialogTitle>
             <DialogDescription>
-              <span className="font-medium text-foreground break-all">{toDelete?.filename}</span> and its
-              indexed passages are removed. The assistant stops answering from it. This cannot be undone.
+              <span className="font-medium text-foreground break-all">{toDelete?.filename}</span> is removed, and the assistant stops using it. This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2 px-6 pt-5 pb-6">
