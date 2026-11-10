@@ -46,6 +46,8 @@ dependencies = [
     "python-multipart>=0.0.9",
     "psycopg[binary,pool]>=3.2.0",
     "pyyaml>=6.0",
+    # Optional cache backend (CACHE_BACKEND=redis, ADR 0015): MIT licence, maintained by Redis Inc., exact pin.
+    "redis==8.1.0",
 ]
 
 [project.scripts]

@@ -188,6 +188,30 @@ class Settings(BaseSettings):
     EVENTS_MAX_STREAMS_PER_USER: int = Field(ge=1)
     EVENTS_QUEUE_SIZE: int = Field(ge=1)
 
+    # --- Cache (ADR 0015) ---
+    # Off switch for every cache below: with it false each lookup is a miss and nothing is stored.
+    CACHE_ENABLED: bool
+    # "memory": per-process LRU+TTL (default). "redis": one shared Redis; also shares the login throttle,
+    # rate limiter and event stream cap between API replicas.
+    CACHE_BACKEND: Literal["memory", "redis"]
+    # First segment of every key; lets several environments share one Redis without touching each other.
+    CACHE_KEY_PREFIX: str = Field(min_length=1, pattern=r"^[A-Za-z0-9_-]+$")
+    # Upper bounds: entries held by the in-memory adapter, and the size of one stored value.
+    CACHE_MAX_ENTRIES: int = Field(ge=1)
+    CACHE_MAX_VALUE_BYTES: int = Field(ge=1)
+    # Time to live per kind of entry (seconds). Nothing is stored without one.
+    CACHE_EMBEDDING_QUERY_TTL_SECONDS: int = Field(ge=1)
+    CACHE_EMBEDDING_DOCUMENT_TTL_SECONDS: int = Field(ge=1)
+    CACHE_RETRIEVAL_TTL_SECONDS: int = Field(ge=1)
+    CACHE_DECISION_TTL_SECONDS: int = Field(ge=1)
+    CACHE_CORPUS_VERSION_TTL_SECONDS: int = Field(ge=1)
+    # ``Cache-Control: private, max-age`` on cacheable GET responses (0 turns the header's max-age off).
+    CACHE_HTTP_MAX_AGE_SECONDS: int = Field(ge=0)
+    # Needed only when CACHE_BACKEND=redis. The URL carries no credentials (the password has its own field).
+    CACHE_REDIS_URL: str = ""
+    CACHE_REDIS_PASSWORD: str = ""
+    CACHE_REDIS_TIMEOUT_SECONDS: float = Field(gt=0)
+
     @model_validator(mode="after")
     def _build_database_urls(self) -> Settings:
         """Compose the connection URLs from the parts so a password is configured in exactly one place."""
@@ -202,6 +226,16 @@ class Settings(BaseSettings):
                 f"postgresql+asyncpg://{quote(self.DB_ADMIN_USER, safe='')}:"
                 f"{quote(self.DB_ADMIN_PASSWORD, safe='')}@{target}"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _check_redis_cache_settings(self) -> Settings:
+        """Redis needs a URL, and the URL must not carry the password (it is masked only in its own field)."""
+        if self.CACHE_ENABLED and self.CACHE_BACKEND == "redis":
+            if not self.CACHE_REDIS_URL:
+                raise ValueError("CACHE_REDIS_URL is required when CACHE_BACKEND=redis.")
+        if self.CACHE_REDIS_URL and "@" in self.CACHE_REDIS_URL.split("://", 1)[-1].split("/", 1)[0]:
+            raise ValueError("CACHE_REDIS_URL must not contain credentials; use CACHE_REDIS_PASSWORD.")
         return self
 
     @model_validator(mode="after")
@@ -242,6 +276,7 @@ class Settings(BaseSettings):
             "OPENAI_DECISIONS_API_KEY",
             "LANGSMITH_API_KEY",
             "LANGFUSE_SECRET_KEY",
+            "CACHE_REDIS_PASSWORD",
         }
         parts = []
         for k in self.__class__.model_fields:
@@ -275,6 +310,7 @@ class Settings(BaseSettings):
             "OPENAI_DECISIONS_API_KEY",
             "LANGSMITH_API_KEY",
             "LANGFUSE_SECRET_KEY",
+            "CACHE_REDIS_PASSWORD",
         ):
             if data.get(k):
                 data[k] = "**********"
