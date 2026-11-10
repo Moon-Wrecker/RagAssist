@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { mockApi, type Role } from "./mock-api";
 
 const NAV: Record<Role, string[]> = {
@@ -68,18 +68,27 @@ test.describe("session and role-aware shell", () => {
     await expect(page.getByRole("heading", { name: "Team" })).toBeVisible();
   });
 
-  test("the palette button works without a keyboard shortcut", async ({ page }) => {
+  // On a phone the sidebar's footer lives in the Account sheet, behind the Account tab.
+  async function openAccountOnPhone(page: Page, projectName: string) {
+    if (!projectName.startsWith("phone")) return;
+    await page.getByRole("button", { name: "Account" }).click();
+    await expect(page.getByRole("dialog", { name: "Account" })).toBeVisible();
+  }
+
+  test("the palette button works without a keyboard shortcut", async ({ page }, info) => {
     await mockApi(page, { signedIn: true });
     await page.goto("/");
-    await page.getByRole("button", { name: "Open the command palette" }).click();
+    await openAccountOnPhone(page, info.project.name);
+    await page.getByRole("button", { name: info.project.name.startsWith("phone") ? "Search" : "Open the command palette" }).click();
     await expect(page.getByRole("dialog", { name: "Command palette" })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(page.getByRole("dialog")).toBeHidden();
   });
 
-  test("signing out ends the session and returns to sign-in", async ({ page }) => {
+  test("signing out ends the session and returns to sign-in", async ({ page }, info) => {
     const api = await mockApi(page, { signedIn: true });
     await page.goto("/");
+    await openAccountOnPhone(page, info.project.name);
     await page.getByRole("button", { name: "Sign out" }).click();
     await expect(page).toHaveURL(/\/sign-in$/);
     expect(api.requests.some((r) => r.path === "/v1/auth/logout")).toBe(true);
