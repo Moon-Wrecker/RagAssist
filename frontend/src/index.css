@@ -1,98 +1,209 @@
-@import "@fontsource/instrument-serif/latin-400.css";
-@import "@fontsource/instrument-serif/latin-400-italic.css";
-@import "@fontsource/geist-sans/latin-400.css";
-@import "@fontsource/geist-sans/latin-500.css";
-@import "@fontsource/geist-sans/latin-600.css";
-@import "@fontsource/geist-mono/latin-400.css";
-@import "@fontsource/geist-mono/latin-500.css";
 @import "tailwindcss";
+
+/* ---------------------------------------------------------------------------------------------------------------
+   Design tokens. Everything visual is decided here; components use these utilities and tokens and add no
+   per-component colour, radius, shadow or blur values.
+
+   Direction: "ink in water under macOS-style glass" (ADR 0016). Black and white liquid moves behind the app (the
+   WebGL canvas, src/background). The interface is made of glass in three thicknesses over it. Strictly monochrome:
+   every colour token has zero chroma and there is no accent colour; state is carried by shape, weight and word.
+   --------------------------------------------------------------------------------------------------------------- */
+
+/* Fonts are self-hosted in public/fonts (preloaded in index.html) and each has a metric-matched local fallback, so
+   the swap from fallback to web font does not shift the layout. Overrides were measured against the files. */
+@font-face {
+  font-family: "Geist Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/geist-sans-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/geist-sans-latin-500-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/geist-mono-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/geist-mono-latin-500-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Instrument Serif";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/instrument-serif-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Instrument Serif";
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/instrument-serif-latin-400-italic.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist Sans Fallback";
+  src: local("Arial"), local("Liberation Sans"), local("Helvetica");
+  size-adjust: 104.9%;
+  ascent-override: 87.7%;
+  descent-override: 21%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Geist Mono Fallback";
+  src: local("Consolas"), local("Menlo"), local("Liberation Mono"), local("Courier New");
+  size-adjust: 109.1%;
+  ascent-override: 92.6%;
+  descent-override: 27.5%;
+  line-gap-override: 0%;
+}
+@font-face {
+  font-family: "Instrument Serif Fallback";
+  src: local("Georgia"), local("Times New Roman");
+  size-adjust: 75.8%;
+  ascent-override: 130.6%;
+  descent-override: 40.9%;
+  line-gap-override: 0%;
+}
 
 /* The theme attribute on <html> is always "light" or "dark" (set before first paint by theme-init.js and kept in
    sync by ThemeProvider, which resolves "system" itself). */
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
-/* Design contract: true monochrome, zero chroma in every token. Status is carried by glyph, weight and pattern,
-   never by colour, so "destructive" is a neutral too. Glass is the primary surface style: panels, the top bar,
-   dialogs and the palette are translucent neutrals over a calm monochrome backdrop (see .ambient below). */
 :root {
   color-scheme: light;
-  --background: oklch(0.955 0 0);
-  --foreground: oklch(0.145 0 0);
-  --muted: oklch(0.965 0 0);
-  --muted-foreground: oklch(0.44 0 0);
-  --border: oklch(0 0 0 / 0.12);
-  --border-strong: oklch(0 0 0 / 0.3);
+
+  /* Ink. Secondary text is clearly lighter than primary but still passes AA on every glass tier (contrast.test). */
+  --background: oklch(0.96 0 0);
+  --foreground: oklch(0.14 0 0);
+  --muted-foreground: oklch(0.4 0 0);
+  --border: oklch(0 0 0 / 0.1);
+  --border-strong: oklch(0 0 0 / 0.28);
   --input: oklch(0 0 0 / 0.16);
-  --ring: oklch(0.145 0 0);
-  --primary: oklch(0.145 0 0);
+  --ring: oklch(0.14 0 0);
+  --primary: oklch(0.14 0 0);
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.965 0 0);
-  --secondary-foreground: oklch(0.145 0 0);
   --accent: oklch(0 0 0 / 0.06);
-  --accent-foreground: oklch(0.145 0 0);
-  --destructive: oklch(0.145 0 0);
+  --accent-foreground: oklch(0.14 0 0);
+  --destructive: oklch(0.14 0 0);
   --destructive-foreground: oklch(0.99 0 0);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --scrim: oklch(0 0 0 / 0.3);
-  --radius: 0.5rem;
+  --popover-foreground: oklch(0.14 0 0);
+  --scrim: oklch(0 0 0 / 0.28);
 
-  /* Glass levels. 1 = panels and containers that sit on the page; 2 = floating layers (top bar, dialogs,
-     palette, menus). Never nest glass inside glass. The solid values are the fallbacks. */
-  --glass-1: oklch(1 0 0 / 0.58);
-  --glass-2: oklch(1 0 0 / 0.74);
-  --glass-1-solid: oklch(0.985 0 0);
-  --glass-2-solid: oklch(1 0 0);
-  --glass-border: oklch(0 0 0 / 0.11);
-  --glass-edge: oklch(1 0 0 / 0.95);
-  --glass-shadow: 0 1px 2px oklch(0 0 0 / 0.04), 0 24px 56px -20px oklch(0 0 0 / 0.22);
+  /* Glass fills, thin to thick, and their solid fallbacks (no backdrop-filter, or prefers-reduced-transparency).
+     Thin = controls, Regular = navigation and bars, Thick = surfaces that hold content. */
+  --glass-thin: oklch(1 0 0 / 0.42);
+  --glass-regular: oklch(1 0 0 / 0.5);
+  --glass-thick: oklch(1 0 0 / 0.8);
+  --glass-thin-solid: oklch(0.97 0 0);
+  --glass-regular-solid: oklch(0.98 0 0);
+  --glass-thick-solid: oklch(0.99 0 0);
 
-  /* Backdrop: the darkest and lightest tones the glass can sit over (also read by the contrast test), and the
-     strength of the grain. */
-  --ambient-lo: oklch(0.74 0 0);
-  --ambient-hi: oklch(1 0 0);
+  /* What the backdrop does to what is behind the glass (numbers, read by the contrast test). */
+  --glass-thin-blur: 10px;
+  --glass-regular-blur: 24px;
+  --glass-thick-blur: 40px;
+  --glass-saturate: 1.6;
+  --glass-thin-brightness: 1.04;
+  --glass-regular-brightness: 1.04;
+  --glass-thick-brightness: 1.02;
+
+  /* Specular rim: bright top-left, faint bottom-right, plus a hairline and a faint inner shadow at the bottom. */
+  --rim-bright: 1;
+  --rim-faint: 0.45;
+  --rim-line: oklch(0 0 0 / 0.1);
+  --rim-shade: oklch(0 0 0 / 0.1);
+  --shadow-near: oklch(0 0 0 / 0.1);
+  --shadow-mid: oklch(0 0 0 / 0.12);
+  --shadow-far: oklch(0 0 0 / 0.14);
+
   --grain-opacity: 0.05;
 }
 
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --background: oklch(0.13 0 0);
+
+  --background: oklch(0.12 0 0);
   --foreground: oklch(0.985 0 0);
-  --muted: oklch(0.205 0 0);
-  --muted-foreground: oklch(0.77 0 0);
-  --border: oklch(1 0 0 / 0.14);
-  --border-strong: oklch(1 0 0 / 0.34);
+  --muted-foreground: oklch(0.8 0 0);
+  --border: oklch(1 0 0 / 0.12);
+  --border-strong: oklch(1 0 0 / 0.32);
   --input: oklch(1 0 0 / 0.2);
   --ring: oklch(0.985 0 0);
   --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.145 0 0);
-  --secondary: oklch(0.205 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --accent: oklch(1 0 0 / 0.09);
+  --primary-foreground: oklch(0.14 0 0);
+  --accent: oklch(1 0 0 / 0.08);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.985 0 0);
-  --destructive-foreground: oklch(0.145 0 0);
+  --destructive-foreground: oklch(0.14 0 0);
   --popover: oklch(0.18 0 0);
   --popover-foreground: oklch(0.985 0 0);
   --scrim: oklch(0 0 0 / 0.55);
 
-  --glass-1: oklch(0.2 0 0 / 0.62);
-  --glass-2: oklch(0.18 0 0 / 0.72);
-  --glass-1-solid: oklch(0.19 0 0);
-  --glass-2-solid: oklch(0.16 0 0);
-  --glass-border: oklch(1 0 0 / 0.14);
-  --glass-edge: oklch(1 0 0 / 0.16);
-  --glass-shadow: 0 1px 2px oklch(0 0 0 / 0.3), 0 28px 64px -20px oklch(0 0 0 / 0.7);
+  --glass-thin: oklch(0.24 0 0 / 0.42);
+  --glass-regular: oklch(0.17 0 0 / 0.5);
+  --glass-thick: oklch(0.14 0 0 / 0.8);
+  --glass-thin-solid: oklch(0.22 0 0);
+  --glass-regular-solid: oklch(0.17 0 0);
+  --glass-thick-solid: oklch(0.15 0 0);
 
-  --ambient-lo: oklch(0.05 0 0);
-  --ambient-hi: oklch(0.5 0 0);
+  --glass-thin-brightness: 1.1;
+  --glass-regular-brightness: 1.08;
+  --glass-thick-brightness: 1.05;
+
+  --rim-bright: 0.62;
+  --rim-faint: 0.16;
+  --rim-line: oklch(0 0 0 / 0.4);
+  --rim-shade: oklch(0 0 0 / 0.35);
+  --shadow-near: oklch(0 0 0 / 0.3);
+  --shadow-mid: oklch(0 0 0 / 0.34);
+  --shadow-far: oklch(0 0 0 / 0.4);
+
   --grain-opacity: 0.07;
+}
+
+/* Shared geometry. Radii are concentric: an inner element uses (outer radius - padding), see .r-inner. */
+:root {
+  --gutter: 0.75rem; /* the gap between floating glass and the window edge (12px) */
+  --sidebar-w: 15rem;
+  --sidebar-w-collapsed: 4.25rem;
+  --header-h: 3.5rem;
+  --tabbar-h: 0rem;
+  --page-max: 64rem; /* the one content column every page shares */
+  --chat-max: 44rem;
+  --r-control: 9999px; /* controls are capsules */
+  --r-surface: 1.5rem;
+  --r-bar: 1.75rem;
+
+  /* Motion. Springs are shared with src/lib/motion.ts; --ease-spring is the same spring (stiffness 420, damping 30)
+     sampled for CSS. Only transform and opacity are ever animated. */
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: linear(0, 0.083, 0.263, 0.465, 0.648, 0.795, 0.901, 0.97, 1.01, 1.029, 1.034, 1.032, 1.026, 1.019, 1.013, 1.007, 1.004, 1.001, 1, 0.999, 0.999, 0.999, 0.999);
+
+  /* Light direction for the rim, moved a little by the pointer (src/lib/pointer-light.ts). 0..1 across the window. */
+  --lx: 0.3;
+  --ly: 0.2;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-border: var(--border);
   --color-border-strong: var(--border-strong);
@@ -100,8 +211,6 @@
   --color-ring: var(--ring);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
@@ -109,30 +218,58 @@
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-scrim: var(--scrim);
-  --radius-sm: calc(var(--radius) - 1px);
-  --radius-md: var(--radius);
-  --radius-lg: calc(var(--radius) + 2px);
-  --font-sans: "Geist Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-serif: "Instrument Serif", ui-serif, Georgia, serif;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --radius-2xl: 1.5rem;
+  --radius-3xl: 1.75rem;
+  --font-sans: "Geist Sans", "Geist Sans Fallback", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Geist Mono", "Geist Mono Fallback", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-serif: "Instrument Serif", "Instrument Serif Fallback", ui-serif, Georgia, serif;
 }
 
 @layer base {
   * {
     border-color: var(--border);
   }
+  /* The document never scrolls: the shell is a grid fixed at 100dvh and every page owns its scrollers. */
+  html,
+  body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
   html {
     -webkit-text-size-adjust: 100%;
+    background: var(--background);
   }
   body {
-    background: var(--background);
-    min-height: 100dvh;
     color: var(--foreground);
     font-family: var(--font-sans);
-    font-size: 0.9375rem;
-    line-height: 1.55;
+    font-size: 0.9375rem; /* 15px */
+    font-weight: 400;
+    line-height: 1.6;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    font-synthesis: none;
+  }
+  #root {
+    height: 100%;
+  }
+  /* Nothing in body text or tables is heavier than 500; labels and buttons are 500. No negative tracking. */
+  b,
+  strong,
+  th {
+    font-weight: 500;
+  }
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    letter-spacing: normal;
   }
   :focus-visible {
     outline: 2px solid var(--ring);
@@ -144,62 +281,309 @@
   }
 }
 
-/* Glass surfaces. Translucent neutral fill, modest blur, a hairline border with a faint light edge on top and a
-   very soft shadow. Falls back to a solid surface when the browser lacks backdrop-filter or the person asks for
-   less transparency; src/theme/contrast.test.ts checks text over the busiest part of the backdrop. */
-@utility glass-1 {
-  background: var(--glass-1-solid);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
+/* ---- Type utilities ------------------------------------------------------------------------------------------- */
+
+/* Instrument Serif: only the chat greeting (.font-greeting) and page titles (.font-heading, about 28px). */
+@utility font-heading {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: 1.75rem;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+@utility font-greeting {
+  font-family: var(--font-serif);
+  font-weight: 400;
+  font-size: clamp(1.875rem, 1.5rem + 1.6vw, 2.5rem);
+  line-height: 1.12;
+  letter-spacing: 0;
+}
+/* Geist Mono: counts, timestamps, citations and status only. */
+@utility text-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.3;
+}
+@utility text-meta {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 400;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Scrollers ------------------------------------------------------------------------------------------------ */
+
+/* Every scroller: contained, stable gutter, thin styled bar. Apply with .scroll-area on the element that scrolls. */
+@utility scroll-area {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-strong) transparent;
+  &::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+/* A soft fade on the outer strip of a scroller (the gap between the glass bar and the window edge). */
+@utility scroll-fade {
+  mask-image: linear-gradient(to bottom, transparent 0, #000 var(--gutter), #000 calc(100% - var(--gutter)), transparent 100%);
+}
+
+/* ---- Glass ----------------------------------------------------------------------------------------------------- */
+
+/* One recipe, three thicknesses: translucent fill; backdrop blur with a saturation and brightness lift; a bright 1px
+   specular rim, strongest top-left and shifted a little by the pointer (regular and thick); a faint inner shadow at
+   the bottom edge; a layered soft drop shadow. Solid fills without backdrop-filter and under
+   prefers-reduced-transparency. Never put glass on a repeated item (message, table row) at rest. */
+@utility glass-thin {
+  --glass-fill: var(--glass-thin);
+  --glass-solid: var(--glass-thin-solid);
+  --glass-blur: var(--glass-thin-blur);
+  --glass-brightness: var(--glass-thin-brightness);
+  background: var(--glass-solid);
+  box-shadow:
+    inset 1px 1px 0 oklch(1 0 0 / calc(0.55 * var(--rim-bright))),
+    inset -1px -1px 0 oklch(1 0 0 / calc(0.5 * var(--rim-faint))),
+    inset 0 -2px 3px -1px var(--rim-shade),
+    0 0 0 0.5px var(--rim-line),
+    0 1px 2px var(--shadow-near),
+    0 4px 12px -2px var(--shadow-mid);
   @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-    background: var(--glass-1);
-    -webkit-backdrop-filter: blur(14px) saturate(1.15);
-    backdrop-filter: blur(14px) saturate(1.15);
-    box-shadow:
-      inset 0 1px 0 var(--glass-edge),
-      var(--glass-shadow);
+    background: var(--glass-fill);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
   }
   @media (prefers-reduced-transparency: reduce) {
-    background: var(--glass-1-solid);
+    background: var(--glass-solid);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
 }
 
-@utility glass-2 {
-  background: var(--glass-2-solid);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--glass-shadow);
+@utility glass-regular {
+  --glass-fill: var(--glass-regular);
+  --glass-solid: var(--glass-regular-solid);
+  --glass-blur: var(--glass-regular-blur);
+  --glass-brightness: var(--glass-regular-brightness);
+  isolation: isolate;
+  &:where(:not(.fixed):not(.absolute):not(.sticky)) {
+    position: relative;
+  }
+  background: var(--glass-solid);
+  box-shadow:
+    inset 0 -3px 6px -3px var(--rim-shade),
+    0 0 0 0.5px var(--rim-line),
+    0 1px 2px var(--shadow-near),
+    0 8px 24px -4px var(--shadow-mid),
+    0 24px 48px -16px var(--shadow-far);
   @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-    background: var(--glass-2);
-    -webkit-backdrop-filter: blur(20px) saturate(1.2);
-    backdrop-filter: blur(20px) saturate(1.2);
-    box-shadow:
-      inset 0 1px 0 var(--glass-edge),
-      var(--glass-shadow);
+    background: var(--glass-fill);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
   }
   @media (prefers-reduced-transparency: reduce) {
-    background: var(--glass-2-solid);
+    background: var(--glass-solid);
     -webkit-backdrop-filter: none;
     backdrop-filter: none;
   }
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    pointer-events: none;
+    background: linear-gradient(
+      calc(135deg + (var(--lx) - 0.5) * 50deg + (var(--ly) - 0.5) * 24deg),
+      oklch(1 0 0 / var(--rim-bright)) 0%,
+      oklch(1 0 0 / 0) 36%,
+      oklch(1 0 0 / 0) 64%,
+      oklch(1 0 0 / var(--rim-faint)) 100%
+    );
+    mask:
+      linear-gradient(#000 0 0) content-box exclude,
+      linear-gradient(#000 0 0);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box xor,
+      linear-gradient(#000 0 0);
+  }
 }
 
-/* The backdrop that glass blurs: large, soft, flat-coloured neutral shapes plus faint grain, fixed behind the
-   content. CSS only, static (nothing animates), no gradients, no colour. The shapes are blurred elements on their
-   own layer, rasterised once, so scrolling stays cheap. Hidden when the person asks for less transparency. */
+@utility glass-thick {
+  --glass-fill: var(--glass-thick);
+  --glass-solid: var(--glass-thick-solid);
+  --glass-blur: var(--glass-thick-blur);
+  --glass-brightness: var(--glass-thick-brightness);
+  isolation: isolate;
+  &:where(:not(.fixed):not(.absolute):not(.sticky)) {
+    position: relative;
+  }
+  background: var(--glass-solid);
+  box-shadow:
+    inset 0 -3px 8px -4px var(--rim-shade),
+    0 0 0 0.5px var(--rim-line),
+    0 2px 4px var(--shadow-near),
+    0 16px 40px -8px var(--shadow-mid),
+    0 40px 80px -24px var(--shadow-far);
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    background: var(--glass-fill);
+    -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+    backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    background: var(--glass-solid);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    pointer-events: none;
+    background: linear-gradient(
+      calc(135deg + (var(--lx) - 0.5) * 50deg + (var(--ly) - 0.5) * 24deg),
+      oklch(1 0 0 / var(--rim-bright)) 0%,
+      oklch(1 0 0 / 0) 36%,
+      oklch(1 0 0 / 0) 64%,
+      oklch(1 0 0 / var(--rim-faint)) 100%
+    );
+    mask:
+      linear-gradient(#000 0 0) content-box exclude,
+      linear-gradient(#000 0 0);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box xor,
+      linear-gradient(#000 0 0);
+  }
+}
+
+/* Optional edge lensing: Chromium accepts an SVG filter inside backdrop-filter. src/background/lens.ts adds the
+   .lens class to <html> only where that works; everything else keeps the plain blur recipe above. */
+@utility glass-lens {
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    :root.lens & {
+      -webkit-backdrop-filter: url("#ragassist-lens") blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+      backdrop-filter: url("#ragassist-lens") blur(var(--glass-blur)) saturate(var(--glass-saturate)) brightness(var(--glass-brightness));
+    }
+  }
+  @media (prefers-reduced-transparency: reduce) {
+    :root.lens & {
+      -webkit-backdrop-filter: none;
+      backdrop-filter: none;
+    }
+  }
+}
+
+/* Concentric radii: set --r-outer and --pad on the parent; the child takes the difference. */
+@utility r-inner {
+  border-radius: calc(var(--r-outer, 1.5rem) - var(--pad, 0.5rem));
+}
+
+/* ---- Press, hover, shimmer ------------------------------------------------------------------------------------ */
+
+/* A control lifts a little on hover and presses to 0.97 with a spring settle. Transform and opacity only. */
+@utility press {
+  transition:
+    transform 420ms var(--ease-spring),
+    opacity var(--dur-fast) linear,
+    background-color var(--dur-fast) linear;
+  @media (hover: hover) and (pointer: fine) {
+    &:hover:not(:disabled):not([aria-disabled="true"]) {
+      transform: translateY(-1px);
+    }
+  }
+  &:active:not(:disabled):not([aria-disabled="true"]) {
+    transform: scale(0.97);
+    transition-duration: 90ms;
+    filter: brightness(1.12);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+    &:hover:not(:disabled):not([aria-disabled="true"]),
+    &:active:not(:disabled):not([aria-disabled="true"]) {
+      transform: none;
+    }
+  }
+}
+
+/* A moving highlight across text while something is pending (the wait for the first token, a running step). */
+@utility shimmer {
+  color: transparent;
+  background-image: linear-gradient(100deg, var(--muted-foreground) 35%, var(--foreground) 50%, var(--muted-foreground) 65%);
+  background-size: 250% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  animation: shimmer 1.8s linear infinite;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    color: var(--muted-foreground);
+    background-image: none;
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+/* Text that streams in fades in once per rendered batch. */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@utility fade-in {
+  animation: fade-in 220ms var(--ease-out) both;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+/* ---- Background layers and the custom cursor ------------------------------------------------------------------ */
+
+/* The WebGL canvas (src/background/liquid.ts) sits at the very back. Without WebGL the static CSS version below
+   shows instead: flat blurred neutral shapes, rasterised once. */
+#liquid {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  display: block;
+}
 .ambient {
   position: fixed;
   inset: 0;
-  z-index: -1;
+  z-index: -3;
   overflow: hidden;
   pointer-events: none;
   contain: strict;
+  background: var(--background);
 }
 .ambient > i {
   position: absolute;
   border-radius: 9999px;
-  filter: blur(56px);
+  filter: blur(64px);
   transform: translateZ(0);
 }
 .ambient > i:nth-child(1) {
@@ -207,28 +591,29 @@
   height: 40vmax;
   left: -12vmax;
   top: -14vmax;
-  background: var(--ambient-hi);
+  background: var(--ambient-edge, oklch(0.5 0 0));
 }
 .ambient > i:nth-child(2) {
-  width: 38vmax;
-  height: 38vmax;
+  width: 36vmax;
+  height: 36vmax;
   right: -10vmax;
-  top: 6vh;
-  background: var(--ambient-lo);
+  top: 8vh;
+  background: var(--ambient-core, oklch(0.2 0 0));
 }
 .ambient > i:nth-child(3) {
-  width: 44vmax;
-  height: 34vmax;
+  width: 42vmax;
+  height: 32vmax;
   left: 18vw;
-  bottom: -18vmax;
-  background: var(--ambient-lo);
+  bottom: -20vmax;
+  background: var(--ambient-edge, oklch(0.5 0 0));
 }
-.ambient > i:nth-child(4) {
-  width: 30vmax;
-  height: 30vmax;
-  right: 8vw;
-  bottom: -8vmax;
-  background: var(--ambient-hi);
+:root {
+  --ambient-edge: oklch(0.72 0 0);
+  --ambient-core: oklch(0.99 0 0);
+}
+:root[data-theme="dark"] {
+  --ambient-edge: oklch(0.42 0 0);
+  --ambient-core: oklch(0.1 0 0);
 }
 .ambient::after {
   content: "";
@@ -237,20 +622,83 @@
   opacity: var(--grain-opacity);
   background-image: url("data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%27160%27 height=%27160%27%3E%3Cfilter id=%27n%27%3E%3CfeTurbulence type=%27fractalNoise%27 baseFrequency=%27.8%27 numOctaves=%272%27 stitchTiles=%27stitch%27/%3E%3CfeColorMatrix type=%27saturate%27 values=%270%27/%3E%3C/filter%3E%3Crect width=%27100%25%27 height=%27100%25%27 filter=%27url(%23n)%27/%3E%3C/svg%3E");
 }
-@media (max-width: 640px) {
-  .ambient > i {
-    filter: blur(48px);
-  }
+:root.liquid-on .ambient {
+  display: none;
 }
-@media (prefers-reduced-transparency: reduce) {
-  .ambient {
+
+/* The custom cursor (src/lib/cursor.ts): one fixed element, moved with transform, inverting over the liquid. Only
+   on fine pointers, never under forced colours. */
+#cursor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  mix-blend-mode: difference;
+  color: #fff;
+  opacity: 0;
+  transition: opacity var(--dur-base) linear;
+}
+#cursor[data-visible="true"] {
+  opacity: 1;
+}
+#cursor > i {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  border-radius: 9999px;
+  will-change: transform;
+}
+#cursor .c-dot {
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  background: currentColor;
+}
+#cursor .c-ring {
+  width: 30px;
+  height: 30px;
+  margin: -15px 0 0 -15px;
+  border: 1.5px solid currentColor;
+  transition: opacity var(--dur-fast) linear;
+}
+#cursor .c-bar {
+  width: 2px;
+  height: 22px;
+  margin: -11px 0 0 -1px;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0;
+  transition: opacity var(--dur-fast) linear;
+}
+#cursor[data-state="text"] .c-ring,
+#cursor[data-state="text"] .c-dot {
+  opacity: 0;
+}
+#cursor[data-state="text"] .c-bar {
+  opacity: 1;
+}
+#cursor[data-state="grab"] .c-ring {
+  border-style: dashed;
+}
+@media (forced-colors: active), (prefers-reduced-motion: reduce) {
+  #cursor .c-ring {
     display: none;
   }
 }
-
-@utility font-heading {
-  font-family: var(--font-serif);
-  font-weight: 400;
-  letter-spacing: -0.01em;
-  line-height: 1.05;
+@media (forced-colors: active) {
+  #cursor {
+    display: none;
+  }
+}
+:root.has-cursor,
+:root.has-cursor * {
+  cursor: none !important;
+}
+@media (forced-colors: active) {
+  :root.has-cursor,
+  :root.has-cursor * {
+    cursor: auto !important;
+  }
 }
