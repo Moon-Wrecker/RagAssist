@@ -72,7 +72,7 @@ export function Composer({
     state.lockedFor === "approval" || state.lockedFor === "deciding"
       ? "Locked until you decide on the action above."
       : state.audience === "agent"
-        ? "A support agent is handling this. Your message goes to them."
+        ? "A support agent is handling this."
         : null;
   const placeholder = state.audience === "agent" ? "Write to the support agent" : "Ask about your account or the documents";
 

@@ -66,7 +66,7 @@ function PassageBody({ source }: { source: OpenSource }) {
       <div role="alert" className="space-y-3 text-sm">
         <p>
           {gone
-            ? "This passage is no longer available. The document may have been removed or re-indexed."
+            ? "This passage is no longer available."
             : "The passage could not be loaded."}
         </p>
         {gone ? null : (

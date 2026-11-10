@@ -52,7 +52,7 @@ export function SignInPage() {
   }
 
   return (
-    <AuthLayout title="Sign in" intro="Use the workspace name, email and password your administrator gave you.">
+    <AuthLayout title="Sign in" intro="Welcome back.">
       <form onSubmit={onSubmit} className="flex flex-col gap-5">
         <FormField
           label="Workspace"
@@ -64,7 +64,7 @@ export function SignInPage() {
           spellCheck={false}
           required
           maxLength={100}
-          hint="The short name in your invite link, for example acme."
+          hint="The short name from your invite, like acme."
           invalid={error !== null}
           errorId={errorId}
         />
@@ -93,7 +93,7 @@ export function SignInPage() {
           {pending ? "Signing in" : "Sign in"}
         </Button>
         <p className="text-[0.8125rem] text-muted-foreground">
-          Don't have a password yet? Open the invite link an administrator sent you.
+          No password yet? Open the link you were sent.
         </p>
       </form>
     </AuthLayout>
