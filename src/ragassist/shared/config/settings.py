@@ -15,6 +15,7 @@ Sources consulted (AGENTS.md section 3.5): pydantic-settings documentation (requ
 
 from __future__ import annotations
 
+import os
 from typing import Literal
 from urllib.parse import quote
 
@@ -322,10 +323,30 @@ class Settings(BaseSettings):
 
 _settings: Settings | None = None
 
+# Variables whose BLANK value means "use the provider default". The provider SDKs read them
+# straight from the environment when no address is passed, and take an empty string as a real
+# (broken) address.
+_BLANK_MEANS_DEFAULT = ("OPENAI_BASE_URL",)
+
+
+def drop_blank_provider_env() -> None:
+    """Remove blank provider-address variables from the process environment.
+
+    `.env.example` ships `OPENAI_BASE_URL=` and compose passes it on as an empty string. The
+    OpenAI SDK (checked in 2.54.0) does `if base_url is None: base_url = os.environ.get(...)`,
+    so a blank value becomes the request address and every call fails with
+    `APIConnectionError: Connection error.`
+    """
+    for name in _BLANK_MEANS_DEFAULT:
+        value = os.environ.get(name)
+        if value is not None and not value.strip():
+            del os.environ[name]
+
 
 def get_settings() -> Settings:
     """Singleton getter for application settings."""
     global _settings
     if _settings is None:
+        drop_blank_provider_env()
         _settings = Settings()  # type: ignore[call-arg]  # every field is read from the environment
     return _settings
