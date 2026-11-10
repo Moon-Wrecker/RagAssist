@@ -249,3 +249,64 @@ test("history lists conversations and switching opens the chosen thread", async 
   await expect(page.getByText("Use the reset link.")).toHaveCount(0);
   await shot(page, info, "switched");
 });
+
+// Playwright scrolls an obscured element into view before clicking it. The first source chip can sit under the glass
+// header, so the click targets the last chip (the one a reader can reach) to test the panel and not the test driver.
+test("opening a source does not push the end of the thread behind the composer", async ({ page }, info) => {
+  test.skip(info.project.name.startsWith("phone"), "on a phone the source is a sheet over the thread");
+  const iso = (offset: number) => new Date(Date.now() - offset).toISOString();
+  const seeded = { id: "" };
+  await open(page, (c) => {
+    const conversation = c.seed({
+      title: "Refunds",
+      messages: [
+        { role: "user", text: "How long do refunds take?", created_at: iso(240_000) },
+        {
+          role: "assistant",
+          text:
+            "Refunds are issued to the original payment method within 5 business days of approval [1].\n\n" +
+            "If the money has not arrived after that, check with your bank first, then ask here [1].\n\n" +
+            "- Card payments: 5 business days\n- Bank transfers: up to 10 business days",
+          citations: [citation],
+          created_at: iso(230_000),
+        },
+        { role: "user", text: "Thanks. Can you also check my invoice from last month?", created_at: iso(120_000) },
+        { role: "assistant", text: "Your invoice for last month is in Billing, under Invoices. It was issued on the 1st and paid by card [1].", citations: [citation], created_at: iso(110_000) },
+      ],
+    });
+    seeded.id = conversation.conversation_id;
+    c.script(() => ({
+      frames: [
+        frame("tool_call", { tool: "get_account", status: "started" }),
+        frame("tool_call", { tool: "get_account", status: "completed" }),
+        frame("token", { text: "I can change that for you. Please confirm the new address below." }),
+        frame("interrupt", {
+          interrupt_id: "interrupt-1",
+          action: "approval_required",
+          tool: "update_billing_email",
+          arguments: { new_email: "new.address@example.test" },
+          call_id: "call_1",
+        }),
+        frame("done", { status: "interrupted" }),
+      ],
+    }));
+  });
+  await page.goto(`/?c=${seeded.id}`);
+  await expect(page.getByText("Your invoice for last month")).toBeVisible();
+  await ask(page, "Change my billing email to new.address@example.test");
+  const card = page.getByRole("group", { name: "Needs your approval" });
+  await expect(card).toBeVisible();
+
+  const clear = async () => {
+    const [approval, box] = await Promise.all([card.boundingBox(), page.getByRole("form", { name: "Send a message" }).boundingBox()]);
+    return box!.y - (approval!.y + approval!.height);
+  };
+  await expect.poll(clear).toBeGreaterThanOrEqual(0);
+
+  await page.getByRole("button", { name: "Source 1: Billing FAQ" }).last().click();
+  await expect(page.getByRole("dialog", { name: "Source 1" })).toBeVisible();
+  // The column narrows and rewraps; the approval must still be fully above the composer.
+  await expect.poll(clear, { timeout: 3000 }).toBeGreaterThanOrEqual(0);
+  await page.waitForTimeout(600);
+  expect(await clear()).toBeGreaterThanOrEqual(0);
+});
