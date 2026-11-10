@@ -64,6 +64,19 @@ monochrome, glass as the primary surface style over a calm monochrome backdrop, 
 - [x] `.gitignore`, `.dockerignore`, `.gitattributes`, README section, arc42 update
 - [ ] Real-stack smoke run
 
+## Slice 7: Caching (ADR 0015)
+- [x] Cache port `platform/cache` (get, set with TTL, delete by prefix, bounded, counters): in-memory LRU+TTL default, optional Redis adapter and compose profile; `CACHE_*` settings synced to `.env.example`
+- [x] Key rule: tenant (and role) in every key, keyed hash of normalised text, TTL and bound on every entry, security tests for no cross-tenant and no cross-role hit
+- [x] Embeddings: query embeddings cached per tenant; ingestion and re-index skip chunks whose content hash already has a vector
+- [x] Retrieval results and safety/router verdicts cached for a short TTL, keyed by tenant, role and a per-tenant corpus version bumped by `document.changed`; fail-closed results never cached
+- [x] Answers stay uncached (no semantic caching)
+- [x] Provider prompt caching: fixed system prompt first; cached input tokens recorded; Anthropic `cache_control` deliberately not added (prefix far below the minimum, see ADR)
+- [ ] HTTP caching: `ETag` and `Cache-Control: private, max-age` on `GET /v1/chunks/{id}` and the document list, `no-store` on auth and events
+- [ ] Shared state: login throttle, rate limiter and per-user stream cap on Redis when it is the backend
+- [x] Observability: hit/miss/eviction counters on `/metrics`, `cache_hit` on the safety, route and retrieval observations
+- [x] Tests: unit, security, graph (before/after model calls), Redis adapter against a fake client (real server opt-in)
+- [ ] Frontend: `staleTime` per query class, prefetch a passage on citation hover or focus (suggested in ADR 0015, another agent owns `frontend/src`)
+
 ## Known limits carried forward
 - The sign-in throttle is per process (ADR 0007).
 - Two simultaneous refreshes from one browser can end the session; the client refreshes single-flight.
