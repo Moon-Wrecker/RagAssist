@@ -162,11 +162,13 @@ Loads the passage behind a citation. Any signed-in user of the tenant may read a
 
 `page` is `null` when the source has no pages; `heading_path` may be empty.
 
+See "HTTP caching" below for the `ETag` and `304` behaviour of this endpoint.
+
 ## Live Events: `GET /v1/events`
 
 A long-lived SSE stream of change notifications. `Authorization: Bearer <access token>` is required, so use a
-fetch-based reader (`EventSource` cannot send the header). Headers are the same as the streaming endpoint above;
-`: ping` comments arrive every 15 seconds.
+fetch-based reader (`EventSource` cannot send the header). Headers are the same as the streaming endpoint above,
+except `Cache-Control: no-store` (a live stream must never be stored); `: ping` comments arrive every 15 seconds.
 
 **Events carry only a type and ids, never content.** On an event the client refetches the resource through the normal
 API (which enforces tenant, owner and role again). There is no replay: events published while a client was
@@ -207,3 +209,20 @@ Rules:
 - The endpoint is exempt from the per-address rate limit.
 - Each subscriber has a bounded queue. If it overflows (slow client) or the server loses its database listener, the
   queue is dropped and the client receives `resync`.
+
+## HTTP caching (ADR 0015)
+
+Only the browser may reuse a response; every cacheable response is `private` and carries `Vary: Authorization`, so a
+shared cache in front of the API cannot serve one user's response to another. The conditional request header is not
+declared in the OpenAPI schema (it is plain HTTP semantics).
+
+| Endpoint | Response headers | Conditional request |
+|---|---|---|
+| `GET /v1/chunks/{chunk_id}` | `ETag: "<hash of the body>"`, `Cache-Control: private, max-age=<CACHE_HTTP_MAX_AGE_SECONDS>` (`private, no-cache` when that is `0`) | `If-None-Match: <etag>` (weak form, a list and `*` accepted) answers `304 Not Modified` with no body and the same `ETag`, `Cache-Control` and `Vary` |
+| `GET /v1/documents` | `ETag`, `Cache-Control: private, no-cache` (kept, but revalidated every time: an upload's progress is live) | same |
+| every `/v1/auth/*` route (including errors and `429`) and `GET /v1/events` | `Cache-Control: no-store`, `Pragma: no-cache` | none |
+
+A `304` is produced **after** authentication, the role check and the tenant-scoped lookup. A missing token is still
+`401`, and another tenant's chunk is still the same `404` as an unknown id, so a `304` never confirms that a resource
+exists to someone who may not read it. A deleted chunk can still show from the browser's copy for up to
+`CACHE_HTTP_MAX_AGE_SECONDS` (60 s by default).

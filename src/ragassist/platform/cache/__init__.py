@@ -6,6 +6,7 @@ from ragassist.platform.cache.keys import CacheKeyBuilder, InvalidCacheKey, norm
 from ragassist.platform.cache.ports import Cache, CacheError, CacheStats
 from ragassist.platform.cache.service import GLOBAL_CORPUS, CacheService, CacheTTLs
 from ragassist.shared.config.settings import Settings
+from ragassist.shared.counters import SharedCounters
 
 __all__ = [
     "GLOBAL_CORPUS",
@@ -18,6 +19,7 @@ __all__ = [
     "InvalidCacheKey",
     "build_cache",
     "build_cache_service",
+    "get_shared_counters",
     "get_cache_service",
     "normalise_text",
     "reset_cache_service",
@@ -75,6 +77,21 @@ def get_cache_service() -> CacheService:
 
         install_cache_metrics(_service)
     return _service
+
+
+def get_shared_counters() -> SharedCounters | None:
+    """Counters shared between replicas, or ``None`` unless the cache backend is Redis (ADR 0015).
+
+    With the in-memory backend (or the cache disabled) callers keep their own exact in-process logic.
+    """
+    from ragassist.shared.config.settings import get_settings
+
+    settings = get_settings()
+    if not settings.CACHE_ENABLED or settings.CACHE_BACKEND != "redis":
+        return None
+    from ragassist.platform.cache.counters import CacheCounters
+
+    return CacheCounters(get_cache_service())
 
 
 def reset_cache_service() -> None:

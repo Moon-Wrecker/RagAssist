@@ -31,7 +31,9 @@ def get_identity(request: Request) -> IdentityServices:
 
         runtime = active_runtime()
         store = runtime.identity if runtime is not None else InMemoryIdentityStore()
-        services = build_identity(get_settings(), store)
+        from ragassist.platform.cache import get_shared_counters
+
+        services = build_identity(get_settings(), store, shared_counters=get_shared_counters())
         request.app.state.identity = services
     return services
 

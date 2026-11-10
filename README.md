@@ -187,7 +187,9 @@ nothing crosses a tenant or role (every key carries both and only hashes of the 
 a document invalidates that tenant's retrieval. Hit/miss/eviction counters are on `/metrics`. To share the cache between
 API replicas, start the optional Redis service and point the app at it:
 `docker compose --profile redis up -d redis`, then set `CACHE_BACKEND=redis`, `CACHE_REDIS_URL=redis://redis:6379/0` and
-`CACHE_REDIS_PASSWORD` in `.env`. Turn it all off with `CACHE_ENABLED=false`. See [ADR 0015](docs/adr/0015-caching.md).
+`CACHE_REDIS_PASSWORD` in `.env`. With Redis the sign-in throttle and rate limiter also count across replicas. Chunk and
+document-list responses carry `ETag` and answer `If-None-Match` with `304`; sign-in and event routes are `no-store`. Turn
+the cache off with `CACHE_ENABLED=false`. See [ADR 0015](docs/adr/0015-caching.md).
 
 ## Documentation & Architecture Decision Records
 

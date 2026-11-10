@@ -55,6 +55,41 @@ token, which nobody asks for any more. If the token itself is evicted or expires
 can only cause misses: an old entry can never become valid again. Shared-knowledge changes (written by the `seed`
 command, which publishes no event) are bounded by the retrieval TTL unless Redis is shared and the token is bumped.
 
+### HTTP caching (browser only)
+Cacheable responses are `private` and `Vary: Authorization`, so a shared cache or CDN in front of the API cannot hand one
+user's response to another.
+- `GET /v1/chunks/{id}`: strong `ETag` (hash of the response body), `Cache-Control: private, max-age=CACHE_HTTP_MAX_AGE_SECONDS`
+  (60 s; `private, no-cache` when set to 0). A chunk id is not content-addressed (a re-index can reuse a document's
+  chunks under new text), so a short `max-age` plus validators beats `immutable`.
+- `GET /v1/documents`: `ETag` and `private, no-cache`: the browser keeps a copy and revalidates every time, because an
+  upload's status is live; an unchanged list costs a `304` with no body.
+- `If-None-Match` (weak comparison, lists and `*`) is answered with `304` **after** authentication, the role check and
+  the tenant-scoped lookup. A missing token is still `401`; another tenant's chunk is the same `404` as an unknown id, so
+  a `304` never confirms that a resource exists to someone who may not read it.
+- `Cache-Control: no-store` (and `Pragma: no-cache`) on every `/v1/auth/*` response, errors and `429` included, and on
+  `/v1/events`: a pure ASGI middleware wrapping the whole stack, discovered by path so a new auth route is covered.
+- The conditional header is read from the request, not declared as a parameter: `docs/api/openapi.json` and the
+  generated frontend types are unchanged by this slice. The behaviour is documented in `docs/api/sse-contract.md`.
+- A deleted chunk can still show from a browser's copy for up to `CACHE_HTTP_MAX_AGE_SECONDS`.
+
+### Shared state on Redis
+With `CACHE_BACKEND=redis` the sign-in throttle (per-address attempts, per-account failures) and the rate limiter use
+counters shared between API replicas instead of per-process ones, so an attacker no longer multiplies their allowance
+by the number of replicas. The port is `shared/counters.py` (`SharedCounters`: `incr`, `peek`, `reset`), kept in the
+shared kernel so identity and the middleware do not import the platform layer; `platform/cache/counters.py` implements it
+with the cache's atomic `incr` (`SET 0 EX NX` then `INCR` in one transaction). Keys are keyed hashes (no address or
+e-mail in Redis).
+- Windows are **fixed** (the first event starts the window) instead of the in-process sliding window, and `Retry-After`
+  is the whole window, an upper bound. The limits are the same settings.
+- If Redis is unreachable each call falls back to the exact in-process logic, and a 5 s breaker skips Redis meanwhile so
+  an outage costs one timeout, not one per request. An outage therefore degrades to the previous per-process behaviour; it
+  does not block sign-in or requests.
+- With the memory backend nothing changes: the classes keep their sliding windows.
+- **Not moved:** the per-user event-stream cap (`EVENTS_MAX_STREAMS_PER_USER`). It needs a counter that goes down when a
+  stream closes; an increment-only counter with a TTL would leak on a crashed replica and lock a user out. A correct
+  version needs leases (a sorted set with heartbeats) and is a separate change. It stays per process, so the effective cap
+  is the setting times the number of replicas.
+
 ### Provider prompt caching
 The generator prompt is now a fixed system message first (two constants, no placeholders) and the passages and question
 after it, so the part that never changes is the prefix OpenAI and Gemini cache implicitly. Anthropic's explicit
@@ -86,6 +121,8 @@ query embedding, come from the cache). The first ask costs the same with the cac
 - With the memory backend each API process and the worker have their own cache; Redis shares them.
 - `CACHE_*` settings are required (no code defaults, `.env.example` documents them); only `CACHE_REDIS_URL` and
   `CACHE_REDIS_PASSWORD` may be empty. Existing `.env` files need the new block (`ragassist init-env` writes it).
+- With Redis as the backend the sign-in throttle and rate limiter become shared across replicas (fixed windows); see
+  "Shared state on Redis". The event-stream cap stays per process.
 - The `redis` Python package is a hard dependency (exact pin `redis==8.1.0`: MIT, maintained by Redis Inc., about 200
   million downloads a month) but only imported when `CACHE_BACKEND=redis`.
 - Compose has an optional `redis` service behind the `redis` profile (off by default): official image from Docker Hub,
@@ -99,6 +136,8 @@ document list 30 s (`document.changed` invalidates), team members 60 s, a citati
 (a chunk id is immutable; use the new `ETag`), and prefetch `GET /v1/chunks/{id}` on hover or focus of a citation marker.
 
 ## Sources
+- HTTP caching semantics: RFC 9111 (`private`, `no-cache`, `no-store`, `max-age`) https://www.rfc-editor.org/rfc/rfc9111 ,
+  RFC 9110 (ETag, `If-None-Match` weak comparison, 304) https://www.rfc-editor.org/rfc/rfc9110
 - redis-py docs and package metadata: https://redis.readthedocs.io/en/latest/ , https://pypi.org/project/redis/ ,
   https://github.com/redis/redis-py (MIT)
 - Redis `SCAN`, `UNLINK`, `SET EX`, eviction policies: https://redis.io/docs/latest/commands/scan/ ,

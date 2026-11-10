@@ -16,6 +16,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from starlette.types import ASGIApp
 
 from ragassist.shared.config.settings import get_settings
+from ragassist.shared.counters import SharedCounters
 
 
 class SlidingWindowRateLimiter:
@@ -59,6 +60,20 @@ class SlidingWindowRateLimiter:
         return True, remaining, reset_seconds
 
 
+    async def is_allowed_shared(self, shared: SharedCounters, key: str) -> tuple[bool, int, float] | None:
+        """The same decision from counters shared between replicas (a fixed window, one counter per client).
+
+        ``None`` when the shared store is unreachable: the caller then uses ``is_allowed`` on its own counts.
+        ``reset_seconds`` is the whole window, an upper bound (the shared counter's remaining time is not read).
+        """
+        count = await shared.incr("ratelimit", key, int(self.window_seconds))
+        if count is None:
+            return None
+        if count > self.limit:
+            return False, 0, self.window_seconds
+        return True, self.limit - count, self.window_seconds
+
+
 _global_limiter = SlidingWindowRateLimiter(limit=300, window_seconds=60.0)
 
 
@@ -70,9 +85,11 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         app: ASGIApp,
         limiter: SlidingWindowRateLimiter | None = None,
         exempt_paths: set[str] | None = None,
+        shared: SharedCounters | None = None,
     ) -> None:
         super().__init__(app)
         self.limiter = limiter or _global_limiter
+        self.shared = shared
         # The events stream is one long-lived request per tab, not a flood of requests; the per-user stream cap
         # (``EVENTS_MAX_STREAMS_PER_USER``) bounds it instead.
         self.exempt_paths = exempt_paths or {
@@ -92,7 +109,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         # give every forged value its own fresh bucket (no limit at all) and an ever-growing table.
         key = request.client.host if request.client else "unknown"
 
-        allowed, remaining, reset_seconds = self.limiter.is_allowed(key)
+        decision = await self.limiter.is_allowed_shared(self.shared, key) if self.shared else None
+        allowed, remaining, reset_seconds = decision if decision is not None else self.limiter.is_allowed(key)
         if not allowed:
             return Response(
                 content='{"detail": "Too Many Requests: Rate limit exceeded"}',
