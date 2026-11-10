@@ -33,7 +33,7 @@ monochrome, glass as the primary surface style over a calm monochrome backdrop, 
 
 ## Slice 3: Scaffold, design system, sign-in
 - [x] `frontend/` with npm, strict TypeScript, ESLint, Vitest, Playwright; types from `docs/api/openapi.json` with a CI drift check (`npm run api:check`)
-- [x] Same-origin API (Vite proxy in dev; nginx in compose stays in Slice 6); proxy target from env only (`API_PROXY_TARGET`)
+- [x] Same-origin API (Vite proxy in dev; nginx in compose in Slice 6); proxy target from env only (`API_PROXY_TARGET`)
 - [x] Design tokens (zero chroma, light and dark), self-hosted fonts, shadcn-style base components
 - [x] Glass as the primary surface style (levels 1 and 2, solid fallbacks, contrast test) over a static monochrome ambient backdrop
 - [x] API client: in-memory token, single-flight refresh, role-aware route guards
@@ -59,9 +59,9 @@ monochrome, glass as the primary surface style over a calm monochrome backdrop, 
 - [x] Design review: screenshots of every screen in both themes against the design rules
 
 ## Slice 6: Delivery
-- [ ] `infra/docker/web.Dockerfile`, nginx (SSE buffering off, security headers, CSP), `web` service in compose; API behind the proxy with `--proxy-headers` so the throttle sees client addresses
+- [x] `infra/docker/web.Dockerfile`, nginx (SSE buffering off, security headers, CSP), `web` service in compose; API behind the proxy with `--proxy-headers` so the throttle sees client addresses (ADR 0014)
 - [x] CI `frontend` job: lint, typecheck, API type drift check, unit, build, mocked Playwright (added in Slice 3)
-- [ ] `.gitignore`, `.dockerignore`, `.gitattributes`, README section, arc42 update
+- [x] `.gitignore`, `.dockerignore`, `.gitattributes`, README section, arc42 update
 - [ ] Real-stack smoke run
 
 ## Known limits carried forward
