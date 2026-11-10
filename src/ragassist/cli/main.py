@@ -3,6 +3,7 @@
 Consulted References:
 - Typer Documentation: https://typer.tiangolo.com/
 - Uvicorn programmatic execution: https://www.uvicorn.org/
+- Uvicorn deployment, running behind a proxy (--proxy-headers, --forwarded-allow-ips): https://www.uvicorn.org/deployment/
 """
 
 from __future__ import annotations
@@ -43,6 +44,10 @@ def serve(
         reload=reload,
         log_level=settings.LOG_LEVEL.lower(),
         loop=loop,
+        # Behind the web container's nginx the client address arrives in X-Forwarded-For; uvicorn only believes it
+        # from the peers listed in TRUSTED_PROXY_IPS (empty: its loopback-only default). ADR 0014.
+        proxy_headers=True,
+        forwarded_allow_ips=settings.TRUSTED_PROXY_IPS or None,
     )
 
 

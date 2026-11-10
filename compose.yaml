@@ -123,6 +123,12 @@ services:
     command: ["ragassist", "serve", "--host", "0.0.0.0", "--port", "8000"]
     ports:
       - "127.0.0.1:8000:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/healthz')"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -130,6 +136,32 @@ services:
         condition: service_healthy
       mock-saas:
         condition: service_healthy
+
+  web:
+    # The built single-page app on nginx, same origin as the API so the SameSite=Strict refresh cookie is sent
+    # (ADR 0014). nginx renders infra/nginx/templates from the variables below at start; every value is in .env.
+    build:
+      context: .
+      dockerfile: infra/docker/web.Dockerfile
+    container_name: ragassist-web
+    restart: unless-stopped
+    environment:
+      WEB_PORT: ${WEB_PORT:?run ragassist init-env}
+      WEB_SERVER_NAME: ${WEB_SERVER_NAME:?set it in .env (see .env.example)}
+      WEB_API_UPSTREAM: ${WEB_API_UPSTREAM:?set it in .env (see .env.example)}
+      WEB_HSTS: ${WEB_HSTS-}
+    ports:
+      - "127.0.0.1:${WEB_PORT:?run ragassist init-env}:${WEB_PORT:?run ragassist init-env}"
+    depends_on:
+      api:
+        condition: service_healthy
+        # nginx resolves the API's address when it starts, so it restarts whenever the API container is recreated.
+        restart: true
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:$${WEB_PORT}/web-healthz"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   worker:
     <<: *app

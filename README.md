@@ -91,6 +91,30 @@ ragassist serve --reload
 ragassist worker
 ```
 
+### 5. Run the Web App (nginx container, same origin as the API)
+
+The single-page app in [`frontend/`](frontend/) is built into an image and served by nginx, which also proxies `/v1/`
+and `/healthz` to the API. The browser therefore talks to one origin only, so the `SameSite=Strict` refresh cookie is
+sent, no CORS credentials are needed, and sign-in throttling sees the real client address (nginx forwards it and the API
+trusts only the peers listed in `TRUSTED_PROXY_IPS`).
+
+```bash
+# .env needs the WEB_* values from .env.example (WEB_PORT, WEB_SERVER_NAME, WEB_API_UPSTREAM, WEB_HSTS) and
+# WEB_BASE_URL set to the origin you will open, e.g. http://localhost:<WEB_PORT>; `init-env` copies them.
+docker compose up -d --build web     # builds the SPA (type-check + vite build), starts the API it needs, then nginx
+# open http://localhost:<WEB_PORT>
+```
+
+- The image is `nginx/nginx-unprivileged` (non-root), configured from `infra/nginx/templates/` through the image's
+  `envsubst` template mechanism: host, port, upstream and HSTS come from `.env`, never from the image.
+- Event streams (`/v1/events`, the chat answer stream) are not buffered or compressed; `/assets/*` is cached for a year
+  (content-hashed), `index.html` is always revalidated; a strict CSP, `nosniff`, `Referrer-Policy`, `Permissions-Policy`
+  and `frame-ancestors 'none'` are sent. `WEB_HSTS` stays empty until the site is served over HTTPS.
+- Behind TLS, set `AUTH_COOKIE_SECURE=true`, `WEB_HSTS` and `WEB_BASE_URL=https://...`. For frontend development without
+  Docker use `npm run dev` in `frontend/` (Vite proxies to `API_PROXY_TARGET`).
+
+See [ADR 0014](docs/adr/0014-web-delivery.md).
+
 ---
 
 ## Core API Endpoints
@@ -158,7 +182,8 @@ passages are sent to the project, so choose the region deliberately. See [ADR 00
 ## Documentation & Architecture Decision Records
 
 - **Repository Rules & Hygiene**: [`AGENTS.md`](AGENTS.md)
-- **Architecture Decision Records**: [`docs/adr/`](docs/adr/) (`ADR-0001` through `ADR-0013`)
+- **Architecture Decision Records**: [`docs/adr/`](docs/adr/) (`ADR-0001` through `ADR-0014`)
+- **Architecture overview (arc42)**: [`docs/arc42/`](docs/arc42/)
 - **SSE Streaming Contract**: [`docs/api/sse-contract.md`](docs/api/sse-contract.md)
 - **Testing Strategy**: [`docs/testing.md`](docs/testing.md)
 - **CI/CD Pipeline**: [`.github/workflows/ci.yml`](.github/workflows/ci.yml) (enforces `ruff`, `mypy`, `lint-imports`, unit/graph/security/hygiene tests, PostgreSQL integration tests, and coverage gates on every pull request).

@@ -21,6 +21,12 @@ package-lock.json text eol=lf -diff
 frontend/src/api/schema.d.ts text eol=lf linguist-generated
 Dockerfile* text eol=lf
 *.Dockerfile text eol=lf
+*.Dockerfile.dockerignore text eol=lf
+# nginx templates and the entrypoint include are rendered or sourced inside a Linux container
+infra/nginx/** text eol=lf
+*.template text eol=lf
+*.inc text eol=lf
+*.envsh text eol=lf
 
 # PowerShell scripts may use CRLF on Windows
 *.ps1 text eol=crlf

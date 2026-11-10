@@ -1,0 +1,115 @@
+# nginx server for the RagAssist web app (ADR 0014). Rendered by the official image's envsubst step at container
+# start (/etc/nginx/templates -> /etc/nginx/conf.d). Variables, all from .env through compose:
+#   ${WEB_PORT}          listen port (1024 or higher: the container runs as a non-root user)
+#   ${WEB_SERVER_NAME}   server_name
+#   ${WEB_API_UPSTREAM}  the API as host:port (in proxy.inc.template)
+#   ${WEB_HSTS}          Strict-Transport-Security value, empty = off (in security-headers.inc.template)
+
+gzip on;
+gzip_vary on;
+gzip_comp_level 5;
+gzip_min_length 1024;
+# Text assets only. text/event-stream is deliberately absent (compression buffers a stream), and API JSON is not
+# compressed at all (a compressed response that carries a token invites BREACH-style attacks).
+gzip_types text/plain text/css text/javascript application/javascript application/json image/svg+xml application/manifest+json;
+
+server {
+    listen ${WEB_PORT} default_server;
+    server_name ${WEB_SERVER_NAME};
+    server_tokens off;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Only the upload route accepts a large body; the API enforces its own 50 MiB cap (+ multipart framing here).
+    client_max_body_size 1m;
+
+    # Dotfiles (.git, .env, ...) are never served.
+    location ~ /\. {
+        include /etc/nginx/conf.d/security-headers.inc;
+        return 404;
+    }
+
+    # This container's own liveness, independent of the API (the compose healthcheck uses it).
+    location = /web-healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # --- API, same origin so the SameSite=Strict refresh cookie is sent -------------------------------------------
+
+    # Live events (GET /v1/events): a long-lived stream. No buffering, no compression, no idle cut-off before the
+    # API's own heartbeat (15 s) and reauth timer.
+    location = /v1/events {
+        include /etc/nginx/conf.d/security-headers.inc;
+        include /etc/nginx/conf.d/proxy.inc;
+        proxy_buffering off;
+        proxy_cache off;
+        gzip off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        add_header X-Accel-Buffering "no" always;
+        add_header Cache-Control "no-cache" always;
+    }
+
+    # Assistant answer stream (POST /v1/conversations/{id}/messages answers with text/event-stream).
+    location ~ ^/v1/conversations/[^/]+/messages$ {
+        include /etc/nginx/conf.d/security-headers.inc;
+        include /etc/nginx/conf.d/proxy.inc;
+        proxy_buffering off;
+        proxy_cache off;
+        gzip off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        add_header X-Accel-Buffering "no" always;
+        add_header Cache-Control "no-cache" always;
+    }
+
+    # Document upload (POST /v1/documents): the API caps a file at 50 MiB, so 52m leaves room for multipart framing.
+    location = /v1/documents {
+        include /etc/nginx/conf.d/security-headers.inc;
+        include /etc/nginx/conf.d/proxy.inc;
+        client_max_body_size 52m;
+        client_body_timeout 120s;
+        proxy_request_buffering on;
+        proxy_read_timeout 120s;
+        gzip off;
+        add_header Cache-Control "no-store" always;
+    }
+
+    # Everything else under /v1/ and the API health check.
+    location /v1/ {
+        include /etc/nginx/conf.d/security-headers.inc;
+        include /etc/nginx/conf.d/proxy.inc;
+        proxy_read_timeout 120s;
+        gzip off;
+        add_header Cache-Control "no-store" always;
+    }
+
+    location = /healthz {
+        include /etc/nginx/conf.d/security-headers.inc;
+        include /etc/nginx/conf.d/proxy.inc;
+        proxy_read_timeout 10s;
+        gzip off;
+        add_header Cache-Control "no-store" always;
+    }
+
+    # --- The single-page app --------------------------------------------------------------------------------------
+
+    # Vite names these files by content hash, so they never change under one URL. A missing one is a 404, not the app.
+    location /assets/ {
+        include /etc/nginx/conf.d/security-headers.inc;
+        # No `always`: the header goes on successful responses only, so a 404 for a not-yet-deployed hash is never
+        # cached for a year.
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        try_files $uri =404;
+    }
+
+    # index.html, theme-init.js, favicon and every client-side route: always revalidated, so a new build is picked up.
+    location / {
+        include /etc/nginx/conf.d/security-headers.inc;
+        add_header Cache-Control "no-cache" always;
+        try_files $uri /index.html;
+    }
+}

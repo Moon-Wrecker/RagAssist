@@ -1,0 +1,16 @@
+# Response headers every location sends. They live in an include because nginx drops a server-level `add_header`
+# as soon as a location declares its own, so each location includes this file next to its own headers.
+# Rendered by envsubst at container start; only ${WEB_HSTS} is substituted.
+
+# CSP written for this app: its own scripts (module bundle and /theme-init.js, no inline script), self-hosted fonts,
+# same-origin API and event stream. 'unsafe-inline' for styles only: Radix and Motion inject <style> elements and
+# set style attributes at run time; scripts stay strict.
+add_header Content-Security-Policy "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; manifest-src 'self'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'; object-src 'none'" always;
+add_header X-Content-Type-Options "nosniff" always;
+add_header Referrer-Policy "no-referrer" always;
+add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), microphone=(), payment=(), usb=()" always;
+add_header Cross-Origin-Opener-Policy "same-origin" always;
+add_header Cross-Origin-Resource-Policy "same-origin" always;
+# Empty (the default) sends nothing: HSTS is only valid over HTTPS. Set WEB_HSTS when TLS terminates in front of this
+# container, for example max-age=31536000.
+add_header Strict-Transport-Security "${WEB_HSTS}" always;
