@@ -1,0 +1,34 @@
+# Sourced (not executed) by the nginx image entrypoint, before 20-envsubst-on-templates.sh renders the templates.
+# A missing value stops the container with the variable's name instead of starting with a broken configuration.
+# No default is defined for any host, port or address: they come from .env through compose.
+
+for name in WEB_PORT WEB_SERVER_NAME WEB_API_UPSTREAM; do
+    eval "value=\${${name}-}"
+    if [ -z "${value}" ]; then
+        echo "15-web-env: ${name} is not set. Set it in .env (see .env.example)." >&2
+        exit 1
+    fi
+done
+
+case "${WEB_PORT}" in
+    *[!0-9]* | "")
+        echo "15-web-env: WEB_PORT must be a number." >&2
+        exit 1
+        ;;
+esac
+if [ "${WEB_PORT}" -lt 1024 ]; then
+    echo "15-web-env: WEB_PORT must be 1024 or higher (the container runs as a non-root user)." >&2
+    exit 1
+fi
+
+# The upstream is host:port (no scheme, no path); the template adds the scheme.
+case "${WEB_API_UPSTREAM}" in
+    *://* | */* | *" "*)
+        echo "15-web-env: WEB_API_UPSTREAM must be host:port, without scheme or path." >&2
+        exit 1
+        ;;
+esac
+
+# Optional: the entrypoint only substitutes variables that exist, so an unset one must still be defined (empty).
+# WEB_HSTS empty = no Strict-Transport-Security header (plain HTTP); set it only when the site is served over TLS.
+export WEB_HSTS="${WEB_HSTS-}"

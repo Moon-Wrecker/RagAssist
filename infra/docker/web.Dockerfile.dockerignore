@@ -1,0 +1,19 @@
+# Build context rules for infra/docker/web.Dockerfile (BuildKit reads <Dockerfile>.dockerignore in preference to the
+# root .dockerignore). Allow-list: only the web app and the nginx files enter the build.
+*
+!frontend/
+!infra/nginx/
+
+# Never copy local installs, build output or test artefacts into the image build.
+frontend/node_modules
+frontend/dist
+frontend/screenshots
+frontend/test-results
+frontend/playwright-report
+frontend/blob-report
+frontend/coverage
+frontend/.vite
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
+**/*.tsbuildinfo

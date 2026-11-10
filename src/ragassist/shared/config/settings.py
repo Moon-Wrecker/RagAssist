@@ -84,6 +84,9 @@ class Settings(BaseSettings):
     AUTH_LOGIN_WINDOW_SECONDS: int = Field(ge=1)
     # Public origin of the web app; invite and password-reset links are built from it.
     WEB_BASE_URL: str
+    # Peers whose X-Forwarded-For and X-Forwarded-Proto uvicorn honours (comma-separated addresses or CIDR networks):
+    # the reverse proxy in front of the API. Empty means uvicorn's own default, loopback only (ADR 0014).
+    TRUSTED_PROXY_IPS: str = ""
 
     # --- AWS & LocalStack ---
     AWS_REGION: str

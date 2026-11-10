@@ -11,6 +11,8 @@ from support.repo import REPO_ROOT, read
 from ragassist.shared.config.settings import Settings
 
 EXAMPLE = REPO_ROOT / ".env.example"
+# Documented in .env.example but read by compose and nginx, not by the API (ADR 0014); the web service requires them.
+DEPLOYMENT_ONLY_KEYS = {"WEB_PORT", "WEB_SERVER_NAME", "WEB_API_UPSTREAM", "WEB_HSTS"}
 SECRETISH = re.compile(r"(API_KEY|SECRET|PASSWORD|ACCESS_KEY|_KEY$|^SECRET_KEY$)", re.I)
 PLACEHOLDER = re.compile(
     r"^(|<.*>)$"
@@ -47,8 +49,13 @@ class TestKeysMatchSettings:
         assert not missing, f"Add to .env.example: {missing}"
 
     def test_every_documented_key_is_a_real_settings_field(self, documented_keys: set[str]) -> None:
-        stale = sorted(documented_keys - set(Settings.model_fields))
+        stale = sorted(documented_keys - set(Settings.model_fields) - DEPLOYMENT_ONLY_KEYS)
         assert not stale, f"Remove from .env.example (no such Settings field): {stale}"
+
+    def test_deployment_only_keys_are_consumed_by_compose(self) -> None:
+        compose = read("compose.yaml")
+        missing = sorted(key for key in DEPLOYMENT_ONLY_KEYS if f"${{{key}" not in compose)
+        assert not missing, f"Documented for compose but never read by compose.yaml: {missing}"
 
     def test_no_key_is_defined_twice(self) -> None:
         keys = re.findall(r"^([A-Z][A-Z0-9_]+)=", read(".env.example"), re.M)
