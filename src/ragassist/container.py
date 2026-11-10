@@ -77,7 +77,9 @@ class Container:
 
                 session_factory = get_session_factory(self.settings)
                 db = ScopedDatabase(session_factory)
-                embedder = build_embedding_service(self.settings)
+                from ragassist.platform.cache import get_cache_service
+
+                embedder = build_embedding_service(self.settings, get_cache_service())
                 dense = PgVectorRetriever(db=db, embedder=embedder)
                 sparse = PgKeywordRetriever(db=db)
                 hybrid = HybridRetriever(

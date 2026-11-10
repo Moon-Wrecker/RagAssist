@@ -356,7 +356,13 @@ class ProcessIngestionJob:
                 getattr(c, "embed_text", getattr(c, "clean_text", getattr(c, "text", "")))
                 for c in chunks
             ]
-            vectors = await self.embedder.embed_documents(embed_texts)
+            # With the embedding cache on (ADR 0015) a chunk whose content hash already has a vector for this
+            # tenant is not embedded again, so re-indexing an unchanged document makes no provider call.
+            embed_for_tenant = getattr(self.embedder, "embed_documents_for", None)
+            if embed_for_tenant is not None:
+                vectors = await embed_for_tenant(tenant_id, embed_texts)
+            else:
+                vectors = await self.embedder.embed_documents(embed_texts)
         except Exception as exc:
             return await _handle_failure("embed", exc)
 

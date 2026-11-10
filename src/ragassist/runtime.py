@@ -296,7 +296,9 @@ async def build_runtime(settings: Settings) -> Runtime:
 
     catalog, llm_settings = catalog_for(settings)
     llm = LLMService(catalog, create_default_llm_registry(llm_settings), llm_settings)
-    embeddings = build_embedding_service(settings)
+    from ragassist.platform.cache import get_cache_service
+
+    embeddings = build_embedding_service(settings, get_cache_service())
     decisions = build_decision_service(settings, llm_service=llm, embedding_service=embeddings)
     reranker = build_reranker_chain(settings)
 
