@@ -77,7 +77,9 @@ class TestAnthropicAdapter(ChatModelProviderContract):
         [
             ("claude-3-5-sonnet-20241022", 3.00, 15.00),
             ("claude-3-5-haiku-20241022", 0.80, 4.00),
-            ("CLAUDE-HAIKU", 0.80, 4.00),
+            ("claude-haiku-5-5", 0.10, 0.50),
+            ("claude-sonnet-5-5", 2.00, 10.00),
+            ("CLAUDE-HAIKU", 0.10, 0.50),
         ],
     )
     def test_pricing_table(
@@ -90,6 +92,14 @@ class TestAnthropicAdapter(ChatModelProviderContract):
         caps = provider.get_capabilities("claude-3-5-sonnet-20241022")
         assert caps.context_window == 200_000
         assert caps.supports_tools and not caps.supports_logprobs
+
+    @pytest.mark.parametrize("model", ["claude-haiku-5-5", "claude-sonnet-5-5"])
+    def test_claude_5_capabilities_come_from_the_catalogue(
+        self, provider: ChatModelProvider, model: str
+    ) -> None:
+        caps = provider.get_capabilities(model)
+        assert caps.context_window == 1_000_000
+        assert caps.supports_vision
 
     def test_builds_a_chatanthropic(self, provider: ChatModelProvider) -> None:
         model = provider.build_chat_model(
