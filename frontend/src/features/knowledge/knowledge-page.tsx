@@ -133,7 +133,7 @@ export function KnowledgePage() {
           <FormMessage id="knowledge-action-error" message={actionMessage} />
         </div>
 
-        <TableSurface aria-label="Documents" className="flex-1">
+        <TableSurface aria-label="Documents" className="shrink grow-0">
           {documents.isPending ? (
             <TableSkeleton label="Loading documents" columns={5} />
           ) : documents.isError ? (

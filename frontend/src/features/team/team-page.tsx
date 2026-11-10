@@ -128,7 +128,7 @@ export function TeamPage() {
       <div className="flex h-full min-h-0 flex-col gap-3 px-(--gutter)">
         <FormMessage id="team-action-error" message={message} />
 
-        <TableSurface aria-label="Members" className="flex-1">
+        <TableSurface aria-label="Members" className="shrink grow-0">
           {members.isPending ? (
             <TableSkeleton label="Loading members" columns={4} />
           ) : members.isError ? (

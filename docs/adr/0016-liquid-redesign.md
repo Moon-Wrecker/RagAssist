@@ -1,6 +1,6 @@
 # 0016: Liquid Redesign of the Web App: Ink in Water Under Three Glass Thicknesses
 
-Status: accepted for Chat and the shell (first part). Inbox, Knowledge, Team and the sign-in pages are only adapted to the new shell and are redesigned next.
+Status: accepted. Chat, the shell, Inbox, Knowledge, Team, sign-in, accept-invite and reset-password are redesigned on the same system.
 
 ## Context
 
@@ -29,11 +29,24 @@ No API contract, auth, routing or stream-reducer behaviour changes. The CI `fron
 - Performance rule: no glass on a repeated item at rest. At most three overlapping blur layers: the sidebar, the header, the composer.
 - The header is thick rather than regular: scrolling text under a regular capsule stayed legible through it and collided with the title.
 
+### Other pages (round 2)
+- Table pages (Knowledge, Team, the pending-links table) sit on one thick glass surface (`TableSurface`). The header row is `sticky-glass` (translucent, blurred, so rows scroll under it), rows are separated by hairlines, and only the hovered row gets thin glass (`row-hover`, fill and rim, no backdrop filter). Selected rows use `row-selected`. Phones stack each row and show the column name beside the value.
+- Actions leave the rows: a ghost "more" button opens a glass row menu (Radix Dropdown Menu on a thick panel). Team's role is a borderless inline select; status is a small mono label with a glyph (no pill). One primary button per view: Team has Invite (a dialog), Knowledge has Choose files, Inbox has the send arrow, sign-in has Sign in.
+- Knowledge: a slim dashed strip; while files are dragged anywhere over the window the strip turns solid and a dashed frame fades in (transform and opacity only); a drop anywhere adds the files. The listeners are attached in a layout effect so they exist the moment the strip is on screen.
+- Inbox: one regular glass surface, the list, one hairline, the thread. A segmented filter with a sliding thumb and counts (counts only when the list is ready, never "0" beside an error), dense rows, a centred "Choose a conversation." when nothing is open, and a reply box built like the chat composer (Input Group), floating over the messages.
+- Every list has a skeleton shaped like its final layout, a designed empty state and a designed error state with one retry.
+- Sign-in, accept and reset share one centred thick panel with a serif title; the product name and the theme switch float in the corners.
+- Copy: helper text is one short line written for the customer ("Invite people with a link. Links are shown once."). Explanations of how the system works were removed. Error messages that tests and users rely on were kept.
+
+### Defects found in round 2
+- Nested `<main>` on the not-allowed page for a customer on /inbox: the page rendered its own `<main>` inside the shell's. Fixed (`StatusPage embedded`), with a test that failed before the fix.
+- "Opening a source pushes the end of the thread behind the composer": not reproducible with real interaction. The capture showed it because Playwright scrolls an obscured element into view before clicking, and the first source chip sat under the header. The column rewrap already keeps the reader at the live edge. A regression test (clicking a reachable chip) was added; no app change was needed.
+
 ### Dropped on purpose (documented, not hidden)
 - Edge refraction (SVG displacement inside `backdrop-filter`): tried and removed. In Chromium `backdrop-filter: url(#filter) blur()` drops or garbles the blur (standalone test and screenshot comparison), which breaks every glass object that carries it. Brief: "never depend on it".
 - Soft fade at scroll edges: a CSS mask on a scroller makes it a backdrop root and flattens the glass children, so the "fade" is only the glass blur over the scrolling content.
 - Per-token streaming fade: approximated by a CSS fade-in on the last markdown block of each batch, because the reducer and the protocol must not change.
-- History virtualisation: the API pages history at 50 rows, so the DOM stays small; rows use `content-visibility: auto`.
+- Virtualisation of history, inbox and document lists: the API pages them (50, 100 and 100 rows), so the DOM stays small; history rows use `content-visibility: auto`. Not measured at the page caps in a real browser; if a list ever grows past its cap, virtualise it then.
 
 ### Chat
 - No boxes. Assistant text sits on the page; the user's turn is a thin-glass bubble; sources are chips; steps and approvals are hairline-ruled trace rows.
@@ -69,7 +82,7 @@ Headless Chromium 1 worker under Playwright on an AMD Ryzen 7 6800H laptop (16 t
 | Phone viewport, scrolling | 45.9 fps, p95 33.5 ms | 60 fps |
 | Phone viewport, streaming | 54.6 fps with 3 long tasks (max 102 ms) in the first run; 60 fps with none in a repeat | 60 fps |
 
-Reading: the background itself is cheap when nothing else moves; scrolling a list under three blur layers costs frames in this environment (a few fps on desktop, more on the phone viewport) and one streaming run showed three long tasks that did not repeat. Real-device numbers on the target mid-range laptop are still owed.
+Reading: the background itself is cheap when nothing else moves; scrolling a list under three blur layers costs frames in this environment (a few fps on desktop, more on the phone viewport) and one streaming run showed three long tasks that did not repeat. Real-device numbers on the target mid-range laptop are still owed. The new pages (Inbox, Knowledge, Team at 100 rows) were NOT measured: the measuring run was killed by the machine (exit 137, memory) and there was no time to retry, so no performance claim is made for them. Their rows carry no backdrop filter, only the surface, the sticky header and the shell do, which keeps overlapping blur layers at three or fewer.
 
 ## Logo concepts (not applied; for the user to choose)
 

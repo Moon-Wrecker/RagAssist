@@ -85,7 +85,9 @@ test("knowledge states", async ({ page }, info) => {
   await page.getByRole("list", { name: "Uploads in progress" }).waitFor();
   await shot("knowledge-rejected");
 
-  await page.getByRole("button", { name: "Delete shipping-faq.md" }).click();
+  await page.getByRole("button", { name: "Actions for shipping-faq.md" }).click();
+  await shot("knowledge-row-menu");
+  await page.getByRole("menuitem", { name: "Delete" }).click();
   await page.getByRole("dialog", { name: "Delete this document?" }).waitFor();
   await shot("knowledge-delete");
   await page.keyboard.press("Escape");
@@ -112,11 +114,16 @@ test("team states", async ({ page }, info) => {
   await shot("team");
   await shot("team-full", true);
 
-  await page.getByRole("button", { name: "Deactivate tomas.weber@example.test" }).click();
+  await page.getByRole("button", { name: "Actions for tomas.weber@example.test" }).click();
+  await shot("team-row-menu");
+  await page.getByRole("menuitem", { name: "Deactivate" }).click();
   await page.getByRole("dialog", { name: "Deactivate this member?" }).waitFor();
   await shot("team-deactivate");
   await page.keyboard.press("Escape");
 
+  await page.getByRole("button", { name: "Invite", exact: true }).click();
+  await page.getByRole("dialog", { name: "Invite someone" }).waitFor();
+  await shot("team-invite");
   await page.getByLabel("Email address").fill("sam.rivera@example.test");
   await page.getByRole("button", { name: "Create invite link" }).click();
   await page.getByRole("dialog", { name: "Invite link ready" }).waitFor();
@@ -136,3 +143,29 @@ test("role gate", async ({ page }, info) => {
   await page.getByRole("heading", { name: /not available to your role/i }).waitFor();
   await shot("blocked");
 });
+
+// Loading skeletons (the request never answers) and error states (the request fails), one page each.
+for (const [name, role, path, apiPath] of [
+  ["inbox", "agent", "/inbox", "**/v1/escalations*"],
+  ["knowledge", "admin", "/knowledge", "**/v1/documents*"],
+  ["team", "admin", "/team", "**/v1/team/members*"],
+] as const) {
+  test(`${name} loading and error`, async ({ page }, info) => {
+    const shot = shooter(page, info);
+    await mockAdminApi(page, { role });
+    await page.route(apiPath, () => {
+      // Never answered: the skeleton stays.
+    });
+    await page.goto(path);
+    await page.getByRole("status", { name: /^Loading/ }).first().waitFor();
+    await shot(`${name}-loading`);
+
+    const failing = await page.context().newPage();
+    const failShot = shooter(failing, info);
+    await mockAdminApi(failing, { role });
+    await failing.route(apiPath, (route) => route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ detail: "Unavailable" }) }));
+    await failing.goto(path);
+    await failing.getByRole("alert").first().waitFor({ timeout: 20_000 });
+    await failShot(`${name}-error`);
+  });
+}
