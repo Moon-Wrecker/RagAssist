@@ -29,6 +29,7 @@ __all__ = [
     "Subscription",
     "TooManyStreams",
     "Viewer",
+    "attach_cache_invalidation",
     "conversation_updated",
     "document_changed",
     "escalation_changed",
@@ -58,7 +59,16 @@ def get_event_bus() -> EventBus:
             queue_size=settings.EVENTS_QUEUE_SIZE,
             max_streams_per_user=settings.EVENTS_MAX_STREAMS_PER_USER,
         )
+        attach_cache_invalidation(_memory_bus.hub)
     return _memory_bus
+
+
+def attach_cache_invalidation(hub: EventHub) -> None:
+    """Make ``document.changed`` on ``hub`` invalidate the changed tenant's cached retrieval (ADR 0015)."""
+    from ragassist.platform.cache import get_cache_service
+    from ragassist.platform.cache.invalidation import install_corpus_invalidation
+
+    install_corpus_invalidation(hub, get_cache_service)
 
 
 def reset_memory_event_bus() -> None:

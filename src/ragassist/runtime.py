@@ -338,6 +338,9 @@ async def build_runtime(settings: Settings) -> Runtime:
     )
     await events.start()
     closers.append(events.stop)
+    from ragassist.platform.events import attach_cache_invalidation
+
+    attach_cache_invalidation(events.hub)  # document.changed (from the API and the worker) drops cached retrieval
 
     logger.info("runtime.started", persistence=settings.PERSISTENCE_BACKEND)
     return Runtime(
