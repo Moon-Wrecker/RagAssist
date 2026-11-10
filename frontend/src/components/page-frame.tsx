@@ -30,7 +30,7 @@ export function PageFrame({
 }) {
   return (
     <div className="relative h-full min-h-0">
-      <header className="glass-regular absolute inset-x-(--gutter) top-(--gutter) z-20 flex h-(--header-h) items-center justify-between gap-3 rounded-full px-5">
+      <header className="glass-thick absolute inset-x-(--gutter) top-(--gutter) z-20 flex h-(--header-h) items-center justify-between gap-3 rounded-full px-5">
         <h1
           ref={headingRef}
           tabIndex={-1}

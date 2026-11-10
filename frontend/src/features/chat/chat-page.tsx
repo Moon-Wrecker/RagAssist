@@ -69,6 +69,8 @@ export function ChatPage() {
   const historyTrigger = useRef<HTMLButtonElement>(null);
   const [areaRef, area] = useSize<HTMLDivElement>();
   const [composerRef, composer] = useSize<HTMLDivElement>();
+  // The room the page keeps below its content (the gutter, or the tab bar on a phone), measured in px.
+  const [floorRef, floor] = useSize<HTMLDivElement>();
 
   const activeId = chat.activeId;
   const openCitation: OpenCitation = useCallback(
@@ -90,8 +92,8 @@ export function ChatPage() {
   // Where the composer rests when the chat is empty, as an offset from its docked place.
   const measured = area.height > 0 && composer.height > 0;
   const group = GREETING_BLOCK + GREETING_GAP + composer.height;
-  const centredTop = (area.height - group) / 2 + GREETING_BLOCK + GREETING_GAP;
-  const dockedTop = area.height - composer.height - 12;
+  const centredTop = (area.height - floor.height - group) / 2 + GREETING_BLOCK + GREETING_GAP;
+  const dockedTop = area.height - composer.height - floor.height - 12;
   const restOffset = Math.min(0, centredTop - dockedTop);
 
   const [hello] = useState(() => greeting());
@@ -132,6 +134,7 @@ export function ChatPage() {
       }
     >
       <div ref={areaRef} className="relative h-full">
+        <div ref={floorRef} aria-hidden className="pointer-events-none absolute bottom-0 left-0 h-(--page-bottom) w-px" />
         {/* The message list: the only scroller. It is padded so the first message starts below the header and the last
             one can rest above the composer; everything between passes under the glass. */}
         {!empty ? (
@@ -139,7 +142,7 @@ export function ChatPage() {
             <MessageScroller className="absolute inset-0">
               <MessageScrollerViewport
                 className={cn("pt-[calc(var(--gutter)*2+var(--header-h)+1rem)]", panelOpen && "lg:pr-[26rem]")}
-                style={{ paddingBottom: composer.height + 12 + 32 }}
+                style={{ paddingBottom: composer.height + floor.height + 12 + 32 }}
               >
                 {chat.conversationLoading ? (
                   <p role="status" className="text-meta mx-auto w-full max-w-(--chat-max) px-4 text-muted-foreground">
@@ -165,7 +168,7 @@ export function ChatPage() {
                   </MessageScrollerContent>
                 )}
               </MessageScrollerViewport>
-              <MessageScrollerButton style={{ bottom: composer.height + 12 + 16 }} />
+              <MessageScrollerButton style={{ bottom: composer.height + floor.height + 12 + 16 }} />
             </MessageScroller>
           </MessageScrollerProvider>
         ) : null}
@@ -188,7 +191,7 @@ export function ChatPage() {
 
         {/* The composer is one element for good: docked at the bottom, offset up to the middle while the chat is empty. */}
         <motion.div
-          className={cn("absolute inset-x-0 bottom-3 z-10 px-4", panelOpen && "lg:pr-[27rem]", !measured && "invisible")}
+          className={cn("absolute inset-x-0 bottom-[calc(var(--page-bottom)+0.75rem)] z-10 px-4", panelOpen && "lg:pr-[27rem]", !measured && "invisible")}
           initial={false}
           animate={{ y: empty ? restOffset : 0 }}
           transition={spring.glide}
