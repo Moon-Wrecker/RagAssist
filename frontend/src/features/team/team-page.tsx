@@ -134,7 +134,7 @@ export function TeamPage() {
         ) : members.isError ? (
           <div className="flex flex-col items-start gap-3 p-6" role="alert">
             <p className="text-sm">The members could not be loaded.</p>
-            <Button variant="outline" size="sm" onClick={() => void members.refetch()}>
+            <Button variant="secondary" size="sm" onClick={() => void members.refetch()}>
               Try again
             </Button>
           </div>
@@ -171,7 +171,7 @@ export function TeamPage() {
         ) : invites.isError ? (
           <div className="flex flex-col items-start gap-3 px-5 pb-6 sm:px-6" role="alert">
             <p className="text-sm">The pending links could not be loaded.</p>
-            <Button variant="outline" size="sm" onClick={() => void invites.refetch()}>
+            <Button variant="secondary" size="sm" onClick={() => void invites.refetch()}>
               Try again
             </Button>
           </div>
@@ -207,7 +207,7 @@ export function TeamPage() {
           </DialogHeader>
           <div className="flex justify-end gap-2 px-6 pt-5 pb-6">
             <DialogClose asChild>
-              <Button variant="outline">Keep them active</Button>
+              <Button variant="secondary">Keep them active</Button>
             </DialogClose>
             <Button
               onClick={() => {

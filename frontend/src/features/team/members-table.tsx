@@ -79,16 +79,16 @@ export function MembersTable({
               </Td>
               <Td className="max-sm:justify-start sm:text-right">
                 <span className="inline-flex flex-wrap gap-1.5 sm:justify-end">
-                  <Button variant="outline" size="sm" onClick={() => onResetLink(member)} aria-label={`Create a password reset link for ${member.email}`} disabled={deactivated}>
+                  <Button variant="secondary" size="sm" onClick={() => onResetLink(member)} aria-label={`Create a password reset link for ${member.email}`} disabled={deactivated}>
                     Reset link
                   </Button>
                   {deactivated ? (
-                    <Button variant="outline" size="sm" onClick={() => onReactivate(member)} aria-label={`Reactivate ${member.email}`}>
+                    <Button variant="secondary" size="sm" onClick={() => onReactivate(member)} aria-label={`Reactivate ${member.email}`}>
                       Reactivate
                     </Button>
                   ) : (
                     <Button
-                      variant="outline"
+                      variant="secondary"
                       size="sm"
                       disabled={self}
                       title={self ? "You cannot deactivate yourself." : undefined}

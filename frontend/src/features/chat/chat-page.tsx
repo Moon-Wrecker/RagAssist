@@ -119,11 +119,11 @@ export function ChatPage() {
               </p>
               <div className="flex gap-2">
                 {missing ? null : (
-                  <Button variant="outline" size="sm" onClick={chat.reloadConversation}>
+                  <Button variant="secondary" size="sm" onClick={chat.reloadConversation}>
                     Try again
                   </Button>
                 )}
-                <Button variant="outline" size="sm" onClick={() => chat.open(null)}>
+                <Button variant="secondary" size="sm" onClick={() => chat.open(null)}>
                   Start a new conversation
                 </Button>
               </div>

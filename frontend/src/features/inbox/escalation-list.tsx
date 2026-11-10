@@ -82,7 +82,7 @@ export function EscalationList({
         ) : state === "error" ? (
           <div className="flex flex-col items-start gap-3 p-4" role="alert">
             <p className="text-sm">The conversations could not be loaded.</p>
-            <Button variant="outline" size="sm" onClick={onRetry}>
+            <Button variant="secondary" size="sm" onClick={onRetry}>
               Try again
             </Button>
           </div>
@@ -143,7 +143,7 @@ function EmptyList({
     return (
       <div className="flex flex-col items-start gap-3 p-4">
         <p className="text-sm">No conversation matches that search.</p>
-        <Button variant="outline" size="sm" onClick={onClear}>
+        <Button variant="secondary" size="sm" onClick={onClear}>
           Clear the search
         </Button>
       </div>
@@ -157,7 +157,7 @@ function EmptyList({
           When the assistant hands a customer to a person, the conversation appears here without a refresh.
         </p>
         {loadedCount > 0 ? (
-          <Button variant="outline" size="sm" onClick={onShowResolved}>
+          <Button variant="secondary" size="sm" onClick={onShowResolved}>
             Show resolved conversations
           </Button>
         ) : null}

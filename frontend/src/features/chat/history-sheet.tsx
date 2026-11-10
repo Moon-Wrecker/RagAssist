@@ -55,7 +55,7 @@ export function HistorySheet({
       returnFocusTo={returnFocusTo}
     >
       <div className="space-y-4">
-        <Button variant="outline" size="sm" onClick={onNew} className="w-full rounded-full">
+        <Button variant="secondary" size="sm" onClick={onNew} className="w-full rounded-full">
           New conversation
         </Button>
         {loaded > 5 ? (
@@ -75,7 +75,7 @@ export function HistorySheet({
         ) : history.isError ? (
           <div role="alert" className="space-y-2 text-sm">
             <p>Your conversations could not be loaded.</p>
-            <Button variant="outline" size="sm" onClick={() => void history.refetch()}>
+            <Button variant="secondary" size="sm" onClick={() => void history.refetch()}>
               Try again
             </Button>
           </div>

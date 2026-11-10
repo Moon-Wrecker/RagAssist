@@ -73,7 +73,7 @@ export function DocumentsTable({
               <Td className="align-top max-sm:justify-start sm:text-right">
                 <span className="inline-flex gap-1.5">
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     onClick={() => onReindex(doc)}
                     disabled={busy}
@@ -84,7 +84,7 @@ export function DocumentsTable({
                     Re-index
                   </Button>
                   <Button
-                    variant="outline"
+                    variant="secondary"
                     size="sm"
                     onClick={(event) => onDelete(doc, event.currentTarget)}
                     aria-label={`Delete ${doc.filename}`}

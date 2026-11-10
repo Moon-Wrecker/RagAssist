@@ -147,7 +147,7 @@ export function KnowledgePage() {
         ) : documents.isError ? (
           <div className="flex flex-col items-start gap-3 p-6" role="alert">
             <p className="text-sm">The documents could not be loaded.</p>
-            <Button variant="outline" size="sm" onClick={() => void documents.refetch()}>
+            <Button variant="secondary" size="sm" onClick={() => void documents.refetch()}>
               Try again
             </Button>
           </div>
@@ -198,7 +198,7 @@ export function KnowledgePage() {
           </DialogHeader>
           <div className="flex justify-end gap-2 px-6 pt-5 pb-6">
             <DialogClose asChild>
-              <Button variant="outline">Keep it</Button>
+              <Button variant="secondary">Keep it</Button>
             </DialogClose>
             <Button onClick={confirmDelete}>Delete document</Button>
           </div>

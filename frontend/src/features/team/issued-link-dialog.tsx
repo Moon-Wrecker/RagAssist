@@ -74,7 +74,7 @@ export function IssuedLinkDialog({
           </p>
         </div>
         <div className="flex justify-end gap-2 px-6 pb-6">
-          <Button variant="outline" onClick={() => void copyLink()}>
+          <Button variant="secondary" onClick={() => void copyLink()}>
             Copy link
           </Button>
           <Button onClick={onClose}>Done</Button>

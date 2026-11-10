@@ -100,7 +100,7 @@ export function InvitesTable({ invites, onRevoke }: { invites: Invite[]; onRevok
             </Td>
             <Td className="max-sm:justify-start sm:text-right">
               <Button
-                variant="outline"
+                variant="secondary"
                 size="sm"
                 onClick={(event) => onRevoke(invite, event.currentTarget)}
                 aria-label={`Revoke the ${inviteKindLabel(invite.kind).toLowerCase()} for ${invite.email}`}

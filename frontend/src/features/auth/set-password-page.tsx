@@ -50,7 +50,7 @@ function SetPasswordForm({ title, intro, submitLabel }: { title: string; intro: 
         title="This link is incomplete"
         intro="The address is missing its one-time code. Open the full link an administrator sent you, or ask them for a new one."
       >
-        <Button asChild variant="outline">
+        <Button asChild variant="secondary">
           <Link to="/sign-in">Go to sign in</Link>
         </Button>
       </AuthLayout>

@@ -70,7 +70,7 @@ function PassageBody({ source }: { source: OpenSource }) {
             : "The passage could not be loaded."}
         </p>
         {gone ? null : (
-          <Button variant="outline" size="sm" onClick={() => void query.refetch()}>
+          <Button variant="secondary" size="sm" onClick={() => void query.refetch()}>
             Try again
           </Button>
         )}

@@ -146,11 +146,11 @@ export function ThreadView({ conversationId, role }: { conversationId: string; r
         </p>
         <div className="flex gap-2">
           {gone ? null : (
-            <Button variant="outline" size="sm" onClick={() => void detail.refetch()}>
+            <Button variant="secondary" size="sm" onClick={() => void detail.refetch()}>
               Try again
             </Button>
           )}
-          <Button asChild variant="outline" size="sm">
+          <Button asChild variant="secondary" size="sm">
             <Link to={{ search: "" }}>Back to the list</Link>
           </Button>
         </div>
@@ -179,7 +179,7 @@ export function ThreadView({ conversationId, role }: { conversationId: string; r
             </p>
           </div>
           {open ? (
-            <Button variant="outline" size="sm" onClick={() => resolve.mutate()} disabled={resolve.isPending}>
+            <Button variant="secondary" size="sm" onClick={() => resolve.mutate()} disabled={resolve.isPending}>
               {resolve.isPending ? "Resolving" : "Resolve and hand back"}
             </Button>
           ) : null}

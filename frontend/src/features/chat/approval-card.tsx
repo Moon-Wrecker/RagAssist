@@ -72,7 +72,7 @@ export function ApprovalCard({
           <Check aria-hidden />
           Approve
         </Button>
-        <Button variant="outline" size="sm" className="rounded-full" onClick={() => onDecide(false)} disabled={deciding} aria-label={`Deny ${interrupt.tool}`}>
+        <Button variant="secondary" size="sm" className="rounded-full" onClick={() => onDecide(false)} disabled={deciding} aria-label={`Deny ${interrupt.tool}`}>
           <X aria-hidden />
           Deny
         </Button>

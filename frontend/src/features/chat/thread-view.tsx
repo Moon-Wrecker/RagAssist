@@ -192,7 +192,7 @@ function LiveTurnView({
       {turn.stopped ? (
         <div className="mt-3 flex flex-wrap items-center gap-3 font-mono text-xs text-muted-foreground">
           <span>Stopped. The assistant may still finish and save this answer.</span>
-          <Button variant="outline" size="sm" onClick={onRetry}>
+          <Button variant="secondary" size="sm" onClick={onRetry}>
             <RotateCcw aria-hidden />
             Ask again
           </Button>
@@ -201,7 +201,7 @@ function LiveTurnView({
       {turn.error && turn.error.kind !== "decision" ? (
         <div role="alert" className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl border border-border-strong px-4 py-3 text-sm">
           <span>{turn.error.message}</span>
-          <Button variant="outline" size="sm" onClick={onRetry}>
+          <Button variant="secondary" size="sm" onClick={onRetry}>
             <RotateCcw aria-hidden />
             Try again
           </Button>
