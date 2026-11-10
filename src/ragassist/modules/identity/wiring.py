@@ -17,6 +17,7 @@ from ragassist.modules.identity.application import (
 )
 from ragassist.modules.identity.application.auth_service import utcnow
 from ragassist.shared.config.settings import Settings
+from ragassist.shared.counters import SharedCounters
 
 
 @dataclass(frozen=True)
@@ -34,6 +35,7 @@ def build_identity(
     *,
     clock: Callable[[], datetime] = utcnow,
     throttle: LoginThrottle | None = None,
+    shared_counters: SharedCounters | None = None,
 ) -> IdentityServices:
     policy = AuthPolicy.from_settings(settings)
     hasher = hasher or Argon2PasswordHasher()
@@ -41,6 +43,7 @@ def build_identity(
         max_failures=settings.AUTH_LOGIN_MAX_FAILURES,
         max_per_ip=settings.AUTH_LOGIN_MAX_PER_IP,
         window_seconds=settings.AUTH_LOGIN_WINDOW_SECONDS,
+        shared=shared_counters,
     )
     auth = AuthService(store, hasher, policy, throttle, clock=clock)
     return IdentityServices(

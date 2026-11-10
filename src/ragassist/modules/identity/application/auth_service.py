@@ -102,7 +102,7 @@ class AuthService:
     async def login(self, workspace_slug: str, email: str, password: str, client_ip: str) -> SignedIn:
         slug = (workspace_slug or "").strip().lower()
         address = (email or "").strip().lower()
-        self._throttle.check(client_ip, slug, address)
+        await self._throttle.acheck(client_ip, slug, address)
 
         workspace = await self._store.workspace_by_slug(slug) if slug else None
         user = await self._store.user_by_email(workspace.id, address) if workspace and address else None
@@ -114,10 +114,10 @@ class AuthService:
         matched = await self._hasher.verify(stored, candidate)
 
         if not (real and matched) or user is None or workspace is None:
-            self._throttle.record_failure(slug, address)
+            await self._throttle.arecord_failure(slug, address)
             raise AuthenticationError(GENERIC_FAILURE)
 
-        self._throttle.record_success(slug, address)
+        await self._throttle.arecord_success(slug, address)
         if user.password_hash and self._hasher.needs_rehash(user.password_hash):
             await self._store.set_password_hash(user.tenant_id, user.id, await self._hasher.hash(password))
         return await self.start_session(user, workspace)

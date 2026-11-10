@@ -25,6 +25,7 @@ from ragassist.platform.events.router import router as events_router
 from ragassist.shared.config.settings import get_settings
 from ragassist.shared.observability.logging import configure_logging
 from ragassist.shared.observability.metrics import setup_observability
+from ragassist.platform.cache import get_shared_counters
 from ragassist.shared.http_cache import NoStoreMiddleware
 from ragassist.shared.security.rate_limiter import RateLimitMiddleware
 
@@ -123,7 +124,7 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(RateLimitMiddleware, shared=get_shared_counters())
     # Outermost, so a 401 or a 429 on a sign-in or event route is ``no-store`` too (ADR 0015).
     app.add_middleware(NoStoreMiddleware, prefix=settings.API_V1_PREFIX)
 

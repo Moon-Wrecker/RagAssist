@@ -1,6 +1,6 @@
 # arc42 section 8: Crosscutting concepts
 
-Status: covers caching (ADR 0015). Other concepts (tenancy, security, events, tracing) are described in their ADRs.
+Status: covers caching, HTTP caching and shared counters (ADR 0015). Other concepts (tenancy, security, events, tracing) are described in their ADRs.
 
 ## Caching
 
@@ -22,3 +22,9 @@ Status: covers caching (ADR 0015). Other concepts (tenancy, security, events, tr
   between processes (deployment: `docs/arc42/07-deployment-view.md`, compose profile `redis`).
 - **Provider side:** the generator prompt starts with a fixed system message so OpenAI and Gemini implicit prompt
   caching can match the prefix; cached input tokens are recorded.
+- **HTTP caching:** `ETag` plus `private` cache headers on `GET /v1/chunks/{id}` (`max-age`) and `GET /v1/documents`
+  (`no-cache`, revalidate), `304` only after authorisation; `Cache-Control: no-store` on `/v1/auth/*` and `/v1/events`
+  (`shared/http_cache.py`, `NoStoreMiddleware`). Contract: `docs/api/sse-contract.md`.
+- **Shared counters:** with `CACHE_BACKEND=redis` the sign-in throttle and the rate limiter count in Redis so limits hold
+  across API replicas (`shared/counters.py` port, `platform/cache/counters.py` adapter); an unreachable Redis falls back to
+  the per-process counters. The event-stream cap stays per process.

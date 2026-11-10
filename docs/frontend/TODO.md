@@ -71,14 +71,15 @@ monochrome, glass as the primary surface style over a calm monochrome backdrop, 
 - [x] Retrieval results and safety/router verdicts cached for a short TTL, keyed by tenant, role and a per-tenant corpus version bumped by `document.changed`; fail-closed results never cached
 - [x] Answers stay uncached (no semantic caching)
 - [x] Provider prompt caching: fixed system prompt first; cached input tokens recorded; Anthropic `cache_control` deliberately not added (prefix far below the minimum, see ADR)
-- [ ] HTTP caching: `ETag` and `Cache-Control: private, max-age` on `GET /v1/chunks/{id}` and the document list, `no-store` on auth and events
-- [ ] Shared state: login throttle, rate limiter and per-user stream cap on Redis when it is the backend
+- [x] HTTP caching: `ETag` and `Cache-Control: private, max-age` on `GET /v1/chunks/{id}`, `ETag` and `private, no-cache` on the document list, `304` after authorisation, `no-store` on every auth route and on events (OpenAPI schema unchanged)
+- [x] Shared state: login throttle and rate limiter on Redis when it is the backend (fixed windows, in-process fallback if Redis is down)
+- [ ] Per-user event-stream cap on Redis (needs leases with heartbeats; stays per process, see ADR 0015)
 - [x] Observability: hit/miss/eviction counters on `/metrics`, `cache_hit` on the safety, route and retrieval observations
 - [x] Tests: unit, security, graph (before/after model calls), Redis adapter against a fake client (real server opt-in)
 - [ ] Frontend: `staleTime` per query class, prefetch a passage on citation hover or focus (suggested in ADR 0015, another agent owns `frontend/src`)
 
 ## Known limits carried forward
-- The sign-in throttle is per process (ADR 0007).
+- The sign-in throttle is per process unless `CACHE_BACKEND=redis` (ADR 0007, ADR 0015); the event-stream cap is always per process.
 - Two simultaneous refreshes from one browser can end the session; the client refreshes single-flight.
 - An access token outlives a role change or a disable by up to `AUTH_ACCESS_TOKEN_MINUTES`.
 - The CI `frontend` job is suspended (skipped unless the repository variable `RUN_FRONTEND_CI` is `true`) while the UI keeps changing; the checks still run locally (`npm run lint`, `typecheck`, `api:check`, `test`, `e2e`).
