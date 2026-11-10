@@ -4,6 +4,17 @@ import { FAKE_LINK_PREFIX, invite, member, mockAdminApi } from "./admin-mock";
 const members = (page: Page) => page.getByRole("table", { name: "Members of this workspace" });
 const pending = (page: Page) => page.getByRole("table", { name: "Pending invitations and reset links" });
 
+/** Row actions live in a menu at the end of the row. */
+async function memberAction(page: Page, email: string, action: string) {
+  await page.getByRole("button", { name: `Actions for ${email}` }).click();
+  await page.getByRole("menuitem", { name: action }).click();
+}
+
+async function openInvite(page: Page) {
+  await page.getByRole("button", { name: "Invite", exact: true }).click();
+  return page.getByRole("dialog", { name: "Invite someone" });
+}
+
 test.beforeEach(async ({ context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
 });
@@ -22,21 +33,23 @@ test.describe("team", () => {
     await expect(page.getByLabel(`Role for ${ann.email}`)).toHaveValue("agent");
     expect(api.calls.find((c) => c.method === "PATCH")?.body).toEqual({ role: "agent" });
 
-    await page.getByRole("button", { name: `Deactivate ${bo.email}` }).click();
+    await memberAction(page, bo.email, "Deactivate");
     const dialog = page.getByRole("dialog", { name: "Deactivate this member?" });
     await expect(dialog).toContainText(bo.email);
     await dialog.getByRole("button", { name: "Keep them active" }).click();
     await expect(dialog).toBeHidden();
     expect(api.members.find((m) => m.id === bo.id)?.status).toBe("active");
 
-    await page.getByRole("button", { name: `Deactivate ${bo.email}` }).click();
+    await memberAction(page, bo.email, "Deactivate");
     await page.getByRole("dialog", { name: "Deactivate this member?" }).getByRole("button", { name: "Deactivate" }).click();
     const boRow = members(page).getByRole("row", { name: new RegExp(bo.email) });
     await expect(boRow).toContainText("Deactivated");
-    await expect(page.getByRole("button", { name: `Reactivate ${bo.email}` })).toBeVisible();
+    await page.getByRole("button", { name: `Actions for ${bo.email}` }).click();
+    await expect(page.getByRole("menuitem", { name: "Reactivate" })).toBeVisible();
+    await page.keyboard.press("Escape");
     expect(api.calls.filter((c) => c.method === "PATCH").at(-1)?.body).toEqual({ status: "disabled" });
 
-    await page.getByRole("button", { name: `Reactivate ${bo.email}` }).click();
+    await memberAction(page, bo.email, "Reactivate");
     await expect(boRow).toContainText("Active");
     expect(api.calls.filter((c) => c.method === "PATCH").at(-1)?.body).toEqual({ status: "active" });
   });
@@ -46,7 +59,8 @@ test.describe("team", () => {
     api.members.push(member(api.selfEmail, "admin", { id: api.selfId }));
     await page.goto("/team");
     await expect(page.getByLabel(`Role for ${api.selfEmail}`)).toBeDisabled();
-    await expect(page.getByRole("button", { name: `Deactivate ${api.selfEmail}` })).toBeDisabled();
+    await page.getByRole("button", { name: `Actions for ${api.selfEmail}` }).click();
+    await expect(page.getByRole("menuitem", { name: "Deactivate" })).toHaveAttribute("aria-disabled", "true");
   });
 
   test("a refused change is rolled back and explained", async ({ page }) => {
@@ -62,11 +76,12 @@ test.describe("team", () => {
   test("creating an invite shows the link once, copies it, and it can be revoked", async ({ page }) => {
     const api = await mockAdminApi(page, { role: "admin", members: [] });
     await page.goto("/team");
-    await expect(page.getByText("No links are waiting.")).toBeVisible();
+    await expect(page.getByText("No links waiting.")).toBeVisible();
 
-    await page.getByLabel("Email address").fill("new.person@example.test");
-    await page.getByLabel("Role", { exact: true }).selectOption("agent");
-    await page.getByRole("button", { name: "Create invite link" }).click();
+    const form = await openInvite(page);
+    await form.getByLabel("Email address").fill("new.person@example.test");
+    await form.getByLabel("Role", { exact: true }).selectOption("agent");
+    await form.getByRole("button", { name: "Create invite link" }).click();
 
     const dialog = page.getByRole("dialog", { name: "Invite link ready" });
     await expect(dialog).toContainText("shown only once");
@@ -90,7 +105,7 @@ test.describe("team", () => {
 
     await page.getByRole("button", { name: "Revoke the invitation for new.person@example.test" }).click();
     await expect(pending(page)).toHaveCount(0);
-    await expect(page.getByText("No links are waiting.")).toBeVisible();
+    await expect(page.getByText("No links waiting.")).toBeVisible();
     expect(api.calls.filter((c) => c.method === "DELETE")).toHaveLength(1);
   });
 
@@ -98,10 +113,12 @@ test.describe("team", () => {
     const existing = member("taken@example.test", "user");
     await mockAdminApi(page, { role: "admin", members: [existing] });
     await page.goto("/team");
-    await page.getByLabel("Email address").fill(existing.email);
-    await page.getByRole("button", { name: "Create invite link" }).click();
-    await expect(page.getByText("That address already has an account in this workspace.")).toBeVisible();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
+    const form = await openInvite(page);
+    await form.getByLabel("Email address").fill(existing.email);
+    await form.getByRole("button", { name: "Create invite link" }).click();
+    await expect(form.getByText("That address already has an account in this workspace.")).toBeVisible();
+    // The dialog stays open so the address can be fixed, and no link was issued.
+    await expect(page.getByRole("dialog", { name: "Invite link ready" })).toHaveCount(0);
   });
 
   test("a password reset link is issued for a member and listed as pending", async ({ page }) => {
@@ -110,7 +127,7 @@ test.describe("team", () => {
     await page.goto("/team");
     await expect(pending(page).getByRole("row", { name: /waiting@example.test/ })).toBeVisible();
 
-    await page.getByRole("button", { name: `Create a password reset link for ${ann.email}` }).click();
+    await memberAction(page, ann.email, "Reset password link");
     const dialog = page.getByRole("dialog", { name: "Password reset link ready" });
     await expect(dialog.getByLabel("One-time link")).toHaveValue(new RegExp(`^${FAKE_LINK_PREFIX}`));
     expect(api.calls.some((c) => c.path === `/v1/team/members/${ann.id}/reset-link`)).toBe(true);
@@ -122,7 +139,7 @@ test.describe("team", () => {
     const ann = member("ann@example.test", "user");
     await mockAdminApi(page, { role: "admin", members: [ann] });
     await page.goto("/team");
-    await page.getByRole("button", { name: `Deactivate ${ann.email}` }).click();
+    await memberAction(page, ann.email, "Deactivate");
     const dialog = page.getByRole("dialog", { name: "Deactivate this member?" });
     for (let i = 0; i < 5; i += 1) {
       await page.keyboard.press("Tab");
@@ -130,6 +147,6 @@ test.describe("team", () => {
     }
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
-    await expect(page.getByRole("button", { name: `Deactivate ${ann.email}` })).toBeFocused();
+    await expect(page.getByRole("button", { name: `Actions for ${ann.email}` })).toBeFocused();
   });
 });

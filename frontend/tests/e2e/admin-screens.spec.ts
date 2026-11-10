@@ -125,7 +125,7 @@ test("team states", async ({ page }, info) => {
 
   api.invites.length = 0;
   await page.reload();
-  await page.getByText("No links are waiting.").waitFor();
+  await page.getByText("No links waiting.").waitFor();
   await shot("team-no-links", true);
 });
 
