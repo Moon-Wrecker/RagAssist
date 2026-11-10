@@ -1,6 +1,6 @@
 import { History, Plus } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError } from "@/api/errors";
 import { PageFrame } from "@/components/page-frame";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import {
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
 import { spring } from "@/lib/motion";
+import { useSize } from "@/lib/use-size";
 import { cn } from "@/lib/utils";
 import { CitationPanel, type OpenSource } from "./citation-panel";
 import { Composer } from "./composer";
@@ -38,22 +39,6 @@ function statusLine(status: string | undefined, messageCount: number): string {
   else if (status === "resolved") parts.push("Resolved");
   if (messageCount > 0) parts.push(`${messageCount} ${messageCount === 1 ? "message" : "messages"}`);
   return parts.join("  ·  ");
-}
-
-/** Tracks the size of an element without per-frame React work: one state update per real resize. */
-function useSize<T extends HTMLElement>() {
-  const ref = useRef<T>(null);
-  const [size, setSize] = useState({ width: 0, height: 0 });
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element) return;
-    const read = () => setSize((current) => (current.width === element.offsetWidth && current.height === element.offsetHeight ? current : { width: element.offsetWidth, height: element.offsetHeight }));
-    read();
-    const observer = new ResizeObserver(read);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
-  return [ref, size] as const;
 }
 
 /**
