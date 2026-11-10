@@ -260,18 +260,69 @@ def build_decider_registry(
     registry.register("strands_local", lambda: StrandsDeciderAdapter(settings=cfg))
     registry.register("strands", lambda: StrandsDeciderAdapter(settings=cfg))
 
-    # LLM Structured Fallback
-    def _create_llm_structured() -> Decider:
-        if llm_service is not None:
-            model = llm_service.get_role_chat_model("decider")
-        else:
-            from ragassist.platform.llm.adapters.openai_adapter import OpenAIAdapter
-            model = OpenAIAdapter(settings=cfg).build_chat_model("gpt-4o-mini")
-        return LLMStructuredDeciderAdapter(chat_model=model)
+    # LLM structured deciders. With an LLM service there is one decider per model: ``llm_structured`` uses the
+    # first model, ``llm_structured_2`` the second, and so on. A chain such as ``llm_structured,llm_structured_2,rules``
+    # then moves to the next model when one is down, rate limited or slow, before it uses the rules.
+    if llm_service is not None:
+        model_ids = _decider_model_ids(llm_service)
+        for rank, model_id in enumerate(model_ids, start=1):
+            key = "llm_structured" if rank == 1 else f"llm_structured_{rank}"
+            registry.register(
+                key,
+                lambda model_id=model_id, key=key: _build_llm_decider(llm_service, model_id, key),
+            )
+        logger.info(
+            "decision_service.llm_deciders",
+            models={
+                ("llm_structured" if i == 1 else f"llm_structured_{i}"): m
+                for i, m in enumerate(model_ids, start=1)
+            },
+        )
+    else:
 
-    registry.register("llm_structured", _create_llm_structured)
+        def _create_llm_structured() -> Decider:
+            from ragassist.platform.llm.adapters.openai_adapter import OpenAIAdapter
+
+            model = OpenAIAdapter(settings=cfg).build_chat_model("gpt-4o-mini")
+            return LLMStructuredDeciderAdapter(chat_model=model)
+
+        registry.register("llm_structured", _create_llm_structured)
 
     return registry
+
+
+#: How many models a model-based decider may use, in order.
+MAX_LLM_DECIDER_MODELS = 3
+#: LangChain's own retry count for a decider call. The default (several tries with back-off) takes longer than the
+#: per-decider time limit when a provider is rate limited, so the next decider would never get a turn.
+DECIDER_MODEL_MAX_RETRIES = 1
+
+
+def _decider_model_ids(llm_service: LLMService) -> list[str]:
+    """Models for the model-based deciders, best first: the decider role's chain, then the generator role's chain.
+
+    The generator chain is the "normal LLM" that answers questions. It is the last model resort when every model
+    that is set for the decider role is down.
+    """
+    catalog = llm_service.catalog
+    ids: list[str] = []
+    for role in ("decider", "generator"):
+        for item in catalog.resolve_role_chain(role, settings=llm_service.settings):
+            canonical = catalog.resolve_model_id(item)
+            if canonical not in ids:
+                ids.append(canonical)
+    return ids[:MAX_LLM_DECIDER_MODELS]
+
+
+def _build_llm_decider(llm_service: LLMService, model_id: str, name: str) -> Decider:
+    role = llm_service.catalog.get_role_mapping("decider")
+    # No output cap: Gemini counts "thinking" tokens against the limit, and a cut-off reply is not valid JSON.
+    model = llm_service.get_chat_model(
+        model_id,
+        temperature=role.temperature,
+        max_retries=DECIDER_MODEL_MAX_RETRIES,
+    )
+    return LLMStructuredDeciderAdapter(chat_model=model, name=name)
 
 
 def build_decision_service(

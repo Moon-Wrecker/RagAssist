@@ -42,12 +42,13 @@ class StructuredScore(BaseModel):
 class LLMStructuredDeciderAdapter(Decider):
     """Fallback Decider using LLM structured output schema enforcement."""
 
-    def __init__(self, chat_model: BaseChatModel) -> None:
+    def __init__(self, chat_model: BaseChatModel, name: str = "llm_structured") -> None:
         self.chat_model = chat_model
+        self._name = name
 
     @property
     def name(self) -> str:
-        return "llm_structured"
+        return self._name
 
     async def _invoke_with_retry(
         self, schema: type[BaseModel], messages: list[Any]
@@ -142,12 +143,10 @@ class LLMStructuredDeciderAdapter(Decider):
                 verdict=result.verdict,
             )
         except Exception as exc:
-            logger.warning("llm_structured.evaluate_predicate_fallback", error=str(exc))
-            return PredicateAnswer(
-                name=question.name,
-                probability=0.5,
-                verdict=True,
-            )
+            # Do not invent a verdict. A made-up "unsafe" answer hides the outage from the fallback chain, so the
+            # next decider never runs and a person is told that their question broke a rule. Raise instead.
+            logger.warning("llm_structured.evaluate_predicate_failed", decider=self._name, error=str(exc))
+            raise
 
     async def evaluate_score(
         self, input_text: str, question: ScoreQuestion
@@ -175,13 +174,8 @@ class LLMStructuredDeciderAdapter(Decider):
                 probabilities={},
             )
         except Exception as exc:
-            logger.warning("llm_structured.evaluate_score_fallback", error=str(exc))
-            return ScoreAnswer(
-                name=question.name,
-                score=0.5,
-                confidence=0.5,
-                probabilities={},
-            )
+            logger.warning("llm_structured.evaluate_score_failed", decider=self._name, error=str(exc))
+            raise
 
     async def decide(self, input_text: str, questions: list[Question]) -> list[Answer]:
         results: list[Answer] = []
